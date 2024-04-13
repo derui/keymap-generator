@@ -31,7 +31,56 @@ pub struct Conjunction {
     pub appearances: u32,
 }
 
-/// 連接に対して特殊な評価を行う。
+#[derive(Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Clone)]
+struct Pos(usize, usize);
+
+impl Pos {
+    fn is_skip_row_on_same_finger(&self, other: &Pos) -> bool {
+        self.0 == other.0 && (self.1 as isize - other.1 as isize).abs() >= 1
+    }
+}
+
+/// 2連接に対する評価を実施する
+fn two_conjunction_scores(first: &Pos, second: &Pos) -> u64 {
+    let rules = vec![
+        |first: &Pos, second: &Pos| {
+            // 同じ指で同じキーを連続して押下している場合はペナルティを与える
+            if first == second {
+                150 * FINGER_WEIGHTS[first.0][first.1]
+            } else {
+                0
+            }
+        },
+        |first: &Pos, second: &Pos| {
+            // 同じ指で同じ行をスキップしている場合はペナルティを与える
+            if first.is_skip_row_on_same_finger(second) {
+                50 * FINGER_WEIGHTS[first.0][first.1]
+            } else {
+                0
+            }
+        },
+    ];
+
+    rules
+        .iter()
+        .fold(0, |score, rule| score + rule(first, second))
+}
+
+/// 3連接に対する評価を実施する
+fn three_conjunction_scores(first: &Pos, second: &Pos, third: &Pos) -> u64 {
+    let rules = vec![|score: u64| {
+        // 同じ指で同じキーを連続して押下している場合はペナルティを与える
+        if first == second && second == third {
+            score + (150 * FINGER_WEIGHTS[first.0][first.1])
+        } else {
+            score
+        }
+    }];
+
+    rules.iter().fold(0, |score, rule| rule(score))
+}
+
+/// 三重連接に対して特殊な評価を行う。
 ///
 /// # Arguments
 /// * `text` - 評価対象の文字列
@@ -39,8 +88,30 @@ pub struct Conjunction {
 ///
 /// # Returns
 /// 評価値
-fn special_evaluations(text: &Conjunction, keymap: &Keymap) -> u64 {
+fn special_evaluations(
+    conj: &Conjunction,
+    pos_cache: &HashMap<char, (KeyKind, (usize, usize))>,
+) -> u64 {
     let mut score = 0;
+    let text: Vec<char> = conj.text.chars().collect();
+    let keys = vec![
+        pos_cache.get(&text[0]),
+        pos_cache.get(&text[1]),
+        pos_cache.get(&text[2]),
+        pos_cache.get(&text[3]),
+    ];
+
+    let positions: Vec<Pos> = keys
+        .iter()
+        .filter_map(|v| v.map(|(_, (r, c))| Pos(*r, *c)))
+        .collect();
+
+    if positions.len() >= 2 {
+        score += two_conjunction_scores(&positions[0], &positions[1]);
+    }
+    if positions.len() >= 3 {
+        score += three_conjunction_scores(&positions[0], &positions[1], &positions[2]);
+    }
 
     score
 }
@@ -101,7 +172,7 @@ pub fn evaluate(conjunctions: &Vec<Conjunction>, keymap: &Keymap) -> u64 {
             }
         }
 
-        score += special_evaluations(&conjunction, keymap);
+        score += special_evaluations(&conjunction, &pos_cache);
     }
     score
 }

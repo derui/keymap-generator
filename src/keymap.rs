@@ -1,6 +1,6 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, fmt::Display};
 
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::{rngs::StdRng, Rng};
 
 use crate::{char_def, key::Key};
 
@@ -33,22 +33,6 @@ fn pick_char(chars: &mut Vec<char>, rng: &mut StdRng) -> char {
     let c = chars[idx];
     chars.remove(idx);
     c
-}
-
-/// [chars]からランダムに一文字取得する。ただし、もう文字がない場合は取得しない
-///
-/// # Arguments
-/// * `chars` - 文字のリスト
-/// * `rng` - 乱数生成器
-///
-/// # Returns
-/// ランダムに選択された文字。取得しない場合はNone
-fn pick_char_optional(chars: &mut Vec<char>, rng: &mut StdRng) -> Option<char> {
-    if chars.is_empty() {
-        None
-    } else {
-        Some(pick_char(chars, rng))
-    }
 }
 
 /// [chars]からランダムにキーを生成する
@@ -153,8 +137,8 @@ mod constraints {
     use crate::key::Key;
 
     use super::{
-        key_indices, LEFT_SEMITURBID_INDEX, LEFT_SHIFT_INDEX, LEFT_TURBID_INDEX,
-        RIGHT_SEMITURBID_INDEX, RIGHT_SHIFT_INDEX, RIGHT_TURBID_INDEX,
+        LEFT_SEMITURBID_INDEX, LEFT_SHIFT_INDEX, LEFT_TURBID_INDEX, RIGHT_SEMITURBID_INDEX,
+        RIGHT_SHIFT_INDEX, RIGHT_TURBID_INDEX,
     };
 
     /// 左右のシフトキーが同一のキーを指しているかどうかを確認する
@@ -453,6 +437,7 @@ impl Keymap {
         let key = Key::new_shift(pick_char(&mut assignable_chars, rng), Some(shifted_char));
         layout[RIGHT_SHIFT_INDEX.0][RIGHT_SHIFT_INDEX.1] =
             key.expect("should be generate shift key in initial generation");
+
         layout[LEFT_TURBID_INDEX.0][LEFT_TURBID_INDEX.1] =
             get_key(&mut assignable_chars, rng, Key::new_turbid).expect("should be key");
         layout[RIGHT_TURBID_INDEX.0][RIGHT_TURBID_INDEX.1] =
@@ -475,7 +460,11 @@ impl Keymap {
                 if assignable_chars.is_empty() {
                     break;
                 }
+
                 let current = &layout[*r][*c];
+                if current.shifted().is_some() {
+                    continue;
+                }
                 let char = pick_char(&mut assignable_chars, rng);
 
                 if let Some(key) = Key::new_normal(current.unshifted(), Some(char)) {
@@ -543,7 +532,7 @@ impl Keymap {
         let mut keymap = self.clone();
 
         // いくつか定義されている処理をランダムに実行する
-        let operation: i32 = (rng.gen_range(0..3));
+        let operation: i32 = rng.gen_range(0..3);
 
         match operation {
             0 => keymap.swap_unshifted_between_keys(rng),
@@ -598,7 +587,7 @@ impl Keymap {
             if pos1 == LEFT_SHIFT_INDEX
                 || pos1 == RIGHT_SHIFT_INDEX
                 || pos2 == LEFT_SHIFT_INDEX
-                || pos2 == LEFT_SHIFT_INDEX
+                || pos2 == RIGHT_SHIFT_INDEX
             {
                 continue;
             }
@@ -629,5 +618,106 @@ impl Keymap {
         let pos = layout[idx];
 
         self.layout[pos.0][pos.1] = self.layout[pos.0][pos.1].flip();
+    }
+
+    fn format_keymap(&self, layout: &Vec<Vec<Option<char>>>) -> String {
+        let header: String = (0..9)
+            .map(|_| "┳".to_string())
+            .collect::<Vec<_>>()
+            .join("━");
+        let header = format!("{}{}{}", "┏━", header, "━┓");
+
+        let separator = format!(
+            "{}{}{}\n",
+            "┣━",
+            (0..9)
+                .map(|_| { "╋".to_string() })
+                .collect::<Vec<String>>()
+                .join("━"),
+            "━┫"
+        );
+
+        let keys: Vec<String> = layout
+            .iter()
+            .map(|row| {
+                let row: Vec<String> = row
+                    .iter()
+                    .map(|k| k.map(|c| c.to_string()).unwrap_or("　".to_string()))
+                    .collect();
+
+                format!("┃{}┃\n", row.join("┃"))
+            })
+            .collect();
+
+        let keys = keys.join(&separator);
+        let footer = format!(
+            "{}{}{}",
+            "┗━",
+            (0..9)
+                .map(|_| "┻".to_string())
+                .collect::<Vec<_>>()
+                .join("━"),
+            "━┛"
+        );
+
+        format!("{}\n{}{}\n", header, keys, footer)
+    }
+
+    fn format_unshift(&self) -> String {
+        let keys = self
+            .layout
+            .iter()
+            .map(|r| r.iter().map(|c| Some(c.unshifted())).collect())
+            .collect();
+
+        self.format_keymap(&keys)
+    }
+
+    fn format_shift(&self) -> String {
+        let keys = self
+            .layout
+            .iter()
+            .map(|r| r.iter().map(|c| c.shifted()).collect())
+            .collect();
+
+        self.format_keymap(&keys)
+    }
+
+    fn format_turbid(&self) -> String {
+        let keys = self
+            .layout
+            .iter()
+            .map(|r| r.iter().map(|c| c.turbid()).collect())
+            .collect();
+
+        self.format_keymap(&keys)
+    }
+
+    fn format_semiturbid(&self) -> String {
+        let keys = self
+            .layout
+            .iter()
+            .map(|r| r.iter().map(|c| c.semiturbid()).collect())
+            .collect();
+
+        self.format_keymap(&keys)
+    }
+}
+
+impl Display for Keymap {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(
+            f,
+            "generated layout\n\n
+unshift:\n{}\n
+shifted:\n{}\n
+turbid:\n{}\n
+semiturbid\n{}\n
+",
+            self.format_unshift(),
+            self.format_shift(),
+            self.format_turbid(),
+            self.format_semiturbid()
+        )
     }
 }

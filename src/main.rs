@@ -1,7 +1,7 @@
 use std::{env::args, fs::File, path::Path};
 
 use keymap::Keymap;
-use rand::{rngs::StdRng, SeedableRng};
+use rand::{random, rngs::StdRng, SeedableRng};
 use score::Conjunction;
 
 mod char_def;
@@ -30,17 +30,24 @@ fn read_4gram(path: &Path) -> anyhow::Result<Vec<Conjunction>> {
 }
 
 fn main() -> anyhow::Result<()> {
-    env_logger::init();
+    env_logger::Builder::new()
+        .target(env_logger::Target::Stderr)
+        .init();
 
     let path = args().nth(1).expect("missing path");
-    let mut rng = StdRng::seed_from_u64(9);
+    let seed = args()
+        .nth(2)
+        .unwrap_or_else(|| random::<u64>().to_string())
+        .parse::<u64>()?;
+    let mut rng = StdRng::seed_from_u64(seed);
 
     let mut keymap = Keymap::generate(&mut rng);
     let mut best_score = u64::MAX;
     let mut best_keymap: Option<Keymap> = None;
     let conjunctions = read_4gram(&Path::new(&path))?;
+    log::info!("initial keymap: {}", keymap);
 
-    while keymap.generation() < 50000 {
+    while keymap.generation() < 5000 {
         let new_keymap = keymap.mutate(&mut rng);
 
         // 条件を満たす場合のみ評価し、次の世代を構成できるものとする
@@ -56,6 +63,13 @@ fn main() -> anyhow::Result<()> {
                 );
                 best_score = score;
                 best_keymap = Some(new_keymap.clone());
+            } else {
+                log::info!(
+                    "Get score {}, but best is {} at generation {}",
+                    score,
+                    best_score,
+                    new_keymap.generation()
+                );
             }
             keymap = new_keymap;
         }
@@ -65,7 +79,12 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
-    log::info!("Best keymap: {:?}", keymap);
+    println!(
+        "Score: {}, Seed: {}, Best keymap: {}",
+        best_score,
+        seed,
+        best_keymap.unwrap()
+    );
 
     Ok(())
 }

@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 use crate::char_def;
 
 /// キー自体の基本定義。
@@ -44,24 +42,20 @@ impl KeyDef {
                 if unshifted.conflicted(&shifted) {
                     None
                 } else {
-                    Some(
-                        (KeyDef {
-                            unshifted: unshifted.normal(),
-                            shifted: Some(shifted.normal()),
-                            turbid: unshifted.turbid().or_else(|| shifted.turbid()),
-                            semiturbid: unshifted.semiturbid().or_else(|| shifted.semiturbid()),
-                        }),
-                    )
+                    Some(KeyDef {
+                        unshifted: unshifted.normal(),
+                        shifted: Some(shifted.normal()),
+                        turbid: unshifted.turbid().or_else(|| shifted.turbid()),
+                        semiturbid: unshifted.semiturbid().or_else(|| shifted.semiturbid()),
+                    })
                 }
             }
-            None => Some(
-                (KeyDef {
-                    unshifted: unshifted.normal(),
-                    shifted: None,
-                    turbid: unshifted.turbid(),
-                    semiturbid: unshifted.semiturbid(),
-                }),
-            ),
+            None => Some(KeyDef {
+                unshifted: unshifted.normal(),
+                shifted: None,
+                turbid: unshifted.turbid(),
+                semiturbid: unshifted.semiturbid(),
+            }),
         }
     }
 }
@@ -119,7 +113,7 @@ impl Key {
             Key::Shifter(k) => k.unshifted,
             Key::Turbid(k) => k.unshifted,
             Key::Semiturbid(k) => k.unshifted,
-            Key::Empty => panic!("Can not get any char from empty"),
+            Key::Empty => '　',
         }
     }
 
@@ -130,7 +124,7 @@ impl Key {
             Key::Shifter(k) => k.shifted,
             Key::Turbid(k) => k.shifted,
             Key::Semiturbid(k) => k.shifted,
-            Key::Empty => panic!("Can not get any char from empty"),
+            Key::Empty => None,
         }
     }
 
@@ -141,7 +135,7 @@ impl Key {
             Key::Shifter(k) => k.turbid,
             Key::Turbid(k) => k.turbid,
             Key::Semiturbid(k) => k.turbid,
-            Key::Empty => panic!("Can not get any char from empty"),
+            Key::Empty => None,
         }
     }
 
@@ -152,7 +146,7 @@ impl Key {
             Key::Shifter(k) => k.semiturbid,
             Key::Turbid(k) => k.semiturbid,
             Key::Semiturbid(k) => k.semiturbid,
-            Key::Empty => panic!("Can not get any char from empty"),
+            Key::Empty => None,
         }
     }
 
