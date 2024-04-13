@@ -11,6 +11,46 @@ struct KeyDef {
     semiturbid: Option<char>,
 }
 
+impl KeyDef {
+    /// シフト面と無シフト面の文字から、定義を生成する。競合している場合は作成できない。
+    ///
+    /// # Arguments
+    /// * `unshifted` - 無シフト面の文字
+    /// * `shifted` - シフト面の文字
+    ///
+    /// # Returns
+    /// キーの定義。競合している場合はNone
+    fn from_chars(unshifted: char, shifted: Option<char>) -> Option<KeyDef> {
+        let unshifted = char_def::CharDef::find(unshifted);
+        let shifted = shifted.map(|v| char_def::CharDef::find(v));
+
+        match shifted {
+            Some(shifted) => {
+                if unshifted.conflicted(&shifted) {
+                    None
+                } else {
+                    Some(
+                        (KeyDef {
+                            unshifted: unshifted.normal(),
+                            shifted: Some(shifted.normal()),
+                            turbid: unshifted.turbid().or_else(|| shifted.turbid()),
+                            semiturbid: unshifted.semiturbid().or_else(|| shifted.semiturbid()),
+                        }),
+                    )
+                }
+            }
+            None => Some(
+                (KeyDef {
+                    unshifted: unshifted.normal(),
+                    shifted: None,
+                    turbid: unshifted.turbid(),
+                    semiturbid: unshifted.semiturbid(),
+                }),
+            ),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Key {
     /// 通常のキー
@@ -39,59 +79,22 @@ impl Key {
 
     /// 通常のキーに対応するキーを返す
     pub fn new_normal(unshifted: char, shifted: Option<char>) -> Option<Key> {
-        let unshifted = char_def::CharDef::find(unshifted);
-        let shifted = shifted.map(|v| char_def::CharDef::find(v));
-
-        match shifted {
-            Some(shifted) => {
-                if unshifted.conflicted(&shifted) {
-                    None
-                } else {
-                    Some(Key::Normal(KeyDef {
-                        unshifted: unshifted.normal(),
-                        shifted: Some(shifted.normal()),
-                        turbid: unshifted.turbid().or_else(|| shifted.turbid()),
-                        semiturbid: unshifted.semiturbid().or_else(|| shifted.semiturbid()),
-                    }))
-                }
-            }
-            None => Some(Key::Normal(KeyDef {
-                unshifted: unshifted.normal(),
-                shifted: None,
-                turbid: unshifted.turbid(),
-                semiturbid: unshifted.semiturbid(),
-            })),
-        }
+        KeyDef::from_chars(unshifted, shifted).map(|v| Key::Normal(v))
     }
 
     /// シフトキーに対応する[Key]を返す
-    pub fn new_shift(unshifted: char, shifted: Option<char>) -> Key {
-        Key::Shifter(KeyDef {
-            unshifted,
-            shifted,
-            turbid: None,
-            semiturbid: None,
-        })
+    pub fn new_shift(unshifted: char, shifted: Option<char>) -> Option<Key> {
+        KeyDef::from_chars(unshifted, shifted).map(|v| Key::Shifter(v))
     }
 
     /// 濁音シフトキーに対応する[Key]を返す
-    pub fn new_turbid(unshifted: char, shifted: Option<char>) -> Key {
-        Key::Turbid(KeyDef {
-            unshifted,
-            shifted: shifted,
-            turbid: None,
-            semiturbid: None,
-        })
+    pub fn new_turbid(unshifted: char, shifted: Option<char>) -> Option<Key> {
+        KeyDef::from_chars(unshifted, shifted).map(|v| Key::Turbid(v))
     }
 
     /// 半濁音シフトキーに対応する[Key]を返す
-    pub fn new_semiturbid(unshifted: char, shifted: Option<char>) -> Key {
-        Key::Semiturbid(KeyDef {
-            unshifted,
-            shifted: shifted,
-            turbid: None,
-            semiturbid: None,
-        })
+    pub fn new_semiturbid(unshifted: char, shifted: Option<char>) -> Option<Key> {
+        KeyDef::from_chars(unshifted, shifted).map(|v| Key::Semiturbid(v))
     }
 
     /// 単独押下で送出する文字をかえす
@@ -155,7 +158,7 @@ impl Key {
     ///
     /// # Returns
     /// 交換後のキーのタプル。最初の要素が自身、次の要素が[other]となる。
-    pub fn swap_unshifted(&self, other: &Key) -> (Key, Key) {
+    pub fn swap_unshifted(&self, other: &Key) -> Option<(Key, Key)> {
         let mut new_self = self.clone();
         let mut new_other = other.clone();
 
@@ -163,7 +166,19 @@ impl Key {
         new_self.def_mut().unshifted = new_other.unshifted();
         new_other.def_mut().unshifted = tmp;
 
-        (new_self, new_other)
+        if new_self.is_conflicted() || new_other.is_conflicted() {
+            None
+        } else {
+            Some((new_self, new_other))
+        }
+    }
+
+    /// キーの中で競合しているかを返す
+    fn is_conflicted(&self) -> bool {
+        let unshifted = char_def::CharDef::find(self.unshifted());
+        let shifted = self.shifted().map(|v| char_def::CharDef::find(v));
+
+        shifted.map(|v| unshifted.conflicted(&v)).unwrap_or(false)
     }
 }
 
@@ -178,11 +193,24 @@ mod tests {
         let key2 = Key::new_normal('い', None).unwrap();
 
         // act
-        let (new_key1, new_key2) = key1.swap_unshifted(&key2);
+        let (new_key1, new_key2) = key1.swap_unshifted(&key2).unwrap();
 
         // assert
         assert_eq!(new_key1.unshifted(), 'い');
         assert_eq!(new_key2.unshifted(), 'あ');
+    }
+
+    #[test]
+    fn can_not_swap_unshifted() {
+        // arrange
+        let key1 = Key::new_normal('か', None).unwrap();
+        let key2 = Key::new_normal('い', Some('し')).unwrap();
+
+        // act
+        let ret = key1.swap_unshifted(&key2);
+
+        // assert
+        assert!(ret.is_none(), "should not be swappable");
     }
 
     #[test]

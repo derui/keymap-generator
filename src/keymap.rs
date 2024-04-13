@@ -5,8 +5,10 @@ use rand::{rngs::StdRng, Rng, SeedableRng};
 use crate::{char_def, key::Key};
 
 /// 有効なキーマップ
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Keymap {
+    /// keymapの世代
+    generation: u64,
     layout: Vec<Vec<Key>>,
 }
 
@@ -41,6 +43,41 @@ fn pick_char_optional(chars: &mut Vec<char>, rng: &mut StdRng) -> Option<char> {
     }
 }
 
+/// [chars]からランダムにキーを生成する
+///
+/// # Arguments
+/// * `chars` - 文字のリスト
+/// * `rng` - 乱数生成器
+/// * `generator` - キーを生成する関数
+///
+/// # Returns
+/// ランダムに選択され、generatorで生成されたキー
+fn get_key(
+    chars: &mut Vec<char>,
+    rng: &mut StdRng,
+    generator: fn(char, Option<char>) -> Option<Key>,
+) -> Option<Key> {
+    if chars.is_empty() {
+        panic!("Invalid sequence")
+    }
+
+    let mut key: Option<Key> = None;
+    while key.is_none() {
+        let (c, idx) = peek_char(chars, rng);
+        let shifted_char = peek_char_optional(chars, rng);
+        key = generator(c, shifted_char.map(|v| v.0));
+
+        if key.is_some() {
+            chars.remove(idx);
+            if let Some((_, idx)) = shifted_char {
+                chars.remove(idx);
+            }
+        }
+    }
+
+    key
+}
+
 /// [chars]からランダムに一文字確認する
 ///
 /// この処理では[chars]は変更されない。
@@ -55,6 +92,24 @@ fn peek_char(chars: &Vec<char>, rng: &mut StdRng) -> (char, usize) {
     let idx = rng.gen_range(0..chars.len());
     let c = chars[idx];
     (c, idx)
+}
+
+/// [chars]からランダムに一文字確認する
+///
+/// この処理では[chars]は変更されない。
+///
+/// # Arguments
+/// * `chars` - 文字のリスト
+/// * `rng` - 乱数生成器
+///
+/// # Returns
+/// ランダムに選択された文字とそのindex
+fn peek_char_optional(chars: &Vec<char>, rng: &mut StdRng) -> Option<(char, usize)> {
+    if !rng.gen::<bool>() || chars.is_empty() {
+        None
+    } else {
+        Some(peek_char(chars, rng))
+    }
 }
 
 // layout上で利用しないキーの位置
@@ -77,9 +132,7 @@ impl Keymap {
     ///
     /// 生成されたkeymapは、あくまでランダムなキーマップであり、実際に利用するためには、[Keymap::meet_requirements]がtrueを返すことを前提としなければ
     /// ならない。
-    fn generate(seed: u64) -> Keymap {
-        let mut rng = StdRng::seed_from_u64(seed);
-
+    fn generate(rng: &mut StdRng) -> Keymap {
         let mut layout = vec![vec![Key::empty(); 10]; 3];
         let mut assignable_chars = char_def::assignable_chars();
         // 対応するインデックスは最初になんとかしておく
@@ -95,53 +148,80 @@ impl Keymap {
         indices.remove(&RIGHT_SEMITURBID_INDEX);
 
         // シフトの位置だけは固定しておくので、最初に生成しておく
-        let shifted_char = pick_char(&mut assignable_chars, &mut rng);
+        let shifted_char = pick_char(&mut assignable_chars, rng);
 
         // 左右シフトがshiftedになるケースは一通りしかないので、ここは常に同一になる
-        let key = Key::new_shift(
-            pick_char(&mut assignable_chars, &mut rng),
-            Some(shifted_char),
-        );
-        layout[LEFT_SHIFT_INDEX.0][LEFT_SHIFT_INDEX.1] = key;
-        let key = Key::new_shift(
-            pick_char(&mut assignable_chars, &mut rng),
-            Some(shifted_char),
-        );
-        layout[RIGHT_SHIFT_INDEX.0][RIGHT_SHIFT_INDEX.1] = key;
-
-        let char = pick_char(&mut assignable_chars, &mut rng);
-        let shifted_char = pick_char_optional(&mut assignable_chars, &mut rng);
-        let key = Key::new_turbid(char, shifted_char);
-        layout[LEFT_TURBID_INDEX.0][LEFT_TURBID_INDEX.1] = key;
-
-        let char = pick_char(&mut assignable_chars, &mut rng);
-        let shifted_char = pick_char_optional(&mut assignable_chars, &mut rng);
-        let key = Key::new_turbid(char, shifted_char);
-        layout[RIGHT_TURBID_INDEX.0][RIGHT_TURBID_INDEX.1] = key;
-
-        let char = pick_char(&mut assignable_chars, &mut rng);
-        let shifted_char = pick_char_optional(&mut assignable_chars, &mut rng);
-        let key = Key::new_semiturbid(char, shifted_char);
-        layout[LEFT_SEMITURBID_INDEX.0][LEFT_SEMITURBID_INDEX.1] = key;
-
-        let char = pick_char(&mut assignable_chars, &mut rng);
-        let shifted_char = pick_char_optional(&mut assignable_chars, &mut rng);
-        let key = Key::new_semiturbid(char, shifted_char);
-        layout[RIGHT_SEMITURBID_INDEX.0][RIGHT_SEMITURBID_INDEX.1] = key;
+        let key = Key::new_shift(pick_char(&mut assignable_chars, rng), Some(shifted_char));
+        layout[LEFT_SHIFT_INDEX.0][LEFT_SHIFT_INDEX.1] =
+            key.expect("should be generate shift key in initial generation");
+        let key = Key::new_shift(pick_char(&mut assignable_chars, rng), Some(shifted_char));
+        layout[RIGHT_SHIFT_INDEX.0][RIGHT_SHIFT_INDEX.1] =
+            key.expect("should be generate shift key in initial generation");
+        layout[LEFT_TURBID_INDEX.0][LEFT_TURBID_INDEX.1] =
+            get_key(&mut assignable_chars, rng, Key::new_turbid).expect("should be key");
+        layout[RIGHT_TURBID_INDEX.0][RIGHT_TURBID_INDEX.1] =
+            get_key(&mut assignable_chars, rng, Key::new_turbid).expect("should be key");
+        layout[LEFT_SEMITURBID_INDEX.0][LEFT_SEMITURBID_INDEX.1] =
+            get_key(&mut assignable_chars, rng, Key::new_semiturbid).expect("should be key");
+        layout[RIGHT_SEMITURBID_INDEX.0][RIGHT_SEMITURBID_INDEX.1] =
+            get_key(&mut assignable_chars, rng, Key::new_semiturbid).expect("should be key");
 
         // 残りの場所に追加していく
 
         for (r, c) in indices {
-            let char = pick_char(&mut assignable_chars, &mut rng);
+            let char = pick_char(&mut assignable_chars, rng);
 
             let mut key: Option<Key> = None;
             while key.is_none() {
-                key = Key::new_normal(char, pick_char_optional(&mut assignable_chars, &mut rng));
+                key = Key::new_normal(char, pick_char_optional(&mut assignable_chars, rng));
             }
 
             layout[r][c] = key.expect("should be key");
         }
 
-        Keymap { layout }
+        if !assignable_chars.is_empty() {
+            panic!("Leave some chars: {:?}", assignable_chars)
+        }
+
+        Keymap {
+            generation: 0,
+            layout,
+        }
     }
+
+    /// keymapに対して操作を実行して、実行した結果のkeymapを返す
+    pub fn advance_generation(&self, rng: &mut StdRng) -> Keymap {
+        let mut keymap = self.clone();
+
+        // いくつか定義されている処理をランダムに実行する
+        let operation: i32 = (rng.gen_range(0..3));
+
+        match operation {
+            0 => keymap.swap_unshifted_between_keys(rng),
+            1 => keymap.swap_shifted_between_keys(rng),
+            2 => keymap.flip_key(rng),
+            _ => panic!("invalid case"),
+        }
+
+        keymap
+    }
+
+    /// 任意のkeyにおけるunshiftedを交換する。ただし、交換後のkeyで
+    ///
+    ///
+    fn swap_unshifted_between_keys(&mut self, rng: &mut StdRng) {}
+
+    /// 任意のkeyにおけるshiftedを交換する。ただし、交換後のkeyで
+    ///
+    ///
+    fn swap_shifted_between_keys(&mut self, rng: &mut StdRng) {}
+
+    /// 任意のkeyにおける無シフト面とシフト面を交換する。
+    ///
+    /// # Arguments
+    /// * `rng` - 乱数生成機
+    ///
+    /// # Return
+    /// 交換されたkeymap
+    fn flip_key(&mut self, rng: &mut StdRng) {}
 }
