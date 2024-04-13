@@ -1,6 +1,11 @@
-use crate::keymap::{
-    Keymap, LEFT_SEMITURBID_INDEX, LEFT_SHIFT_INDEX, LEFT_TURBID_INDEX, RIGHT_SEMITURBID_INDEX,
-    RIGHT_SHIFT_INDEX, RIGHT_TURBID_INDEX,
+use std::collections::HashMap;
+
+use crate::{
+    char_def::CHARS,
+    keymap::{
+        KeyKind, Keymap, LEFT_SEMITURBID_INDEX, LEFT_SHIFT_INDEX, LEFT_TURBID_INDEX,
+        RIGHT_SEMITURBID_INDEX, RIGHT_SHIFT_INDEX, RIGHT_TURBID_INDEX,
+    },
 };
 
 /// 各指が担当するキーに対する重み。
@@ -48,32 +53,41 @@ fn special_evaluations(text: &Conjunction, keymap: &Keymap) -> u64 {
 ///
 /// # Returns
 /// 評価値
-pub fn evaluate(conjunctions: Vec<Conjunction>, keymap: &Keymap) -> u64 {
+pub fn evaluate(conjunctions: &Vec<Conjunction>, keymap: &Keymap) -> u64 {
     let mut score = 0;
+
+    let mut pos_cache: HashMap<char, (KeyKind, (usize, usize))> = HashMap::new();
+
+    for c in CHARS.iter() {
+        if let Some(v) = keymap.get(*c) {
+            pos_cache.insert(*c, v.clone());
+        }
+    }
+
     for conjunction in conjunctions {
         for c in conjunction.text.chars() {
-            if let Some((k, (r, c))) = keymap.get(c) {
-                score += FINGER_WEIGHTS[r][c];
+            if let Some((k, (r, c))) = pos_cache.get(&c) {
+                score += FINGER_WEIGHTS[*r][*c];
 
                 // 対象の文字がshift/濁音/半濁音の場合は、それに対応するキーも評価に加える
                 let additional_finger = match k {
                     crate::keymap::KeyKind::Normal => None,
                     crate::keymap::KeyKind::Shift => {
-                        if HAND_ASSIGNMENT[r][c] == 1 {
+                        if HAND_ASSIGNMENT[*r][*c] == 1 {
                             Some(RIGHT_SHIFT_INDEX)
                         } else {
                             Some(LEFT_SHIFT_INDEX)
                         }
                     }
                     crate::keymap::KeyKind::Turbid => {
-                        if HAND_ASSIGNMENT[r][c] == 1 {
+                        if HAND_ASSIGNMENT[*r][*c] == 1 {
                             Some(RIGHT_TURBID_INDEX)
                         } else {
                             Some(LEFT_TURBID_INDEX)
                         }
                     }
                     crate::keymap::KeyKind::Semiturbid => {
-                        if HAND_ASSIGNMENT[r][c] == 1 {
+                        if HAND_ASSIGNMENT[*r][*c] == 1 {
                             Some(RIGHT_SEMITURBID_INDEX)
                         } else {
                             Some(LEFT_SEMITURBID_INDEX)

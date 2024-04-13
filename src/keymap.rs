@@ -423,6 +423,10 @@ mod constraints {
 }
 
 impl Keymap {
+    pub fn generation(&self) -> u64 {
+        self.generation
+    }
+
     /// 指定されたseedを元にしてキーマップを生成する
     ///
     /// 生成されたkeymapは、あくまでランダムなキーマップであり、実際に利用するためには、[Keymap::meet_requirements]がtrueを返すことを前提としなければ
@@ -485,7 +489,7 @@ impl Keymap {
         }
 
         Keymap {
-            generation: 0,
+            generation: 1,
             layout,
         }
     }
@@ -577,9 +581,7 @@ impl Keymap {
         }
     }
 
-    /// 任意のkeyにおけるshiftedを交換する。ただし、交換後のkeyで
-    ///
-    ///
+    /// 任意のkeyにおけるshiftedを交換する。ただし、シフトキー自体が対象になる場合は対象外とする。
     fn swap_shifted_between_keys(&mut self, rng: &mut StdRng) {
         let layout = Vec::from_iter(key_indices().into_iter());
 
@@ -593,12 +595,21 @@ impl Keymap {
             let pos1 = layout[idx1];
             let pos2 = layout[idx2];
 
+            if pos1 == LEFT_SHIFT_INDEX
+                || pos1 == RIGHT_SHIFT_INDEX
+                || pos2 == LEFT_SHIFT_INDEX
+                || pos2 == LEFT_SHIFT_INDEX
+            {
+                continue;
+            }
+
             let key1 = &self.layout[pos1.0][pos1.1];
             let key2 = &self.layout[pos2.0][pos2.1];
 
             if let Some((new_key1, new_key2)) = key1.swap_shifted(key2) {
                 self.layout[pos1.0][pos1.1] = new_key1;
                 self.layout[pos2.0][pos2.1] = new_key2;
+
                 break;
             }
         }
