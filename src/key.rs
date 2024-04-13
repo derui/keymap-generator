@@ -12,6 +12,21 @@ struct KeyDef {
 }
 
 impl KeyDef {
+    /// 対象のキー定義をflipしたものを返す。
+    /// ただし、シフト面がない場合はflipできないため、同じ定義を返す
+    fn flip(&self) -> Self {
+        if let Some(shifted) = self.shifted {
+            KeyDef {
+                unshifted: shifted,
+                shifted: Some(self.unshifted),
+                turbid: self.turbid,
+                semiturbid: self.semiturbid,
+            }
+        } else {
+            self.clone()
+        }
+    }
+
     /// シフト面と無シフト面の文字から、定義を生成する。競合している場合は作成できない。
     ///
     /// # Arguments
@@ -141,13 +156,23 @@ impl Key {
         }
     }
 
-    fn def_mut(&mut self) -> &mut KeyDef {
+    fn change_unshift(&mut self, unshift: char) -> Option<Self> {
         match self {
-            Key::Normal(k) => k,
-            Key::Shifter(k) => k,
-            Key::Turbid(k) => k,
-            Key::Semiturbid(k) => k,
-            Key::Empty => panic!("Can not get any char from empty"),
+            Key::Normal(k) => Key::new_normal(unshift, k.shifted),
+            Key::Shifter(k) => Key::new_shift(unshift, k.shifted),
+            Key::Turbid(k) => Key::new_turbid(unshift, k.shifted),
+            Key::Semiturbid(k) => Key::new_semiturbid(unshift, k.shifted),
+            Key::Empty => None,
+        }
+    }
+
+    fn change_shifted(&mut self, shifted: Option<char>) -> Option<Self> {
+        match self {
+            Key::Normal(k) => Key::new_normal(k.unshifted, shifted),
+            Key::Shifter(k) => Key::new_shift(k.unshifted, shifted),
+            Key::Turbid(k) => Key::new_turbid(k.unshifted, shifted),
+            Key::Semiturbid(k) => Key::new_semiturbid(k.unshifted, shifted),
+            Key::Empty => None,
         }
     }
 
@@ -159,26 +184,44 @@ impl Key {
     /// # Returns
     /// 交換後のキーのタプル。最初の要素が自身、次の要素が[other]となる。
     pub fn swap_unshifted(&self, other: &Key) -> Option<(Key, Key)> {
-        let mut new_self = self.clone();
-        let mut new_other = other.clone();
+        let new_self = self.clone().change_unshift(other.unshifted());
+        let new_other = other.clone().change_unshift(self.unshifted());
 
-        let tmp = new_self.unshifted();
-        new_self.def_mut().unshifted = new_other.unshifted();
-        new_other.def_mut().unshifted = tmp;
-
-        if new_self.is_conflicted() || new_other.is_conflicted() {
-            None
-        } else {
-            Some((new_self, new_other))
+        match (new_self, new_other) {
+            (Some(new_self), Some(new_other)) => Some((new_self, new_other)),
+            _ => None,
         }
     }
 
-    /// キーの中で競合しているかを返す
-    fn is_conflicted(&self) -> bool {
-        let unshifted = char_def::CharDef::find(self.unshifted());
-        let shifted = self.shifted().map(|v| char_def::CharDef::find(v));
+    /// [other]とunshiftedで創出する文字を交換する
+    ///
+    /// # Arguments
+    /// * `other` - 交換するキー
+    ///
+    /// # Returns
+    /// 交換後のキーのタプル。最初の要素が自身、次の要素が[other]となる。
+    pub fn swap_shifted(&self, other: &Key) -> Option<(Key, Key)> {
+        let new_self = self.clone().change_shifted(other.shifted());
+        let new_other = other.clone().change_shifted(self.shifted());
 
-        shifted.map(|v| unshifted.conflicted(&v)).unwrap_or(false)
+        match (new_self, new_other) {
+            (Some(new_self), Some(new_other)) => Some((new_self, new_other)),
+            _ => None,
+        }
+    }
+
+    /// 無シフト面とシフト面のキーを反転したキーを返す
+    ///
+    /// # Returns
+    /// 反転したキー
+    pub fn flip(&self) -> Key {
+        match self {
+            Key::Normal(k) => Key::Normal(k.flip()),
+            Key::Shifter(k) => Key::Shifter(k.flip()),
+            Key::Turbid(k) => Key::Turbid(k.flip()),
+            Key::Semiturbid(k) => Key::Semiturbid(k.flip()),
+            Key::Empty => Key::Empty,
+        }
     }
 }
 
@@ -204,7 +247,7 @@ mod tests {
     fn can_not_swap_unshifted() {
         // arrange
         let key1 = Key::new_normal('か', None).unwrap();
-        let key2 = Key::new_normal('い', Some('し')).unwrap();
+        let key2 = Key::new_normal('ま', Some('し')).unwrap();
 
         // act
         let ret = key1.swap_unshifted(&key2);
@@ -222,6 +265,31 @@ mod tests {
 
         // assert
         assert!(ret.is_none(), "should not be able to make key");
+    }
+
+    #[test]
+    fn can_not_merge_having_turbid_and_semiturbid() {
+        // arrange
+
+        // act
+
+        // assert
+        assert!(
+            Key::new_normal('か', Some('い')).is_none(),
+            "should not be able to make key"
+        );
+        assert!(
+            Key::new_normal('は', Some('い')).is_none(),
+            "should not be able to make key"
+        );
+        assert!(
+            Key::new_normal('い', Some('か')).is_none(),
+            "should not be able to make key"
+        );
+        assert!(
+            Key::new_normal('い', Some('は')).is_none(),
+            "should not be able to make key"
+        );
     }
 
     #[test]
@@ -248,12 +316,26 @@ mod tests {
         // arrange
 
         // act
-        let ret = Key::new_normal('あ', Some('か')).unwrap();
+        let ret = Key::new_normal('ま', Some('か')).unwrap();
 
         // assert
-        assert_eq!(ret.unshifted(), 'あ');
+        assert_eq!(ret.unshifted(), 'ま');
         assert_eq!(ret.shifted(), Some('か'));
         assert_eq!(ret.turbid(), Some('が'));
-        assert_eq!(ret.semiturbid(), Some('ぁ'));
+        assert_eq!(ret.semiturbid(), None);
+    }
+
+    #[test]
+    fn flip_key() {
+        // arrange
+
+        // act
+        let ret = Key::new_normal('ま', Some('か')).unwrap().flip();
+
+        // assert
+        assert_eq!(ret.unshifted(), 'か');
+        assert_eq!(ret.shifted(), Some('ま'));
+        assert_eq!(ret.turbid(), Some('が'));
+        assert_eq!(ret.semiturbid(), None);
     }
 }

@@ -116,12 +116,12 @@ impl CharDef {
     /// # Returns
     /// 競合する場合は`true`、しない場合は`false`
     pub fn conflicted(&self, other: &Self) -> bool {
-        match (self.turbid, other.turbid) {
-            (Some(_), Some(_)) => true,
-            _ => match (self.semiturbid, other.semiturbid) {
-                (Some(_), Some(_)) => true,
-                _ => self.normal == other.normal,
-            },
+        match (self.turbid, other.turbid, self.semiturbid, other.semiturbid) {
+            (Some(_), Some(_), _, _) => true,
+            (Some(_), _, _, Some(_)) => true,
+            (_, Some(_), Some(_), _) => true,
+            (_, _, Some(_), Some(_)) => true,
+            _ => self.normal == other.normal,
         }
     }
 }
