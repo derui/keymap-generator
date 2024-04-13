@@ -122,8 +122,7 @@ pub const RIGHT_SEMITURBID_INDEX: (usize, usize) = (2, 6);
 /// このkeymapにおける、有効なキーのインデックスを返す
 pub fn key_indices() -> HashSet<(usize, usize)> {
     let mut indices: HashSet<(usize, usize)> = (0..3)
-        .map(|r| (0..10).map(move |c| (r as usize, c as usize)))
-        .flatten()
+        .flat_map(|r| (0..10).map(move |c| (r as usize, c as usize)))
         .collect();
 
     for exclude in EXCLUDE_MAP {
@@ -547,7 +546,7 @@ impl Keymap {
 
     /// 任意のkeyにおけるunshiftedを交換する。
     fn swap_unshifted_between_keys(&mut self, rng: &mut StdRng) {
-        let layout = Vec::from_iter(key_indices().into_iter());
+        let layout = Vec::from_iter(key_indices());
 
         loop {
             let idx1 = rng.gen_range(0..layout.len());
@@ -572,7 +571,7 @@ impl Keymap {
 
     /// 任意のkeyにおけるshiftedを交換する。ただし、シフトキー自体が対象になる場合は対象外とする。
     fn swap_shifted_between_keys(&mut self, rng: &mut StdRng) {
-        let layout = Vec::from_iter(key_indices().into_iter());
+        let layout = Vec::from_iter(key_indices());
 
         loop {
             let idx1 = rng.gen_range(0..layout.len());
@@ -612,7 +611,7 @@ impl Keymap {
     /// # Return
     /// 交換されたkeymap
     fn flip_key(&mut self, rng: &mut StdRng) {
-        let layout = Vec::from_iter(key_indices().into_iter());
+        let layout = Vec::from_iter(key_indices());
 
         let idx = rng.gen_range(0..layout.len());
         let pos = layout[idx];

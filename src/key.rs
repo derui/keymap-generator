@@ -35,7 +35,7 @@ impl KeyDef {
     /// キーの定義。競合している場合はNone
     fn from_chars(unshifted: char, shifted: Option<char>) -> Option<KeyDef> {
         let unshifted = char_def::CharDef::find(unshifted);
-        let shifted = shifted.map(|v| char_def::CharDef::find(v));
+        let shifted = shifted.map(char_def::CharDef::find);
 
         match shifted {
             Some(shifted) => {
@@ -88,22 +88,22 @@ impl Key {
 
     /// 通常のキーに対応するキーを返す
     pub fn new_normal(unshifted: char, shifted: Option<char>) -> Option<Key> {
-        KeyDef::from_chars(unshifted, shifted).map(|v| Key::Normal(v))
+        KeyDef::from_chars(unshifted, shifted).map(Key::Normal)
     }
 
     /// シフトキーに対応する[Key]を返す
     pub fn new_shift(unshifted: char, shifted: Option<char>) -> Option<Key> {
-        KeyDef::from_chars(unshifted, shifted).map(|v| Key::Shifter(v))
+        KeyDef::from_chars(unshifted, shifted).map(Key::Shifter)
     }
 
     /// 濁音シフトキーに対応する[Key]を返す
     pub fn new_turbid(unshifted: char, shifted: Option<char>) -> Option<Key> {
-        KeyDef::from_chars(unshifted, shifted).map(|v| Key::Turbid(v))
+        KeyDef::from_chars(unshifted, shifted).map(Key::Turbid)
     }
 
     /// 半濁音シフトキーに対応する[Key]を返す
     pub fn new_semiturbid(unshifted: char, shifted: Option<char>) -> Option<Key> {
-        KeyDef::from_chars(unshifted, shifted).map(|v| Key::Semiturbid(v))
+        KeyDef::from_chars(unshifted, shifted).map(Key::Semiturbid)
     }
 
     /// 単独押下で送出する文字をかえす

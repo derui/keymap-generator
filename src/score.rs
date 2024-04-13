@@ -42,7 +42,7 @@ impl Pos {
 
 /// 2連接に対する評価を実施する
 fn two_conjunction_scores(first: &Pos, second: &Pos) -> u64 {
-    let rules = vec![
+    let rules = [
         |first: &Pos, second: &Pos| {
             // 同じ指で同じキーを連続して押下している場合はペナルティを与える
             if first == second {
@@ -68,7 +68,7 @@ fn two_conjunction_scores(first: &Pos, second: &Pos) -> u64 {
 
 /// 3連接に対する評価を実施する
 fn three_conjunction_scores(first: &Pos, second: &Pos, third: &Pos) -> u64 {
-    let rules = vec![|score: u64| {
+    let rules = [|score: u64| {
         // 同じ指で同じキーを連続して押下している場合はペナルティを与える
         if first == second && second == third {
             score + (150 * FINGER_WEIGHTS[first.0][first.1])
@@ -94,7 +94,7 @@ fn special_evaluations(
 ) -> u64 {
     let mut score = 0;
     let text: Vec<char> = conj.text.chars().collect();
-    let keys = vec![
+    let keys = [
         pos_cache.get(&text[0]),
         pos_cache.get(&text[1]),
         pos_cache.get(&text[2]),
@@ -131,7 +131,7 @@ pub fn evaluate(conjunctions: &Vec<Conjunction>, keymap: &Keymap) -> u64 {
 
     for c in CHARS.iter() {
         if let Some(v) = keymap.get(*c) {
-            pos_cache.insert(*c, v.clone());
+            pos_cache.insert(*c, v);
         }
     }
 
@@ -172,7 +172,7 @@ pub fn evaluate(conjunctions: &Vec<Conjunction>, keymap: &Keymap) -> u64 {
             }
         }
 
-        score += special_evaluations(&conjunction, &pos_cache);
+        score += special_evaluations(conjunction, &pos_cache);
     }
     score
 }

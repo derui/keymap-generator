@@ -9,11 +9,11 @@ pub const CHARS: [char; 83] = [
 ];
 
 /// キーに対して割付可能な文字の一覧定義
-const ASSIGNABLE_CHARS: [char; 53] = [
+const ASSIGNABLE_CHARS: [char; 50] = [
     'あ', 'い', 'う', 'え', 'お', 'か', 'き', 'く', 'け', 'こ', 'さ', 'し', 'す', 'せ', 'そ', 'た',
     'ち', 'つ', 'て', 'と', 'な', 'に', 'ぬ', 'ね', 'の', 'は', 'ひ', 'ふ', 'へ', 'ほ', 'ま', 'み',
-    'む', 'め', 'も', 'や', 'ゆ', 'よ', 'ら', 'り', 'る', 'れ', 'ろ', 'わ', 'を', 'ん', 'ゃ', 'ゅ',
-    'ょ', 'っ', 'ー', '、', '。',
+    'む', 'め', 'も', 'や', 'ゆ', 'よ', 'ら', 'り', 'る', 'れ', 'ろ', 'わ', 'を', 'ん', 'っ', 'ー',
+    '、', '。',
 ];
 
 /// 入力可能とする文字の一覧を返す
@@ -56,6 +56,9 @@ fn get_semiturbid(c: char) -> Option<char> {
         'ふ' => Some('ぷ'),
         'へ' => Some('ぺ'),
         'ほ' => Some('ぽ'),
+        'や' => Some('ゃ'),
+        'ゆ' => Some('ゅ'),
+        'よ' => Some('ょ'),
         // これらの小書き文字は、頻度が低いのがわかっているので、半濁音シフトとして使う
         'あ' => Some('ぁ'),
         'い' => Some('ぃ'),
@@ -139,7 +142,7 @@ mod tests {
         let ret = def1.conflicted(&def2);
 
         // assert
-        assert_eq!(ret, false);
+        assert!(!ret);
     }
 
     #[test]
@@ -152,7 +155,7 @@ mod tests {
         let ret = def1.conflicted(&def2);
 
         // assert
-        assert_eq!(ret, true);
+        assert!(ret);
     }
 
     #[test]
@@ -165,6 +168,6 @@ mod tests {
         let ret = def1.conflicted(&def2);
 
         // assert
-        assert_eq!(ret, true);
+        assert!(ret);
     }
 }

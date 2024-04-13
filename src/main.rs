@@ -42,7 +42,7 @@ fn main() -> anyhow::Result<()> {
     let mut keymap = Keymap::generate(&mut rng);
     let mut best_score = u64::MAX;
     let mut best_keymap: Option<Keymap> = None;
-    let conjunctions = read_4gram(&Path::new(&path))?;
+    let conjunctions = read_4gram(Path::new(&path))?;
     log::info!("initial keymap: {}", keymap);
 
     while keymap.generation() < 5000 {
