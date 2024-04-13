@@ -27,7 +27,7 @@ fn pick_char(chars: &mut Vec<char>, rng: &mut StdRng) -> char {
     c
 }
 
-/// [chars]からランダムに一文字取得する。ただし、50/50の確率で取得しない場合がある
+/// [chars]からランダムに一文字取得する。ただし、もう文字がない場合は取得しない
 ///
 /// # Arguments
 /// * `chars` - 文字のリスト
@@ -36,7 +36,7 @@ fn pick_char(chars: &mut Vec<char>, rng: &mut StdRng) -> char {
 /// # Returns
 /// ランダムに選択された文字。取得しない場合はNone
 fn pick_char_optional(chars: &mut Vec<char>, rng: &mut StdRng) -> Option<char> {
-    if !rng.gen::<bool>() || chars.is_empty() {
+    if chars.is_empty() {
         None
     } else {
         Some(pick_char(chars, rng))
@@ -450,17 +450,26 @@ impl Keymap {
         layout[RIGHT_SEMITURBID_INDEX.0][RIGHT_SEMITURBID_INDEX.1] =
             get_key(&mut assignable_chars, rng, Key::new_semiturbid).expect("should be key");
 
-        // 残りの場所に追加していく
-
-        for (r, c) in indices {
+        // 残りの場所に追加していく。基本的に単打はふやすべきではあるので、一旦単打だけ埋める
+        for (r, c) in indices.iter() {
             let char = pick_char(&mut assignable_chars, rng);
 
-            let mut key: Option<Key> = None;
-            while key.is_none() {
-                key = Key::new_normal(char, pick_char_optional(&mut assignable_chars, rng));
-            }
+            layout[*r][*c] = Key::new_normal(char, None).unwrap();
+        }
 
-            layout[r][c] = key.expect("should be key");
+        // 2週目で、入るところから入れていく
+        while !assignable_chars.is_empty() {
+            for (r, c) in indices.iter() {
+                if assignable_chars.is_empty() {
+                    break;
+                }
+                let current = &layout[*r][*c];
+                let char = pick_char(&mut assignable_chars, rng);
+
+                if let Some(key) = Key::new_normal(current.unshifted(), Some(char)) {
+                    layout[*r][*c] = key;
+                }
+            }
         }
 
         if !assignable_chars.is_empty() {
