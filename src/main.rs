@@ -30,9 +30,7 @@ fn read_4gram(path: &Path) -> anyhow::Result<Vec<Conjunction>> {
 }
 
 fn main() -> anyhow::Result<()> {
-    env_logger::Builder::new()
-        .target(env_logger::Target::Stderr)
-        .init();
+    env_logger::init();
 
     let path = args().nth(1).expect("missing path");
     let seed = args()
