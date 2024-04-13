@@ -4,7 +4,7 @@ use crate::char_def;
 
 /// キー自体の基本定義。
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct KeyDef {
+pub struct KeyDef {
     unshifted: char,
     shifted: Option<char>,
     turbid: Option<char>,
@@ -222,6 +222,14 @@ impl Key {
             Key::Semiturbid(k) => Key::Semiturbid(k.flip()),
             Key::Empty => Key::Empty,
         }
+    }
+
+    /// 指定した文字がこのキーに含まれるかどうかを返す
+    pub fn contains(&self, char: char) -> bool {
+        self.unshifted() == char
+            || self.shifted() == Some(char)
+            || self.turbid() == Some(char)
+            || self.semiturbid() == Some(char)
     }
 }
 

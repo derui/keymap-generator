@@ -4,6 +4,14 @@ use rand::{rngs::StdRng, Rng, SeedableRng};
 
 use crate::{char_def, key::Key};
 
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum KeyKind {
+    Normal,
+    Shift,
+    Turbid,
+    Semiturbid,
+}
+
 /// 有効なキーマップ
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Keymap {
@@ -113,19 +121,19 @@ fn peek_char_optional(chars: &Vec<char>, rng: &mut StdRng) -> Option<(char, usiz
 }
 
 // layout上で利用しないキーの位置
-const EXCLUDE_MAP: [(usize, usize); 4] = [(0, 0), (0, 4), (0, 5), (0, 9)];
+pub const EXCLUDE_MAP: [(usize, usize); 4] = [(0, 0), (0, 4), (0, 5), (0, 9)];
 // 左手シフトキーのindex
-const LEFT_SHIFT_INDEX: (usize, usize) = (1, 2);
+pub const LEFT_SHIFT_INDEX: (usize, usize) = (1, 2);
 // 右手シフトキーのindex
-const RIGHT_SHIFT_INDEX: (usize, usize) = (1, 7);
+pub const RIGHT_SHIFT_INDEX: (usize, usize) = (1, 7);
 // 左手濁音シフトキーのindex
-const LEFT_TURBID_INDEX: (usize, usize) = (1, 3);
+pub const LEFT_TURBID_INDEX: (usize, usize) = (1, 3);
 // 右手濁音シフトキーのindex
-const RIGHT_TURBID_INDEX: (usize, usize) = (1, 6);
+pub const RIGHT_TURBID_INDEX: (usize, usize) = (1, 6);
 // 左手半濁音シフトキーのindex
-const LEFT_SEMITURBID_INDEX: (usize, usize) = (2, 3);
+pub const LEFT_SEMITURBID_INDEX: (usize, usize) = (2, 3);
 // 右手半濁音シフトキーのindex
-const RIGHT_SEMITURBID_INDEX: (usize, usize) = (2, 6);
+pub const RIGHT_SEMITURBID_INDEX: (usize, usize) = (2, 6);
 
 /// このkeymapにおける、有効なキーのインデックスを返す
 pub fn key_indices() -> HashSet<(usize, usize)> {
@@ -502,6 +510,28 @@ impl Keymap {
         ];
 
         checks.iter().all(|c| c(&self.layout))
+    }
+
+    /// 指定した文字を入力できるキーを返す
+    ///
+    /// 対象の文字が存在しない場合はNoneを返す
+    pub fn get(&self, char: char) -> Option<(KeyKind, (usize, usize))> {
+        for (r, c) in key_indices() {
+            let key = &self.layout[r][c];
+
+            if key.contains(char) {
+                let kind = match key {
+                    Key::Normal(_) => KeyKind::Normal,
+                    Key::Shifter(_) => KeyKind::Shift,
+                    Key::Turbid(_) => KeyKind::Turbid,
+                    Key::Semiturbid(_) => KeyKind::Semiturbid,
+                    Key::Empty => return None,
+                };
+                return Some((kind, (r, c)));
+            }
+        }
+
+        None
     }
 
     /// keymapに対して操作を実行して、実行した結果のkeymapを返す
