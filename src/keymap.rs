@@ -127,19 +127,303 @@ const LEFT_SEMITURBID_INDEX: (usize, usize) = (2, 3);
 // 右手半濁音シフトキーのindex
 const RIGHT_SEMITURBID_INDEX: (usize, usize) = (2, 6);
 
+/// このkeymapにおける、有効なキーのインデックスを返す
+pub fn key_indices() -> HashSet<(usize, usize)> {
+    let mut indices: HashSet<(usize, usize)> = (0..3)
+        .map(|r| (0..10).map(move |c| (r as usize, c as usize)))
+        .flatten()
+        .collect();
+
+    for exclude in EXCLUDE_MAP {
+        indices.remove(&exclude);
+    }
+
+    indices
+}
+
+mod constraints {
+    use crate::key::Key;
+
+    use super::{
+        key_indices, LEFT_SEMITURBID_INDEX, LEFT_SHIFT_INDEX, LEFT_TURBID_INDEX,
+        RIGHT_SEMITURBID_INDEX, RIGHT_SHIFT_INDEX, RIGHT_TURBID_INDEX,
+    };
+
+    /// 左右のシフトキーが同一のキーを指しているかどうかを確認する
+    pub(super) fn should_shift_having_same_key(layout: &Vec<Vec<Key>>) -> bool {
+        let left_shifted = layout[LEFT_SHIFT_INDEX.0][LEFT_SHIFT_INDEX.1].shifted();
+        let right_shifted = layout[RIGHT_SHIFT_INDEX.0][RIGHT_SHIFT_INDEX.1].shifted();
+
+        left_shifted == right_shifted
+    }
+
+    /// 左右の濁音シフト間では、いずれかのキーにしか濁音が設定されていないかどうかを確認する
+    pub(super) fn should_only_one_turbid(layout: &Vec<Vec<Key>>) -> bool {
+        let left_turbid = layout[LEFT_TURBID_INDEX.0][LEFT_TURBID_INDEX.1].turbid();
+        let right_turbid = layout[RIGHT_TURBID_INDEX.0][RIGHT_TURBID_INDEX.1].turbid();
+
+        match (left_turbid, right_turbid) {
+            (Some(_), Some(_)) => false,
+            _ => true,
+        }
+    }
+
+    /// 左右の半濁音シフト間では、いずれかのキーにしか半濁音が設定されていないかどうかを確認する
+    pub(super) fn should_only_one_semiturbit(layout: &Vec<Vec<Key>>) -> bool {
+        let left_semiturbid = layout[LEFT_SEMITURBID_INDEX.0][LEFT_SEMITURBID_INDEX.1].semiturbid();
+        let right_semiturbid =
+            layout[RIGHT_SEMITURBID_INDEX.0][RIGHT_SEMITURBID_INDEX.1].semiturbid();
+
+        match (left_semiturbid, right_semiturbid) {
+            (Some(_), Some(_)) => false,
+            _ => true,
+        }
+    }
+
+    /// 左右の濁音・半濁音の間では、いずれかのキーにしか濁音と半濁音が設定されていないかどうかを確認する
+    pub(super) fn should_be_explicit_between_left_turbid_and_right_semiturbit(
+        layout: &Vec<Vec<Key>>,
+    ) -> bool {
+        // 濁音と半濁音を同時に押下したとき、両方に値が入っていると競合してしまうので、それを防ぐ
+        let left_turbid = &layout[LEFT_TURBID_INDEX.0][LEFT_TURBID_INDEX.1];
+        let right_semiturbid = &layout[RIGHT_SEMITURBID_INDEX.0][RIGHT_SEMITURBID_INDEX.1];
+
+        match (
+            left_turbid.turbid(),
+            right_semiturbid.turbid(),
+            left_turbid.semiturbid(),
+            right_semiturbid.semiturbid(),
+        ) {
+            (Some(_), None, None, None) => true,
+            (None, Some(_), None, None) => true,
+            (None, None, Some(_), None) => true,
+            (None, None, None, Some(_)) => true,
+            _ => false,
+        }
+    }
+
+    /// 左右の濁音・半濁音の間では、いずれかのキーにしか濁音と半濁音が設定されていないかどうかを確認する
+    pub(super) fn should_be_explicit_between_right_turbid_and_left_semiturbit(
+        layout: &Vec<Vec<Key>>,
+    ) -> bool {
+        // 濁音と半濁音を同時に押下したとき、両方に値が入っていると競合してしまうので、それを防ぐ
+        let right_turbid = &layout[RIGHT_TURBID_INDEX.0][RIGHT_TURBID_INDEX.1];
+        let left_semiturbid = &layout[LEFT_SEMITURBID_INDEX.0][LEFT_SEMITURBID_INDEX.1];
+
+        match (
+            right_turbid.turbid(),
+            left_semiturbid.turbid(),
+            right_turbid.semiturbid(),
+            left_semiturbid.semiturbid(),
+        ) {
+            (Some(_), None, None, None) => true,
+            (None, Some(_), None, None) => true,
+            (None, None, Some(_), None) => true,
+            (None, None, None, Some(_)) => true,
+            _ => false,
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        fn empty_layout() -> Vec<Vec<Key>> {
+            vec![vec![Key::empty(); 10]; 3]
+        }
+
+        fn put_key(layout: &mut Vec<Vec<Key>>, key: Key, pos: (usize, usize)) {
+            layout[pos.0][pos.1] = key;
+        }
+
+        #[test]
+        fn having_same_key_between_shift() {
+            // arrange
+            let mut layout = empty_layout();
+            put_key(
+                &mut layout,
+                Key::new_shift('あ', Some('を')).unwrap(),
+                LEFT_SHIFT_INDEX,
+            );
+            put_key(
+                &mut layout,
+                Key::new_shift('か', Some('を')).unwrap(),
+                RIGHT_SHIFT_INDEX,
+            );
+
+            // act
+            let ret = should_shift_having_same_key(&layout);
+
+            // assert
+            assert!(ret, "should be valid")
+        }
+
+        #[test]
+        fn not_having_same_key_between_shift() {
+            // arrange
+            let mut layout = empty_layout();
+            put_key(
+                &mut layout,
+                Key::new_shift('あ', Some('ぬ')).unwrap(),
+                LEFT_SHIFT_INDEX,
+            );
+            put_key(
+                &mut layout,
+                Key::new_shift('か', Some('を')).unwrap(),
+                RIGHT_SHIFT_INDEX,
+            );
+
+            // act
+            let ret = should_shift_having_same_key(&layout);
+
+            // assert
+            assert!(!ret, "should be valid")
+        }
+
+        #[test]
+        fn only_one_turbid_between_turbid_keys() {
+            // arrange
+            let mut layout = empty_layout();
+            put_key(
+                &mut layout,
+                Key::new_turbid('あ', Some('ぬ')).unwrap(),
+                LEFT_TURBID_INDEX,
+            );
+            put_key(
+                &mut layout,
+                Key::new_turbid('か', Some('を')).unwrap(),
+                RIGHT_TURBID_INDEX,
+            );
+
+            // act
+            let ret = should_only_one_turbid(&layout);
+
+            // assert
+            assert!(ret, "should be valid")
+        }
+
+        #[test]
+        fn two_turbid_between_turbid_keys() {
+            // arrange
+            let mut layout = empty_layout();
+            put_key(
+                &mut layout,
+                Key::new_turbid('し', Some('ぬ')).unwrap(),
+                LEFT_TURBID_INDEX,
+            );
+            put_key(
+                &mut layout,
+                Key::new_turbid('か', Some('を')).unwrap(),
+                RIGHT_TURBID_INDEX,
+            );
+
+            // act
+            let ret = should_only_one_turbid(&layout);
+
+            // assert
+            assert!(!ret, "should be valid")
+        }
+
+        #[test]
+        fn only_one_semiturbid_between_semiturbid_keys() {
+            // arrange
+            let mut layout = empty_layout();
+            put_key(
+                &mut layout,
+                Key::new_semiturbid('あ', Some('ぬ')).unwrap(),
+                LEFT_SEMITURBID_INDEX,
+            );
+            put_key(
+                &mut layout,
+                Key::new_semiturbid('か', Some('を')).unwrap(),
+                RIGHT_SEMITURBID_INDEX,
+            );
+
+            // act
+            let ret = should_only_one_semiturbit(&layout);
+
+            // assert
+            assert!(ret, "should be valid")
+        }
+
+        #[test]
+        fn two_semiturbid_between_semiturbid_keys() {
+            // arrange
+            let mut layout = empty_layout();
+            put_key(
+                &mut layout,
+                Key::new_semiturbid('は', Some('ぬ')).unwrap(),
+                LEFT_SEMITURBID_INDEX,
+            );
+            put_key(
+                &mut layout,
+                Key::new_semiturbid('ひ', Some('を')).unwrap(),
+                RIGHT_SEMITURBID_INDEX,
+            );
+
+            // act
+            let ret = should_only_one_semiturbit(&layout);
+
+            // assert
+            assert!(!ret, "should be valid")
+        }
+
+        #[test]
+        fn only_one_turbid_and_semiturbid_set_between_left_turbid_and_right_semiturbid() {
+            // arrange
+            let mut layout = empty_layout();
+            put_key(
+                &mut layout,
+                Key::new_semiturbid('か', Some('ぬ')).unwrap(),
+                LEFT_TURBID_INDEX,
+            );
+            put_key(
+                &mut layout,
+                Key::new_semiturbid('ま', Some('を')).unwrap(),
+                RIGHT_SEMITURBID_INDEX,
+            );
+
+            // act
+            let ret = should_be_explicit_between_left_turbid_and_right_semiturbit(&layout);
+
+            // assert
+            assert!(ret, "should be valid")
+        }
+
+        #[test]
+        fn only_one_turbid_and_semiturbid_set_between_right_turbid_and_left_semiturbid() {
+            // arrange
+            let mut layout = empty_layout();
+            put_key(
+                &mut layout,
+                Key::new_semiturbid('か', Some('ぬ')).unwrap(),
+                RIGHT_TURBID_INDEX,
+            );
+            put_key(
+                &mut layout,
+                Key::new_semiturbid('ま', Some('を')).unwrap(),
+                LEFT_SEMITURBID_INDEX,
+            );
+
+            // act
+            let ret = should_be_explicit_between_right_turbid_and_left_semiturbit(&layout);
+
+            // assert
+            assert!(ret, "should be valid")
+        }
+    }
+}
+
 impl Keymap {
     /// 指定されたseedを元にしてキーマップを生成する
     ///
     /// 生成されたkeymapは、あくまでランダムなキーマップであり、実際に利用するためには、[Keymap::meet_requirements]がtrueを返すことを前提としなければ
     /// ならない。
-    fn generate(rng: &mut StdRng) -> Keymap {
+    pub fn generate(rng: &mut StdRng) -> Keymap {
         let mut layout = vec![vec![Key::empty(); 10]; 3];
         let mut assignable_chars = char_def::assignable_chars();
         // 対応するインデックスは最初になんとかしておく
-        let mut indices: HashSet<(usize, usize)> = (0..3)
-            .map(|r| (0..10).map(move |c| (r as usize, c as usize)))
-            .flatten()
-            .collect();
+        let mut indices = key_indices();
         indices.remove(&LEFT_SHIFT_INDEX);
         indices.remove(&RIGHT_SHIFT_INDEX);
         indices.remove(&LEFT_TURBID_INDEX);
@@ -189,8 +473,30 @@ impl Keymap {
         }
     }
 
+    /// keymap自体が、全体の要求を満たしているかどうかを確認する
+    ///
+    /// 制約条件としては以下となる。これらはconstraint moduleで定義されている
+    /// * 左右のシフト文字が同一である
+    /// * 濁音シフトのキーにはいずれかにしか濁音が設定されていない
+    /// * 半濁音シフトのキー自体には、いずれかにしか半濁音が設定されていない
+    /// * 左右の濁音・半濁音の間では、濁音と半濁音がいずれかにしか設定されていない
+    ///
+    /// # Returns
+    /// 制約を満たしていたらtrue
+    pub fn meet_requirements(&self) -> bool {
+        let checks = [
+            constraints::should_shift_having_same_key,
+            constraints::should_be_explicit_between_left_turbid_and_right_semiturbit,
+            constraints::should_only_one_turbid,
+            constraints::should_only_one_semiturbit,
+            constraints::should_be_explicit_between_right_turbid_and_left_semiturbit,
+        ];
+
+        checks.iter().all(|c| c(&self.layout))
+    }
+
     /// keymapに対して操作を実行して、実行した結果のkeymapを返す
-    pub fn advance_generation(&self, rng: &mut StdRng) -> Keymap {
+    pub fn mutate(&self, rng: &mut StdRng) -> Keymap {
         let mut keymap = self.clone();
 
         // いくつか定義されている処理をランダムに実行する
@@ -203,18 +509,61 @@ impl Keymap {
             _ => panic!("invalid case"),
         }
 
+        keymap.generation += 1;
         keymap
     }
 
-    /// 任意のkeyにおけるunshiftedを交換する。ただし、交換後のkeyで
-    ///
-    ///
-    fn swap_unshifted_between_keys(&mut self, rng: &mut StdRng) {}
+    /// 任意のkeyにおけるunshiftedを交換する。
+    fn swap_unshifted_between_keys(&mut self, rng: &mut StdRng) {
+        let layout = Vec::from_iter(key_indices().into_iter());
+
+        loop {
+            let idx1 = rng.gen_range(0..layout.len());
+            let idx2 = rng.gen_range(0..layout.len());
+
+            if idx1 == idx2 {
+                continue;
+            }
+            let pos1 = layout[idx1];
+            let pos2 = layout[idx2];
+
+            let key1 = &self.layout[pos1.0][pos1.1];
+            let key2 = &self.layout[pos2.0][pos2.1];
+
+            if let Some((new_key1, new_key2)) = key1.swap_unshifted(key2) {
+                self.layout[pos1.0][pos1.1] = new_key1;
+                self.layout[pos2.0][pos2.1] = new_key2;
+                break;
+            }
+        }
+    }
 
     /// 任意のkeyにおけるshiftedを交換する。ただし、交換後のkeyで
     ///
     ///
-    fn swap_shifted_between_keys(&mut self, rng: &mut StdRng) {}
+    fn swap_shifted_between_keys(&mut self, rng: &mut StdRng) {
+        let layout = Vec::from_iter(key_indices().into_iter());
+
+        loop {
+            let idx1 = rng.gen_range(0..layout.len());
+            let idx2 = rng.gen_range(0..layout.len());
+
+            if idx1 == idx2 {
+                continue;
+            }
+            let pos1 = layout[idx1];
+            let pos2 = layout[idx2];
+
+            let key1 = &self.layout[pos1.0][pos1.1];
+            let key2 = &self.layout[pos2.0][pos2.1];
+
+            if let Some((new_key1, new_key2)) = key1.swap_shifted(key2) {
+                self.layout[pos1.0][pos1.1] = new_key1;
+                self.layout[pos2.0][pos2.1] = new_key2;
+                break;
+            }
+        }
+    }
 
     /// 任意のkeyにおける無シフト面とシフト面を交換する。
     ///
@@ -223,5 +572,12 @@ impl Keymap {
     ///
     /// # Return
     /// 交換されたkeymap
-    fn flip_key(&mut self, rng: &mut StdRng) {}
+    fn flip_key(&mut self, rng: &mut StdRng) {
+        let layout = Vec::from_iter(key_indices().into_iter());
+
+        let idx = rng.gen_range(0..layout.len());
+        let pos = layout[idx];
+
+        self.layout[pos.0][pos.1] = self.layout[pos.0][pos.1].flip();
+    }
 }
