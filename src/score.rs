@@ -18,6 +18,14 @@ static HAND_ASSIGNMENT: [[u8; 10]; 3] = [
     [1, 1, 1, 1, 1, 2, 2, 2, 2, 2],
 ];
 
+#[derive(Debug)]
+pub struct Conjunction {
+    /// 連接のテキスト
+    pub text: String,
+    /// 連接の出現回数
+    pub appearances: u32,
+}
+
 /// 連接に対して特殊な評価を行う。
 ///
 /// # Arguments
@@ -26,7 +34,7 @@ static HAND_ASSIGNMENT: [[u8; 10]; 3] = [
 ///
 /// # Returns
 /// 評価値
-fn special_evaluations(text: &str, keymap: &Keymap) -> u64 {
+fn special_evaluations(text: &Conjunction, keymap: &Keymap) -> u64 {
     let mut score = 0;
 
     score
@@ -40,10 +48,10 @@ fn special_evaluations(text: &str, keymap: &Keymap) -> u64 {
 ///
 /// # Returns
 /// 評価値
-pub fn evaluate(conjunctions: Vec<String>, keymap: &Keymap) -> u64 {
+pub fn evaluate(conjunctions: Vec<Conjunction>, keymap: &Keymap) -> u64 {
     let mut score = 0;
-    for text in conjunctions {
-        for c in text.chars() {
+    for conjunction in conjunctions {
+        for c in conjunction.text.chars() {
             if let Some((k, (r, c))) = keymap.get(c) {
                 score += FINGER_WEIGHTS[r][c];
 
@@ -79,7 +87,7 @@ pub fn evaluate(conjunctions: Vec<String>, keymap: &Keymap) -> u64 {
             }
         }
 
-        score += special_evaluations(&text, keymap);
+        score += special_evaluations(&conjunction, keymap);
     }
     score
 }
