@@ -30,6 +30,26 @@ static FINGER_ASSIGNMENT: [[u8; 10]; 3] = [
     [4, 3, 2, 1, 1, 1, 1, 2, 3, 4],
 ];
 
+/// 2連接に対する重み。順序を持つ。
+static TWO_CONNECTION_WEIGHT: [(Pos, Pos, u64); 8] = [
+    // 人差し指伸ばし→小指下段
+    (Pos(2, 5), Pos(2, 9), 100),
+    // 人差し指伸ばし→小指下段
+    (Pos(1, 5), Pos(2, 9), 100),
+    // 小指下段→人差し指伸ばし
+    (Pos(2, 9), Pos(2, 5), 100),
+    // 小指下段→人差し指伸ばし
+    (Pos(2, 9), Pos(1, 5), 100),
+    // 人差し指伸→小指中段
+    (Pos(2, 5), Pos(1, 9), 100),
+    // 人差し指伸→小指中段
+    (Pos(1, 5), Pos(1, 9), 90),
+    // 小指中段→人差し指伸ばし
+    (Pos(1, 9), Pos(2, 5), 100),
+    // 小指中段→人差し指伸ばし
+    (Pos(1, 9), Pos(1, 5), 90),
+];
+
 #[derive(Debug, Clone)]
 pub struct Conjunction {
     /// 連接のテキスト
@@ -54,6 +74,19 @@ impl Pos {
         let hand_other = HAND_ASSIGNMENT[other.0][other.1];
 
         finger_self == finger_other && hand_self == hand_other
+    }
+
+    /// [other]との連接scoreを返す
+    fn connection_score(&self, other: &Pos) -> u64 {
+        let position = TWO_CONNECTION_WEIGHT
+            .iter()
+            .position(|(p1, p2, _)| *p1 == *self && *p2 == *other);
+
+        if let Some(position) = position {
+            TWO_CONNECTION_WEIGHT[position].2
+        } else {
+            0
+        }
     }
 }
 
@@ -83,6 +116,10 @@ fn two_conjunction_scores(first: &Pos, second: &Pos) -> u64 {
             } else {
                 0
             }
+        },
+        |first: &Pos, second: &Pos| {
+            // 2連接のスコアを返す
+            first.connection_score(second)
         },
     ];
 
@@ -155,6 +192,7 @@ fn special_evaluations(
     if positions.len() >= 2 {
         score += two_conjunction_scores(&positions[0], &positions[1]);
     }
+
     if positions.len() >= 3 {
         score += three_conjunction_scores(&positions[0], &positions[1], &positions[2]);
     }
