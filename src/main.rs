@@ -47,18 +47,18 @@ fn main() -> anyhow::Result<()> {
     let mut best_keymap: Option<Keymap> = None;
     let conjunctions = read_4gram(Path::new(&path))?;
 
-    while playground.generation() < 5000 {
+    while playground.generation() < 2000 {
         let ret = playground.advance(&mut rng, &conjunctions);
-        best_score = ret.0;
-        best_keymap = Some(ret.1);
 
-        if playground.generation() % 100 == 0 {
+        if best_score < ret.0 {
             log::info!(
-                "Processed generation: {}, current best is {}",
+                "Got new best at {}, current best is {}",
                 playground.generation(),
-                best_keymap.clone().unwrap()
+                ret.1
             );
         }
+        best_score = ret.0;
+        best_keymap = Some(ret.1);
     }
 
     println!(
