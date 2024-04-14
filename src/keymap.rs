@@ -18,8 +18,6 @@ pub enum KeyKind {
 /// 有効なキーマップ
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Keymap {
-    /// keymapの世代
-    generation: u64,
     layout: Vec<Vec<Key>>,
 }
 
@@ -71,6 +69,39 @@ fn get_key(
             }
             chars.clear();
             chars.extend_from_slice(&char_set.into_iter().collect::<Vec<_>>());
+        }
+    }
+
+    key
+}
+
+/// [shift]と競合しないように、[chars]からランダムにキーを生成する
+///
+/// # Arguments
+/// * `shift` - シフト面の文字
+/// * `chars` - 文字のリスト
+/// * `rng` - 乱数生成器
+/// * `generator` - キーを生成する関数
+///
+/// # Returns
+/// ランダムに選択され、generatorで生成されたキー
+fn get_key_with_shift(
+    shift: char,
+    chars: &mut Vec<char>,
+    rng: &mut StdRng,
+    generator: fn(char, Option<char>) -> Option<Key>,
+) -> Option<Key> {
+    if chars.is_empty() {
+        panic!("Invalid sequence")
+    }
+
+    let mut key: Option<Key> = None;
+    while key.is_none() {
+        let (c, idx) = peek_char(chars, rng);
+        key = generator(c, Some(shift));
+
+        if key.is_some() {
+            chars.remove(idx);
         }
     }
 
@@ -181,24 +212,20 @@ mod constraints {
     }
 
     /// 左右の濁音・半濁音の間では、いずれかのキーにしか濁音と半濁音が設定されていないかどうかを確認する
+    ///
+    /// このキーが同時に押下されたとき、矛盾なく入力できるのは、
+    /// * 濁音キーに半濁音が設定されていて、半濁音キーには濁音が設定されていない
+    /// * 半濁音キーに濁音が設定されていて、濁音キーには半濁音が設定されていない
+    /// のいずれかである
     pub(super) fn should_be_explicit_between_left_turbid_and_right_semiturbit(
         layout: &[Vec<Key>],
     ) -> bool {
-        // 濁音と半濁音を同時に押下したとき、両方に値が入っていると競合してしまうので、それを防ぐ
         let left_turbid = &layout[LEFT_TURBID_INDEX.0][LEFT_TURBID_INDEX.1];
         let right_semiturbid = &layout[RIGHT_SEMITURBID_INDEX.0][RIGHT_SEMITURBID_INDEX.1];
 
         matches!(
-            (
-                left_turbid.turbid(),
-                right_semiturbid.turbid(),
-                left_turbid.semiturbid(),
-                right_semiturbid.semiturbid(),
-            ),
-            (Some(_), None, None, None)
-                | (None, Some(_), None, None)
-                | (None, None, Some(_), None)
-                | (None, None, None, Some(_))
+            (right_semiturbid.turbid(), left_turbid.semiturbid(),),
+            (None, None) | (Some(_), None) | (None, Some(_))
         )
     }
 
@@ -211,16 +238,8 @@ mod constraints {
         let left_semiturbid = &layout[LEFT_SEMITURBID_INDEX.0][LEFT_SEMITURBID_INDEX.1];
 
         matches!(
-            (
-                right_turbid.turbid(),
-                left_semiturbid.turbid(),
-                right_turbid.semiturbid(),
-                left_semiturbid.semiturbid(),
-            ),
-            (Some(_), None, None, None)
-                | (None, Some(_), None, None)
-                | (None, None, Some(_), None)
-                | (None, None, None, Some(_))
+            (left_semiturbid.turbid(), right_turbid.semiturbid(),),
+            (None, None) | (Some(_), None) | (None, Some(_))
         )
     }
 
@@ -237,31 +256,29 @@ mod constraints {
 
                 if let Some(c) = key.shifted() {
                     if c != '　' && !chars.contains(&c) {
-                        log::warn!("{} found twice in keymap!", c)
+                        log::debug!("{} found twice in keymap!", c)
                     }
                     chars.remove(&c);
                 }
                 if let Some(c) = key.turbid() {
                     if c != '　' && !chars.contains(&c) {
-                        log::warn!("{} found twice in keymap!", c)
+                        log::debug!("{} found twice in keymap!", c)
                     }
                     chars.remove(&c);
                 }
                 if let Some(c) = key.semiturbid() {
                     if c != '　' && !chars.contains(&c) {
-                        log::warn!("{} found twice in keymap!", c)
+                        log::debug!("{} found twice in keymap!", c)
                     }
                     chars.remove(&c);
                 }
                 let c = key.unshifted();
                 if c != '　' && !chars.contains(&c) {
-                    log::warn!("{} found twice in keymap!", c)
+                    log::debug!("{} found twice in keymap!", c)
                 }
                 chars.remove(&c);
             }
         }
-
-        log::info!("{:?}", chars);
 
         chars.is_empty()
     }
@@ -438,7 +455,7 @@ mod constraints {
             let mut layout = empty_layout();
             put_key(
                 &mut layout,
-                Key::new_semiturbid('か', Some('ぬ')).unwrap(),
+                Key::new_turbid('か', Some('ぬ')).unwrap(),
                 RIGHT_TURBID_INDEX,
             );
             put_key(
@@ -457,10 +474,6 @@ mod constraints {
 }
 
 impl Keymap {
-    pub fn generation(&self) -> u64 {
-        self.generation
-    }
-
     /// 指定されたseedを元にしてキーマップを生成する
     ///
     /// 生成されたkeymapは、あくまでランダムなキーマップであり、実際に利用するためには、[Keymap::meet_requirements]がtrueを返すことを前提としなければ
@@ -477,56 +490,24 @@ impl Keymap {
         indices.remove(&LEFT_SEMITURBID_INDEX);
         indices.remove(&RIGHT_SEMITURBID_INDEX);
 
-        // シフトの位置だけは固定しておくので、最初に生成しておく
-        let shifted_char = pick_char(&mut cleartone_chars(), rng);
-        if let Some(p) = assignable_chars.iter().position(|c| *c == shifted_char) {
-            assignable_chars.remove(p);
-        }
-
-        // 左右シフトがshiftedになるケースは一通りしかないので、ここは常に同一になる
-        let key = Key::new_shift(pick_char(&mut assignable_chars, rng), Some(shifted_char));
-        layout[LEFT_SHIFT_INDEX.0][LEFT_SHIFT_INDEX.1] =
-            key.expect("should be generate shift key in initial generation");
-        let key = Key::new_shift(pick_char(&mut assignable_chars, rng), Some(shifted_char));
-        layout[RIGHT_SHIFT_INDEX.0][RIGHT_SHIFT_INDEX.1] =
-            key.expect("should be generate shift key in initial generation");
-
-        layout[LEFT_TURBID_INDEX.0][LEFT_TURBID_INDEX.1] =
-            get_key(&mut assignable_chars, rng, Key::new_turbid).expect("should be key");
-        layout[RIGHT_TURBID_INDEX.0][RIGHT_TURBID_INDEX.1] =
-            get_key(&mut assignable_chars, rng, Key::new_turbid).expect("should be key");
-        layout[LEFT_SEMITURBID_INDEX.0][LEFT_SEMITURBID_INDEX.1] =
-            get_key(&mut assignable_chars, rng, Key::new_semiturbid).expect("should be key");
-        layout[RIGHT_SEMITURBID_INDEX.0][RIGHT_SEMITURBID_INDEX.1] =
-            get_key(&mut assignable_chars, rng, Key::new_semiturbid).expect("should be key");
-
         // 残りの場所に追加していく。基本的に単打はふやすべきではあるので、一旦単打だけ埋める
-        Keymap::assign_normal_keys(&mut layout, rng, &mut assignable_chars, &indices);
+        Keymap::assign_keys(&mut layout, rng, &mut assignable_chars, &indices);
 
         if !assignable_chars.is_empty() {
             panic!("Leave some chars: {:?}", assignable_chars)
         }
 
         if !constraints::should_be_able_to_all_input(&layout) {
-            panic!(
-                "Leave some chars: {}",
-                Keymap {
-                    generation: 1,
-                    layout
-                }
-            );
+            panic!("Leave some chars: {}", Keymap { layout });
         }
 
-        Keymap {
-            generation: 1,
-            layout,
-        }
+        Keymap { layout }
     }
 
-    /// 通常のキーを設定する
+    /// キー全体の配置を行う
     ///
     /// ただし、全体としてランダムな生成であるため、そもそも完全にアサインできないケースが多々ある。
-    fn assign_normal_keys(
+    fn assign_keys(
         layout: &mut [Vec<Key>],
         rng: &mut StdRng,
         assignable_chars: &mut Vec<char>,
@@ -543,13 +524,34 @@ impl Keymap {
                 layout[*r][*c] = Key::empty();
             }
 
-            for (r, c) in indices.iter() {
-                let char = pick_char(&mut cloned, rng);
-
-                layout[*r][*c] = Key::new_normal(char, None).unwrap();
+            // シフトの位置だけは固定しておくので、最初に生成しておく
+            let shifted_char = pick_char(&mut cleartone_chars(), rng);
+            if let Some(p) = cloned.iter().position(|c| *c == shifted_char) {
+                cloned.remove(p);
             }
 
-            // 2週目で、入るところから入れていくが、差分がなくなってしまったら
+            // 左右シフトがshiftedになるケースは一通りしかないので、ここは常に同一になる
+            layout[LEFT_SHIFT_INDEX.0][LEFT_SHIFT_INDEX.1] =
+                get_key_with_shift(shifted_char, &mut cloned, rng, Key::new_shift)
+                    .expect("should be shift");
+            layout[RIGHT_SHIFT_INDEX.0][RIGHT_SHIFT_INDEX.1] =
+                get_key_with_shift(shifted_char, &mut cloned, rng, Key::new_shift)
+                    .expect("should be shift");
+
+            layout[LEFT_TURBID_INDEX.0][LEFT_TURBID_INDEX.1] =
+                get_key(&mut cloned, rng, Key::new_turbid).expect("should be key");
+            layout[RIGHT_TURBID_INDEX.0][RIGHT_TURBID_INDEX.1] =
+                get_key(&mut cloned, rng, Key::new_turbid).expect("should be key");
+            layout[LEFT_SEMITURBID_INDEX.0][LEFT_SEMITURBID_INDEX.1] =
+                get_key(&mut cloned, rng, Key::new_semiturbid).expect("should be key");
+            layout[RIGHT_SEMITURBID_INDEX.0][RIGHT_SEMITURBID_INDEX.1] =
+                get_key(&mut cloned, rng, Key::new_semiturbid).expect("should be key");
+
+            for (r, c) in indices.iter() {
+                layout[*r][*c] = get_key(&mut cloned, rng, Key::new_normal).expect("should be key")
+            }
+
+            // 2週目で、入るところから入れていくが、差分がなくなってもまだ空ではない場合は再度実行する
             while {
                 let current_count = cloned.len();
 
@@ -572,7 +574,6 @@ impl Keymap {
 
                 current_count != cloned.len() && !cloned.is_empty()
             } {}
-            log::info!("left some chars: {:?}", cloned);
         }
 
         // 全部入れ終わっているはずなのでclearする
@@ -628,18 +629,31 @@ impl Keymap {
     pub fn mutate(&self, rng: &mut StdRng) -> Keymap {
         let mut keymap = self.clone();
 
-        // いくつか定義されている処理をランダムに実行する
-        let operation: i32 = rng.gen_range(0..3);
+        let operation: u32 = rng.gen_range(0..3);
 
         match operation {
             0 => keymap.swap_unshifted_between_keys(rng),
             1 => keymap.swap_shifted_between_keys(rng),
             2 => keymap.flip_key(rng),
-            _ => panic!("invalid case"),
+            _ => (),
         }
 
-        keymap.generation += 1;
         keymap
+    }
+
+    /// keymapに対して一様交叉を実施する
+    ///
+    /// ただし、生成されたkeymapがそもそも適合しない場合もあり得る
+    pub fn cross(&mut self, other: &mut Keymap, rng: &mut StdRng) {
+        for (r, rows) in self.layout.iter().enumerate() {
+            for (c, _) in rows.iter().enumerate() {
+                if rng.gen::<bool>() {
+                    let tmp = self.layout[r][c];
+                    self.layout[r][c] = other.layout[r][c];
+                    other.layout[r][c] = tmp
+                }
+            }
+        }
     }
 
     /// 任意のkeyにおけるunshiftedを交換する。

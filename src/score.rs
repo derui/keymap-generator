@@ -68,16 +68,29 @@ fn two_conjunction_scores(first: &Pos, second: &Pos) -> u64 {
 
 /// 3連接に対する評価を実施する
 fn three_conjunction_scores(first: &Pos, second: &Pos, third: &Pos) -> u64 {
-    let rules = [|score: u64| {
-        // 同じ指で同じキーを連続して押下している場合はペナルティを与える
-        if first == second && second == third {
-            score + (150 * FINGER_WEIGHTS[first.0][first.1])
-        } else {
-            score
-        }
-    }];
+    let rules = [
+        |first: &Pos, second: &Pos, third: &Pos| {
+            // 同じ指で同じキーを連続して押下している場合はペナルティを与える
+            if first == second && second == third {
+                (300 * FINGER_WEIGHTS[first.0][first.1])
+            } else {
+                0
+            }
+        },
+        |first: &Pos, second: &Pos, third: &Pos| {
+            // 同じ指でスキップが連続している場合はペナルティ
+            if first.is_skip_row_on_same_finger(second) && second.is_skip_row_on_same_finger(third)
+            {
+                (300 * FINGER_WEIGHTS[first.0][first.1])
+            } else {
+                0
+            }
+        },
+    ];
 
-    rules.iter().fold(0, |score, rule| rule(score))
+    rules
+        .iter()
+        .fold(0, |score, rule| score + rule(first, second, third))
 }
 
 /// 三重連接に対して特殊な評価を行う。
@@ -124,7 +137,7 @@ fn special_evaluations(
 ///
 /// # Returns
 /// 評価値
-pub fn evaluate(conjunctions: &Vec<Conjunction>, keymap: &Keymap) -> u64 {
+pub fn evaluate(conjunctions: &[Conjunction], keymap: &Keymap) -> u64 {
     let mut score = 0;
 
     let mut pos_cache: HashMap<char, (KeyKind, (usize, usize))> = HashMap::new();
@@ -141,6 +154,7 @@ pub fn evaluate(conjunctions: &Vec<Conjunction>, keymap: &Keymap) -> u64 {
                 score += FINGER_WEIGHTS[*r][*c];
 
                 // 対象の文字がshift/濁音/半濁音の場合は、それに対応するキーも評価に加える
+                // ただ、これらについて運指まで考慮するのはだいぶしんどいので、一旦気にしないで生成している
                 let additional_finger = match k {
                     crate::keymap::KeyKind::Normal => None,
                     crate::keymap::KeyKind::Shift => {
