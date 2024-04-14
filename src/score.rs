@@ -211,7 +211,8 @@ fn special_evaluations(
         score += two_conjunction_scores(&positions[0], &positions[1]);
     }
 
-    if positions.len() >= 3 {
+    // 3連接を考慮するのは、あくまで4文字連接までとする
+    if positions.len() > 3 {
         score += three_conjunction_scores(&positions[0], &positions[1], &positions[2]);
     }
 

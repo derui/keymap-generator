@@ -1,4 +1,4 @@
-use std::sync::mpsc::channel;
+use std::sync::{mpsc::channel, Arc};
 
 use rand::{rngs::StdRng, Rng};
 
@@ -18,8 +18,7 @@ pub struct Playground {
     keymaps: Vec<Keymap>,
 }
 
-const CROSS_PROPABILITY: f64 = 0.05;
-const MUTATION_PROPABILITY: f64 = 0.01;
+const MUTATION_PROPABILITY: f64 = 0.05;
 const SAVE_PERCENT: f64 = 0.3;
 const WORKERS: u8 = 20;
 
@@ -68,21 +67,7 @@ impl Playground {
         while new_keymaps.len() < self.gen_count as usize {
             let prob = rng.gen::<f64>();
 
-            if prob < CROSS_PROPABILITY {
-                // 交叉
-                let mut map1 = self.select(rng, &rank, &select_prob);
-                let mut map2 = self.select(rng, &rank, &select_prob);
-
-                map1.cross(&mut map2, rng);
-
-                if map1.meet_requirements() {
-                    new_keymaps.push(map1);
-                }
-
-                if map2.meet_requirements() {
-                    new_keymaps.push(map2);
-                }
-            } else if prob < CROSS_PROPABILITY + MUTATION_PROPABILITY {
+            if prob < MUTATION_PROPABILITY {
                 // 突然変異
                 let keymap = self.select(rng, &rank, &select_prob).mutate(rng);
 
@@ -157,6 +142,8 @@ impl Playground {
     fn rank(&self, conjunctions: &[Conjunction]) -> Vec<(u64, usize)> {
         let pool = threadpool::ThreadPool::new(self.workers);
 
+        let conjunctions = Arc::new(conjunctions.iter().cloned().collect::<Vec<_>>());
+
         let mut scores = Vec::new();
         let keymaps = self.keymaps.clone();
         let (tx, tr) = channel();
@@ -164,7 +151,7 @@ impl Playground {
         keymaps.iter().enumerate().for_each(|(idx, k)| {
             let tx = tx.clone();
             let keymap = k.clone();
-            let conjunctions: Vec<Conjunction> = conjunctions.to_vec();
+            let conjunctions = conjunctions.clone();
 
             pool.execute(move || {
                 let score = score::evaluate(&conjunctions, &keymap);

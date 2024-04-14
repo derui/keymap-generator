@@ -641,22 +641,6 @@ impl Keymap {
         keymap
     }
 
-    /// keymapに対して一様交叉を実施する
-    ///
-    /// ただし、生成されたkeymapがそもそも適合しない場合もあり得る
-    pub fn cross(&mut self, other: &mut Keymap, rng: &mut StdRng) {
-        let reader = self.layout.clone();
-        for (r, rows) in reader.iter().enumerate() {
-            for (c, _) in rows.iter().enumerate() {
-                if rng.gen::<bool>() {
-                    let tmp = self.layout[r][c].clone();
-                    self.layout[r][c] = other.layout[r][c].clone();
-                    other.layout[r][c] = tmp
-                }
-            }
-        }
-    }
-
     /// 任意のkeyにおけるunshiftedを交換する。
     fn swap_unshifted_between_keys(&mut self, rng: &mut StdRng) {
         let layout = Vec::from_iter(key_indices());
@@ -730,6 +714,15 @@ impl Keymap {
         let pos = layout[idx];
 
         self.layout[pos.0][pos.1] = self.layout[pos.0][pos.1].flip();
+
+        // シフトキーの場合は、対応するキーも一緒にswapする
+        if pos == LEFT_SHIFT_INDEX {
+            self.layout[RIGHT_SHIFT_INDEX.0][RIGHT_SHIFT_INDEX.1] =
+                self.layout[RIGHT_SHIFT_INDEX.0][RIGHT_SHIFT_INDEX.1].flip();
+        } else if pos == RIGHT_SHIFT_INDEX {
+            self.layout[LEFT_SHIFT_INDEX.0][LEFT_SHIFT_INDEX.1] =
+                self.layout[LEFT_SHIFT_INDEX.0][LEFT_SHIFT_INDEX.1].flip();
+        }
     }
 
     fn format_keymap(&self, layout: &Vec<Vec<Option<char>>>) -> String {
