@@ -63,7 +63,17 @@ struct Pos(usize, usize);
 
 impl Pos {
     fn is_skip_row_on_same_finger(&self, other: &Pos) -> bool {
-        self.0 == other.0 && (self.1 as isize - other.1 as isize).abs() >= 1
+        self.1 == other.1 && (self.0 as isize - other.0 as isize).abs() == 2
+    }
+
+    /// 異指で段をスキップしているか
+    fn is_skip_row(&self, other: &Pos) -> bool {
+        (self.0 as isize - other.0 as isize).abs() == 2
+    }
+
+    /// 同じ手で押下しているかどうか
+    fn is_same_hand(&self, other: &Pos) -> bool {
+        HAND_ASSIGNMENT[self.0][self.1] == HAND_ASSIGNMENT[other.0][other.1]
     }
 
     /// 同一の手、かつ同一の指かどうか
@@ -118,6 +128,14 @@ fn two_conjunction_scores(first: &Pos, second: &Pos) -> u64 {
             }
         },
         |first: &Pos, second: &Pos| {
+            // 段飛ばしをしている場合はペナルティを与える
+            if first.is_skip_row(second) {
+                FINGER_WEIGHTS[first.0][first.1] + FINGER_WEIGHTS[second.0][second.1]
+            } else {
+                0
+            }
+        },
+        |first: &Pos, second: &Pos| {
             // 2連接のスコアを返す
             first.connection_score(second)
         },
@@ -132,14 +150,6 @@ fn two_conjunction_scores(first: &Pos, second: &Pos) -> u64 {
 fn three_conjunction_scores(first: &Pos, second: &Pos, third: &Pos) -> u64 {
     let rules = [
         |first: &Pos, second: &Pos, third: &Pos| {
-            // 同じ指で同じキーを連続して押下している場合はペナルティを与える
-            if first == second && second == third {
-                300 * FINGER_WEIGHTS[first.0][first.1]
-            } else {
-                0
-            }
-        },
-        |first: &Pos, second: &Pos, third: &Pos| {
             // 同じ指でスキップが連続している場合はペナルティ
             if first.is_skip_row_on_same_finger(second) && second.is_skip_row_on_same_finger(third)
             {
@@ -149,9 +159,17 @@ fn three_conjunction_scores(first: &Pos, second: &Pos, third: &Pos) -> u64 {
             }
         },
         |first: &Pos, second: &Pos, third: &Pos| {
-            // 同じ指を連続して打鍵しているばあいはペナルティを与える
+            // 同じ手を連続して打鍵しているばあいはペナルティを与える
             if first.is_same_hand_and_finger(second) && second.is_same_hand_and_finger(third) {
                 100 * FINGER_WEIGHTS[first.0][first.1]
+            } else {
+                0
+            }
+        },
+        |first: &Pos, second: &Pos, third: &Pos| {
+            // 同じ手を連続して打鍵しているばあいはペナルティを与える
+            if first.is_same_hand(second) && second.is_same_hand(third) {
+                150
             } else {
                 0
             }
