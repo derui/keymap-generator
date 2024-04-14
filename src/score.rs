@@ -12,7 +12,7 @@ use crate::{
 #[rustfmt::skip]
 static FINGER_WEIGHTS: [[u64; 10];3] = [
     [10000, 40,  20,  30, 10000, 10000, 30, 20, 40, 10000],
-    [80,    60,  30,  10,    30,    30, 10, 30, 60, 80],
+    [80,    60,  10,  10,    40,    40, 10, 10, 60, 80],
     [100,   60,  40,  20,    60,    60, 20, 40, 60, 100],
 ];
 
@@ -247,21 +247,21 @@ pub fn evaluate(conjunctions: &[Conjunction], keymap: &Keymap) -> u64 {
                 let additional_finger = match k {
                     crate::keymap::KeyKind::Normal => None,
                     crate::keymap::KeyKind::Shift => {
-                        if HAND_ASSIGNMENT[*r][*c] == 1 {
+                        if HAND_ASSIGNMENT[*r][*c] == 2 {
                             Some(RIGHT_SHIFT_INDEX)
                         } else {
                             Some(LEFT_SHIFT_INDEX)
                         }
                     }
                     crate::keymap::KeyKind::Turbid => {
-                        if HAND_ASSIGNMENT[*r][*c] == 1 {
+                        if HAND_ASSIGNMENT[*r][*c] == 2 {
                             Some(RIGHT_TURBID_INDEX)
                         } else {
                             Some(LEFT_TURBID_INDEX)
                         }
                     }
                     crate::keymap::KeyKind::Semiturbid => {
-                        if HAND_ASSIGNMENT[*r][*c] == 1 {
+                        if HAND_ASSIGNMENT[*r][*c] == 2 {
                             Some(RIGHT_SEMITURBID_INDEX)
                         } else {
                             Some(LEFT_SEMITURBID_INDEX)
