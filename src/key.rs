@@ -39,7 +39,7 @@ impl KeyDef {
 
         match shifted {
             Some(shifted) => {
-                if unshifted.conflicted(&shifted) {
+                if unshifted.conflicts(&shifted) {
                     None
                 } else {
                     Some(KeyDef {
@@ -277,7 +277,7 @@ mod tests {
 
         // assert
         assert!(
-            Key::new_normal('か', Some('い')).is_none(),
+            Key::new_normal('か', Some('い')).is_some(),
             "should not be able to make key"
         );
         assert!(
@@ -285,7 +285,7 @@ mod tests {
             "should not be able to make key"
         );
         assert!(
-            Key::new_normal('い', Some('か')).is_none(),
+            Key::new_normal('い', Some('か')).is_some(),
             "should not be able to make key"
         );
         assert!(

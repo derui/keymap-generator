@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 /// ひらがなの一覧。評価で利用する
 pub const CHARS: [char; 83] = [
     'あ', 'い', 'う', 'え', 'お', 'か', 'き', 'く', 'け', 'こ', 'さ', 'し', 'す', 'せ', 'そ', 'た',
@@ -19,6 +21,19 @@ const ASSIGNABLE_CHARS: [char; 50] = [
 /// 入力可能とする文字の一覧を返す
 pub fn assignable_chars() -> Vec<char> {
     Vec::from(ASSIGNABLE_CHARS)
+}
+
+/// 入力可能な清音の一覧を返す
+pub fn cleartone_chars() -> Vec<char> {
+    let mut vec = HashSet::from(ASSIGNABLE_CHARS);
+
+    for c in ASSIGNABLE_CHARS.iter() {
+        if matches!(get_turbid(*c), Some(_)) {
+            vec.remove(c);
+        }
+    }
+
+    vec.into_iter().collect()
 }
 
 /// 文字に対応する濁音を返す
@@ -117,11 +132,9 @@ impl CharDef {
     ///
     /// # Returns
     /// 競合する場合は`true`、しない場合は`false`
-    pub fn conflicted(&self, other: &Self) -> bool {
+    pub fn conflicts(&self, other: &Self) -> bool {
         match (self.turbid, other.turbid, self.semiturbid, other.semiturbid) {
             (Some(_), Some(_), _, _) => true,
-            (Some(_), _, _, Some(_)) => true,
-            (_, Some(_), Some(_), _) => true,
             (_, _, Some(_), Some(_)) => true,
             _ => self.normal == other.normal,
         }
@@ -139,7 +152,7 @@ mod tests {
         let def2 = CharDef::find('み');
 
         // act
-        let ret = def1.conflicted(&def2);
+        let ret = def1.conflicts(&def2);
 
         // assert
         assert!(!ret);
@@ -152,7 +165,7 @@ mod tests {
         let def2 = CharDef::find('し');
 
         // act
-        let ret = def1.conflicted(&def2);
+        let ret = def1.conflicts(&def2);
 
         // assert
         assert!(ret);
@@ -165,7 +178,7 @@ mod tests {
         let def2 = CharDef::find('あ');
 
         // act
-        let ret = def1.conflicted(&def2);
+        let ret = def1.conflicts(&def2);
 
         // assert
         assert!(ret);
