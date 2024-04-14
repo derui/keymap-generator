@@ -97,7 +97,7 @@ fn three_conjunction_scores(first: &Pos, second: &Pos, third: &Pos) -> u64 {
         |first: &Pos, second: &Pos, third: &Pos| {
             // 同じ指で同じキーを連続して押下している場合はペナルティを与える
             if first == second && second == third {
-                (300 * FINGER_WEIGHTS[first.0][first.1])
+                300 * FINGER_WEIGHTS[first.0][first.1]
             } else {
                 0
             }
@@ -106,7 +106,7 @@ fn three_conjunction_scores(first: &Pos, second: &Pos, third: &Pos) -> u64 {
             // 同じ指でスキップが連続している場合はペナルティ
             if first.is_skip_row_on_same_finger(second) && second.is_skip_row_on_same_finger(third)
             {
-                (300 * FINGER_WEIGHTS[first.0][first.1])
+                300 * FINGER_WEIGHTS[first.0][first.1]
             } else {
                 0
             }

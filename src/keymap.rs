@@ -513,7 +513,7 @@ impl Keymap {
         assignable_chars: &mut Vec<char>,
         indices: &HashSet<(usize, usize)>,
     ) {
-        let mut cloned: Vec<char> = assignable_chars.iter().cloned().collect();
+        let mut cloned: Vec<char> = assignable_chars.to_vec();
 
         // 残りの場所に追加していく。基本的に単打はふやすべきではあるので、一旦単打だけ埋める
         while !cloned.is_empty() {

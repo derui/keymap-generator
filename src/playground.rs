@@ -1,4 +1,4 @@
-use std::{io::Stderr, sync::mpsc::channel};
+use std::sync::mpsc::channel;
 
 use rand::{rngs::StdRng, Rng};
 
@@ -155,7 +155,7 @@ impl Playground {
     ///
     /// この中から、全体の特定の%までに対して確率を按分する
     fn rank(&self, conjunctions: &[Conjunction]) -> Vec<(u64, usize)> {
-        let pool = threadpool::ThreadPool::new(self.workers as usize);
+        let pool = threadpool::ThreadPool::new(self.workers);
 
         let mut scores = Vec::new();
         let keymaps = self.keymaps.clone();
@@ -164,7 +164,7 @@ impl Playground {
         keymaps.iter().enumerate().for_each(|(idx, k)| {
             let tx = tx.clone();
             let keymap = k.clone();
-            let conjunctions: Vec<Conjunction> = conjunctions.iter().cloned().collect();
+            let conjunctions: Vec<Conjunction> = conjunctions.to_vec();
 
             pool.execute(move || {
                 let score = score::evaluate(&conjunctions, &keymap);

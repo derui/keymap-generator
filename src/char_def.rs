@@ -28,7 +28,7 @@ pub fn cleartone_chars() -> Vec<char> {
     let mut vec = HashSet::from(ASSIGNABLE_CHARS);
 
     for c in ASSIGNABLE_CHARS.iter() {
-        if matches!(get_turbid(*c), Some(_)) {
+        if get_turbid(*c).is_some() {
             vec.remove(c);
         }
     }
