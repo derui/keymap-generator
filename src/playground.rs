@@ -20,7 +20,6 @@ pub struct Playground {
 
 const CROSS_PROPABILITY: f64 = 0.05;
 const MUTATION_PROPABILITY: f64 = 0.01;
-const CLONE_PROPABILITY: f64 = 0.94;
 const SAVE_PERCENT: f64 = 0.3;
 const WORKERS: u8 = 20;
 
@@ -46,8 +45,14 @@ impl Playground {
         }
     }
 
-    /// 世代を一つ進める
-    pub fn advance(&mut self, rng: &mut StdRng, conjunctions: &[Conjunction]) {
+    pub fn generation(&self) -> u64 {
+        self.generation
+    }
+
+    /// 世代を一つ進める。結果として、現世代でベストだったkeymapを返す
+    ///
+    /// 結果として、bestなscoreとkeymapを返す
+    pub fn advance(&mut self, rng: &mut StdRng, conjunctions: &[Conjunction]) -> (u64, Keymap) {
         self.generation += 1;
 
         let mut new_keymaps = Vec::new();
@@ -57,7 +62,7 @@ impl Playground {
             .take((self.gen_count as f64 * SAVE_PERCENT) as usize)
             .cloned()
             .collect::<Vec<_>>();
-        let select_prob = self.select_prob(&rank);
+        let select_prob = self.make_probabilities(&rank);
 
         // new_keymapsがgen_countになるまで繰り返す
         while new_keymaps.len() < self.gen_count as usize {
@@ -79,8 +84,7 @@ impl Playground {
                 }
             } else if prob < CROSS_PROPABILITY + MUTATION_PROPABILITY {
                 // 突然変異
-                let keymap = self.select(rng, &rank, &select_prob);
-                let keymap = keymap.mutate(rng);
+                let keymap = self.select(rng, &rank, &select_prob).mutate(rng);
 
                 if keymap.meet_requirements() {
                     new_keymaps.push(keymap);
@@ -92,6 +96,7 @@ impl Playground {
             }
         }
 
+        let best_keymap = self.keymaps[rank[0].1].clone();
         self.keymaps = new_keymaps;
 
         log::info!(
@@ -99,19 +104,22 @@ impl Playground {
             self.generation,
             rank[0].0
         );
+
+        (rank[0].0, best_keymap.clone())
     }
 
-    /// rankから、それぞれが選択される確率を返す
+    /// rankから、それぞれが選択される確率を返す。サイズは常にrankと同じサイズである。
     ///
     /// rankは、scoreが低い順であるため、全体を逆に扱っている。
-    fn select_prob(&self, rank: &[(u64, usize)]) -> Vec<f64> {
+    fn make_probabilities(&self, rank: &[(u64, usize)]) -> Vec<f64> {
         let mut probs = vec![0.0; rank.len()];
         let total_score = rank.iter().map(|(score, _)| *score).sum::<u64>();
 
-        for (score, _) in rank {
-            probs.push(1.0 - *score as f64 / total_score as f64);
+        for (idx, (score, _)) in rank.iter().enumerate() {
+            probs[idx] = 1.0 - *score as f64 / total_score as f64;
         }
 
+        probs.reverse();
         probs
     }
 
@@ -129,9 +137,18 @@ impl Playground {
     fn select(&self, rng: &mut StdRng, rank: &[(u64, usize)], probs: &[f64]) -> Keymap {
         let prob = rng.gen::<f64>();
 
-        let Some(idx) = probs.iter().position(|p| *p >= prob);
+        let mut idx = None;
+        let mut prob_accum = 0.0;
 
-        self.keymaps[rank[idx].1].clone()
+        for (prob_idx, v) in probs.iter().enumerate() {
+            prob_accum += *v;
+            if prob_accum >= prob {
+                idx = Some(prob_idx);
+                break;
+            }
+        }
+
+        self.keymaps[rank[idx.expect("should be found")].1].clone()
     }
 
     /// scoreに基づいてkeymapをランク付けする。
@@ -144,24 +161,22 @@ impl Playground {
         let keymaps = self.keymaps.clone();
         let (tx, tr) = channel();
 
-        let handles = keymaps
-            .iter()
-            .enumerate()
-            .map(|(idx, k)| {
-                let tx = tx.clone();
-                pool.execute(move || {
-                    let score = score::evaluate(&conjunctions, k);
-                    tx.send((score, idx)).expect("should be success")
-                })
+        keymaps.iter().enumerate().for_each(|(idx, k)| {
+            let tx = tx.clone();
+            let keymap = k.clone();
+            let conjunctions: Vec<Conjunction> = conjunctions.iter().cloned().collect();
+
+            pool.execute(move || {
+                let score = score::evaluate(&conjunctions, &keymap);
+                tx.send((score, idx)).expect("should be success")
             })
-            .collect::<Vec<_>>();
+        });
 
         for (score, idx) in tr.iter().take(self.keymaps.len()) {
             scores.push((score, idx));
         }
 
         scores.sort_by(|a, b| a.0.cmp(&b.0));
-        scores.reverse();
         scores
     }
 }

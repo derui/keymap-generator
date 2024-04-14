@@ -645,11 +645,12 @@ impl Keymap {
     ///
     /// ただし、生成されたkeymapがそもそも適合しない場合もあり得る
     pub fn cross(&mut self, other: &mut Keymap, rng: &mut StdRng) {
-        for (r, rows) in self.layout.iter().enumerate() {
+        let reader = self.layout.clone();
+        for (r, rows) in reader.iter().enumerate() {
             for (c, _) in rows.iter().enumerate() {
                 if rng.gen::<bool>() {
-                    let tmp = self.layout[r][c];
-                    self.layout[r][c] = other.layout[r][c];
+                    let tmp = self.layout[r][c].clone();
+                    self.layout[r][c] = other.layout[r][c].clone();
                     other.layout[r][c] = tmp
                 }
             }

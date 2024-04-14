@@ -23,7 +23,14 @@ static HAND_ASSIGNMENT: [[u8; 10]; 3] = [
     [1, 1, 1, 1, 1, 2, 2, 2, 2, 2],
 ];
 
-#[derive(Debug)]
+/// キーを押下する指の割当。 1 = 人差し指、2 = 中指、３ = 薬指、４ = 小指
+static FINGER_ASSIGNMENT: [[u8; 10]; 3] = [
+    [4, 3, 2, 1, 1, 1, 1, 2, 3, 4],
+    [4, 3, 2, 1, 1, 1, 1, 2, 3, 4],
+    [4, 3, 2, 1, 1, 1, 1, 2, 3, 4],
+];
+
+#[derive(Debug, Clone)]
 pub struct Conjunction {
     /// 連接のテキスト
     pub text: String,
@@ -37,6 +44,16 @@ struct Pos(usize, usize);
 impl Pos {
     fn is_skip_row_on_same_finger(&self, other: &Pos) -> bool {
         self.0 == other.0 && (self.1 as isize - other.1 as isize).abs() >= 1
+    }
+
+    /// 同一の手、かつ同一の指かどうか
+    fn is_same_hand_and_finger(&self, other: &Pos) -> bool {
+        let finger_self = FINGER_ASSIGNMENT[self.0][self.1];
+        let finger_other = FINGER_ASSIGNMENT[other.0][other.1];
+        let hand_self = HAND_ASSIGNMENT[self.0][self.1];
+        let hand_other = HAND_ASSIGNMENT[other.0][other.1];
+
+        finger_self == finger_other && hand_self == hand_other
     }
 }
 
@@ -54,6 +71,14 @@ fn two_conjunction_scores(first: &Pos, second: &Pos) -> u64 {
         |first: &Pos, second: &Pos| {
             // 同じ指で同じ行をスキップしている場合はペナルティを与える
             if first.is_skip_row_on_same_finger(second) {
+                50 * FINGER_WEIGHTS[first.0][first.1]
+            } else {
+                0
+            }
+        },
+        |first: &Pos, second: &Pos| {
+            // 同じ指を連続して打鍵しているばあいはペナルティを与える
+            if first.is_same_hand_and_finger(second) {
                 50 * FINGER_WEIGHTS[first.0][first.1]
             } else {
                 0
@@ -82,6 +107,14 @@ fn three_conjunction_scores(first: &Pos, second: &Pos, third: &Pos) -> u64 {
             if first.is_skip_row_on_same_finger(second) && second.is_skip_row_on_same_finger(third)
             {
                 (300 * FINGER_WEIGHTS[first.0][first.1])
+            } else {
+                0
+            }
+        },
+        |first: &Pos, second: &Pos, third: &Pos| {
+            // 同じ指を連続して打鍵しているばあいはペナルティを与える
+            if first.is_same_hand_and_finger(second) && second.is_same_hand_and_finger(third) {
+                100 * FINGER_WEIGHTS[first.0][first.1]
             } else {
                 0
             }

@@ -4,9 +4,12 @@ use keymap::Keymap;
 use rand::{random, rngs::StdRng, SeedableRng};
 use score::Conjunction;
 
+use crate::playground::Playground;
+
 mod char_def;
 mod key;
 mod keymap;
+mod playground;
 mod score;
 
 fn read_4gram(path: &Path) -> anyhow::Result<Vec<Conjunction>> {
@@ -39,41 +42,22 @@ fn main() -> anyhow::Result<()> {
         .parse::<u64>()?;
     let mut rng = StdRng::seed_from_u64(seed);
 
-    let mut keymap = Keymap::generate(&mut rng);
+    let mut playground = Playground::new(255, &mut rng);
     let mut best_score = u64::MAX;
     let mut best_keymap: Option<Keymap> = None;
     let conjunctions = read_4gram(Path::new(&path))?;
-    log::info!("initial keymap: {}", keymap);
 
-    while keymap.generation() < 5000 {
-        let new_keymap = keymap.mutate(&mut rng);
+    while playground.generation() < 5000 {
+        let ret = playground.advance(&mut rng, &conjunctions);
+        best_score = ret.0;
+        best_keymap = Some(ret.1);
 
-        // 条件を満たす場合のみ評価し、次の世代を構成できるものとする
-        if new_keymap.meet_requirements() {
-            let score = score::evaluate(&conjunctions, &new_keymap);
-
-            if best_score > score {
-                log::info!(
-                    "updated {} -> {} at generation {}",
-                    best_score,
-                    score,
-                    new_keymap.generation()
-                );
-                best_score = score;
-                best_keymap = Some(new_keymap.clone());
-            } else {
-                log::info!(
-                    "Get score {}, but best is {} at generation {}",
-                    score,
-                    best_score,
-                    new_keymap.generation()
-                );
-            }
-            keymap = new_keymap;
-        }
-
-        if keymap.generation() % 1000 == 0 {
-            log::info!("Processed generation: {}", keymap.generation());
+        if playground.generation() % 100 == 0 {
+            log::info!(
+                "Processed generation: {}, current best is {}",
+                playground.generation(),
+                best_keymap.clone().unwrap()
+            );
         }
     }
 
