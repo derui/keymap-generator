@@ -68,11 +68,14 @@ impl Playground {
             let prob = rng.gen::<f64>();
 
             if prob < MUTATION_PROPABILITY {
-                // 突然変異
-                let keymap = self.select(rng, &rank, &select_prob).mutate(rng);
+                loop {
+                    // 突然変異
+                    let keymap = self.select(rng, &rank, &select_prob).mutate(rng);
 
-                if keymap.meet_requirements() {
-                    new_keymaps.push(keymap);
+                    if keymap.meet_requirements() {
+                        new_keymaps.push(keymap);
+                        break;
+                    }
                 }
             } else {
                 // 複製
@@ -84,7 +87,7 @@ impl Playground {
         let best_keymap = self.keymaps[rank[0].1].clone();
         self.keymaps = new_keymaps;
 
-        log::info!(
+        log::debug!(
             "generation: {}, best score is: {}",
             self.generation,
             rank[0].0

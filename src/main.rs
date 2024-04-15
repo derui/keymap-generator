@@ -32,6 +32,12 @@ fn read_4gram(path: &Path) -> anyhow::Result<Vec<Conjunction>> {
     Ok(conjunctions)
 }
 
+const QWERTY: [[char; 10]; 3] = [
+    ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
+    ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';'],
+    ['z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/'],
+];
+
 fn main() -> anyhow::Result<()> {
     env_logger::init();
 
@@ -62,10 +68,11 @@ fn main() -> anyhow::Result<()> {
     }
 
     println!(
-        "Score: {}, Seed: {}, Best keymap: {}",
+        "Score: {}, Seed: {}, Best keymap: {} for evaluation:\n{:?}",
         best_score,
         seed,
-        best_keymap.unwrap()
+        best_keymap.clone().unwrap(),
+        best_keymap.unwrap().key_combinations(&QWERTY)
     );
 
     Ok(())

@@ -780,6 +780,61 @@ impl Keymap {
         }
     }
 
+    /// https://github.com/mobitan/chutoro/tree/main/tools
+    /// 上記での評価用にpairを生成する。
+    ///
+    /// # Arguments
+    /// * `key_layout` - マッピング対象のalphabetキー
+    ///
+    /// # Returns
+    /// 最初のセルにひらがな、２番めのセルにkeyのcombinationを返す
+    pub fn key_combinations(&self, key_layout: &[[char; 10]; 3]) -> Vec<(String, String)> {
+        let mut ret: Vec<(String, String)> = Vec::new();
+
+        for (r, rows) in self.layout.iter().enumerate() {
+            for (c, key) in rows.iter().enumerate() {
+                if matches!(key, Key::Empty) {
+                    continue;
+                }
+
+                ret.push((key.unshifted().to_string(), key_layout[r][c].to_string()));
+
+                // 各シフトの場合は、それぞれ逆手で押下するものとする
+                if let Some(shifted) = key.shifted() {
+                    let key = if c <= 4 {
+                        key_layout[RIGHT_SHIFT_INDEX.0][RIGHT_SHIFT_INDEX.1]
+                    } else {
+                        key_layout[LEFT_SHIFT_INDEX.0][LEFT_SHIFT_INDEX.1]
+                    };
+                    ret.push((shifted.to_string(), format!("{}{}", key, key_layout[r][c])));
+                }
+
+                if let Some(turbid) = key.turbid() {
+                    let key = if c <= 4 {
+                        key_layout[RIGHT_TURBID_INDEX.0][RIGHT_TURBID_INDEX.1]
+                    } else {
+                        key_layout[LEFT_TURBID_INDEX.0][LEFT_TURBID_INDEX.1]
+                    };
+                    ret.push((turbid.to_string(), format!("{}{}", key, key_layout[r][c])));
+                }
+
+                if let Some(semiturbid) = key.semiturbid() {
+                    let key = if c <= 4 {
+                        key_layout[RIGHT_SEMITURBID_INDEX.0][RIGHT_SEMITURBID_INDEX.1]
+                    } else {
+                        key_layout[LEFT_SEMITURBID_INDEX.0][LEFT_SEMITURBID_INDEX.1]
+                    };
+                    ret.push((
+                        semiturbid.to_string(),
+                        format!("{}{}", key, key_layout[r][c]),
+                    ));
+                }
+            }
+        }
+
+        ret
+    }
+
     fn format_keymap(&self, layout: &Vec<Vec<Option<char>>>) -> String {
         let header: String = (0..9)
             .map(|_| "┳".to_string())
