@@ -684,12 +684,13 @@ impl Keymap {
     pub fn mutate(&self, rng: &mut StdRng) -> Keymap {
         let mut keymap = self.clone();
 
-        let operation: u32 = rng.gen_range(0..3);
+        let operation: u32 = rng.gen_range(0..4);
 
         match operation {
-            0 => keymap.swap_unshifted_between_keys(rng),
+            0 => keymap.swap_unshift_between_keys(rng),
             1 => keymap.swap_shifted_between_keys(rng),
             2 => keymap.flip_key(rng),
+            3 => keymap.swap_shift_of_shift_key(rng),
             _ => (),
         }
 
@@ -697,7 +698,7 @@ impl Keymap {
     }
 
     /// 任意のkeyにおけるunshiftedを交換する。
-    fn swap_unshifted_between_keys(&mut self, rng: &mut StdRng) {
+    fn swap_unshift_between_keys(&mut self, rng: &mut StdRng) {
         let layout = Vec::from_iter(key_indices());
 
         loop {
@@ -751,6 +752,34 @@ impl Keymap {
                 self.layout[pos2.0][pos2.1] = new_key2;
 
                 break;
+            }
+        }
+    }
+
+    /// 任意のキーとshiftのshift面を取り替える
+    fn swap_shift_of_shift_key(&mut self, rng: &mut StdRng) {
+        let layout = Vec::from_iter(key_indices());
+
+        loop {
+            let idx = rng.gen_range(0..layout.len());
+            let pos = layout[idx];
+
+            if pos == LEFT_SHIFT_INDEX || pos == RIGHT_SHIFT_INDEX {
+                continue;
+            }
+
+            let key1 = &self.layout[pos.0][pos.1];
+            let left_shift = &self.layout[LEFT_SHIFT_INDEX.0][LEFT_SHIFT_INDEX.1];
+            let right_shift = &self.layout[RIGHT_SHIFT_INDEX.0][RIGHT_SHIFT_INDEX.1];
+
+            if let Some((new_key1, new_key2)) = key1.swap_shifted(left_shift) {
+                if let Some((_, right_shift)) = key1.swap_shifted(right_shift) {
+                    self.layout[pos.0][pos.1] = new_key1;
+                    self.layout[LEFT_SHIFT_INDEX.0][LEFT_SHIFT_INDEX.1] = new_key2;
+                    self.layout[RIGHT_SHIFT_INDEX.0][RIGHT_SHIFT_INDEX.1] = right_shift;
+
+                    break;
+                }
             }
         }
     }

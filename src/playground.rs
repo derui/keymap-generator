@@ -18,7 +18,7 @@ pub struct Playground {
     keymaps: Vec<Keymap>,
 }
 
-const MUTATION_PROPABILITY: f64 = 0.05;
+const MUTATION_PROPABILITY: f64 = 0.25;
 const SAVE_PERCENT: f64 = 0.3;
 const WORKERS: u8 = 20;
 
@@ -61,7 +61,7 @@ impl Playground {
             .take((self.gen_count as f64 * SAVE_PERCENT) as usize)
             .cloned()
             .collect::<Vec<_>>();
-        let select_prob = self.make_probabilities(&rank);
+        let probabilities = self.make_probabilities(&rank);
 
         // new_keymapsがgen_countになるまで繰り返す
         while new_keymaps.len() < self.gen_count as usize {
@@ -70,7 +70,7 @@ impl Playground {
             if prob < MUTATION_PROPABILITY {
                 loop {
                     // 突然変異
-                    let keymap = self.select(rng, &rank, &select_prob).mutate(rng);
+                    let keymap = self.select(rng, &rank, &probabilities).mutate(rng);
 
                     if keymap.meet_requirements() {
                         new_keymaps.push(keymap);
@@ -79,7 +79,7 @@ impl Playground {
                 }
             } else {
                 // 複製
-                let keymap = self.select(rng, &rank, &select_prob);
+                let keymap = self.select(rng, &rank, &probabilities);
                 new_keymaps.push(keymap);
             }
         }

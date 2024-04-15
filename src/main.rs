@@ -58,8 +58,9 @@ fn main() -> anyhow::Result<()> {
 
         if best_score > ret.0 {
             log::info!(
-                "Got new best at {}, current best is {}",
+                "Got new best at {}, score is {}, current best is {}",
                 playground.generation(),
+                ret.0,
                 ret.1
             );
         }
