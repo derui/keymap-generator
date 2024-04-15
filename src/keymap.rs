@@ -684,13 +684,14 @@ impl Keymap {
     pub fn mutate(&self, rng: &mut StdRng) -> Keymap {
         let mut keymap = self.clone();
 
-        let operation: u32 = rng.gen_range(0..4);
+        let operation: u32 = rng.gen_range(0..5);
 
         match operation {
             0 => keymap.swap_unshift_between_keys(rng),
             1 => keymap.swap_shifted_between_keys(rng),
             2 => keymap.flip_key(rng),
             3 => keymap.swap_shift_of_shift_key(rng),
+            4 => keymap.swap_shift_and_unshift(rng),
             _ => (),
         }
 
@@ -780,6 +781,43 @@ impl Keymap {
 
                     break;
                 }
+            }
+        }
+    }
+
+    /// 任意のキー同士のshiftとunshiftを交換する
+    ///
+    /// ただし、対象のキーがシフトキーの場合は除外する
+    fn swap_shift_and_unshift(&mut self, rng: &mut StdRng) {
+        let layout = Vec::from_iter(key_indices());
+
+        loop {
+            let idx1 = rng.gen_range(0..layout.len());
+            let idx2 = rng.gen_range(0..layout.len());
+
+            if idx1 == idx2 {
+                continue;
+            }
+            let pos1 = layout[idx1];
+            let pos2 = layout[idx2];
+
+            if pos1 == LEFT_SHIFT_INDEX
+                || pos1 == RIGHT_SHIFT_INDEX
+                || pos2 == LEFT_SHIFT_INDEX
+                || pos2 == RIGHT_SHIFT_INDEX
+            {
+                continue;
+            }
+
+            let key1 = &self.layout[pos1.0][pos1.1];
+            let key2 = &self.layout[pos2.0][pos2.1];
+            let key1 = key1.flip();
+
+            if let Some((new_key1, new_key2)) = key1.swap_shifted(key2) {
+                self.layout[pos1.0][pos1.1] = new_key1;
+                self.layout[pos2.0][pos2.1] = new_key2;
+
+                break;
             }
         }
     }
