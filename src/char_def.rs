@@ -30,6 +30,8 @@ pub fn cleartone_chars() -> Vec<char> {
     for c in ASSIGNABLE_CHARS.iter() {
         if get_turbid(*c).is_some() {
             vec.remove(c);
+        } else if get_semiturbid(*c).is_some() {
+            vec.remove(c);
         }
     }
 

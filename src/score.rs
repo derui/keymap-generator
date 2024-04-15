@@ -100,44 +100,46 @@ impl Pos {
     }
 }
 
+type ShiftedPos = (Pos, Option<Pos>);
+
 /// 2連接に対する評価を実施する
-fn two_conjunction_scores(first: &Pos, second: &Pos) -> u64 {
+fn two_conjunction_scores(first: &ShiftedPos, second: &ShiftedPos) -> u64 {
     let rules = [
-        |first: &Pos, second: &Pos| {
+        |first: &ShiftedPos, second: &ShiftedPos| {
             // 同じ指で同じキーを連続して押下している場合はペナルティを与える
             if first == second {
-                150 * FINGER_WEIGHTS[first.0][first.1]
+                150 * FINGER_WEIGHTS[first.0 .0][first.0 .1]
             } else {
                 0
             }
         },
-        |first: &Pos, second: &Pos| {
+        |first: &ShiftedPos, second: &ShiftedPos| {
             // 同じ指で同じ行をスキップしている場合はペナルティを与える
-            if first.is_skip_row_on_same_finger(second) {
-                50 * FINGER_WEIGHTS[first.0][first.1]
+            if first.0.is_skip_row_on_same_finger(&second.0) {
+                50 * FINGER_WEIGHTS[first.0 .0][first.0 .1]
             } else {
                 0
             }
         },
-        |first: &Pos, second: &Pos| {
+        |first: &ShiftedPos, second: &ShiftedPos| {
             // 同じ指を連続して打鍵しているばあいはペナルティを与える
-            if first.is_same_hand_and_finger(second) {
-                50 * FINGER_WEIGHTS[first.0][first.1]
+            if first.0.is_same_hand_and_finger(&second.0) {
+                50 * FINGER_WEIGHTS[first.0 .0][first.0 .1]
             } else {
                 0
             }
         },
-        |first: &Pos, second: &Pos| {
+        |first: &ShiftedPos, second: &ShiftedPos| {
             // 段飛ばしをしている場合はペナルティを与える
-            if first.is_skip_row(second) {
-                FINGER_WEIGHTS[first.0][first.1] + FINGER_WEIGHTS[second.0][second.1]
+            if first.0.is_skip_row(&second.0) {
+                FINGER_WEIGHTS[first.0 .0][first.0 .1] + FINGER_WEIGHTS[second.0 .0][second.0 .1]
             } else {
                 0
             }
         },
-        |first: &Pos, second: &Pos| {
+        |first: &ShiftedPos, second: &ShiftedPos| {
             // 2連接のスコアを返す
-            first.connection_score(second)
+            first.0.connection_score(&second.0)
         },
     ];
 
@@ -147,10 +149,13 @@ fn two_conjunction_scores(first: &Pos, second: &Pos) -> u64 {
 }
 
 /// 3連接に対する評価を実施する
-fn three_conjunction_scores(first: &Pos, second: &Pos, third: &Pos) -> u64 {
+fn three_conjunction_scores(first: &ShiftedPos, second: &ShiftedPos, third: &ShiftedPos) -> u64 {
     let rules = [
-        |first: &Pos, second: &Pos, third: &Pos| {
+        |first: &ShiftedPos, second: &ShiftedPos, third: &ShiftedPos| {
             // 同じ指でスキップが連続している場合はペナルティ
+            let (first, _) = first;
+            let (second, _) = second;
+            let (third, _) = third;
             if first.is_skip_row_on_same_finger(second) && second.is_skip_row_on_same_finger(third)
             {
                 300 * FINGER_WEIGHTS[first.0][first.1]
@@ -158,18 +163,39 @@ fn three_conjunction_scores(first: &Pos, second: &Pos, third: &Pos) -> u64 {
                 0
             }
         },
-        |first: &Pos, second: &Pos, third: &Pos| {
+        |first: &ShiftedPos, second: &ShiftedPos, third: &ShiftedPos| {
             // 同じ手を連続して打鍵しているばあいはペナルティを与える
+            let (first, _) = first;
+            let (second, _) = second;
+            let (third, _) = third;
             if first.is_same_hand_and_finger(second) && second.is_same_hand_and_finger(third) {
                 100 * FINGER_WEIGHTS[first.0][first.1]
             } else {
                 0
             }
         },
-        |first: &Pos, second: &Pos, third: &Pos| {
+        |first: &ShiftedPos, second: &ShiftedPos, third: &ShiftedPos| {
             // 同じ手を連続して打鍵しているばあいはペナルティを与える
+            let (first, _) = first;
+            let (second, _) = second;
+            let (third, _) = third;
             if first.is_same_hand(second) && second.is_same_hand(third) {
                 150
+            } else {
+                0
+            }
+        },
+        |first: &ShiftedPos, second: &ShiftedPos, third: &ShiftedPos| {
+            // 同じ手でシフトを連続している場合はペナルティを与える
+            let (_, first) = first.clone();
+            let (_, second) = second.clone();
+            let (_, third) = third.clone();
+            let first_hand = first.map(|p| HAND_ASSIGNMENT[p.0][p.1]).unwrap_or(0);
+            let second_hand = second.map(|p| HAND_ASSIGNMENT[p.0][p.1]).unwrap_or(0);
+            let third_hand = third.map(|p| HAND_ASSIGNMENT[p.0][p.1]).unwrap_or(0);
+
+            if first_hand == second_hand && second_hand == third_hand {
+                300
             } else {
                 0
             }
@@ -181,39 +207,31 @@ fn three_conjunction_scores(first: &Pos, second: &Pos, third: &Pos) -> u64 {
         .fold(0, |score, rule| score + rule(first, second, third))
 }
 
-/// 三重連接に対して特殊な評価を行う。
+/// 連接に対して特殊な評価を行う。
 ///
 /// # Arguments
-/// * `text` - 評価対象の文字列
-/// * `keymap` - キーマップ
+/// * `sequence` - 評価する対象のキー連接
 ///
 /// # Returns
 /// 評価値
-fn special_evaluations(
-    conj: &Conjunction,
-    pos_cache: &HashMap<char, (KeyKind, (usize, usize))>,
-) -> u64 {
-    let mut score = 0;
-    let text: Vec<char> = conj.text.chars().collect();
-    let keys = [
-        pos_cache.get(&text[0]),
-        pos_cache.get(&text[1]),
-        pos_cache.get(&text[2]),
-        pos_cache.get(&text[3]),
-    ];
-
-    let positions: Vec<Pos> = keys
+fn sequence_evaluation(sequence: &Vec<(Pos, Option<Pos>)>) -> u64 {
+    let mut score = sequence
         .iter()
-        .filter_map(|v| v.map(|(_, (r, c))| Pos(*r, *c)))
-        .collect();
+        .map(|(unshift, shift)| {
+            let score_unshift = FINGER_WEIGHTS[unshift.0][unshift.1];
+            let score_shift = shift.clone().map(|p| FINGER_WEIGHTS[p.0][p.1]).unwrap_or(0);
+            score_unshift + score_shift
+        })
+        .sum();
 
-    if positions.len() >= 2 {
-        score += two_conjunction_scores(&positions[0], &positions[1]);
+    // 先頭の連接を評価する
+    if sequence.len() >= 2 {
+        score += two_conjunction_scores(&sequence[0], &sequence[1]);
     }
 
-    // 3連接を考慮するのは、あくまで4文字連接までとする
-    if positions.len() > 3 {
-        score += three_conjunction_scores(&positions[0], &positions[1], &positions[2]);
+    // 3連接を評価する
+    if sequence.len() >= 3 {
+        score += three_conjunction_scores(&sequence[0], &sequence[1], &sequence[2]);
     }
 
     score
@@ -239,44 +257,42 @@ pub fn evaluate(conjunctions: &[Conjunction], keymap: &Keymap) -> u64 {
     }
 
     for conjunction in conjunctions {
+        let mut key_sequence: Vec<(Pos, Option<Pos>)> = Vec::new();
+
         for c in conjunction.text.chars() {
             if let Some((k, (r, c))) = pos_cache.get(&c) {
-                score += FINGER_WEIGHTS[*r][*c];
-
                 // 対象の文字がshift/濁音/半濁音の場合は、それに対応するキーも評価に加える
-                // ただ、これらについて運指まで考慮するのはだいぶしんどいので、一旦気にしないで生成している
+                // この場合、一応1動作として扱うのだが、次の打鍵に対してそれぞれからの評価が追加されるものとする
                 let additional_finger = match k {
                     crate::keymap::KeyKind::Normal => None,
                     crate::keymap::KeyKind::Shift => {
                         if HAND_ASSIGNMENT[*r][*c] == 2 {
-                            Some(RIGHT_SHIFT_INDEX)
-                        } else {
                             Some(LEFT_SHIFT_INDEX)
+                        } else {
+                            Some(RIGHT_SHIFT_INDEX)
                         }
                     }
                     crate::keymap::KeyKind::Turbid => {
                         if HAND_ASSIGNMENT[*r][*c] == 2 {
-                            Some(RIGHT_TURBID_INDEX)
-                        } else {
                             Some(LEFT_TURBID_INDEX)
+                        } else {
+                            Some(RIGHT_TURBID_INDEX)
                         }
                     }
                     crate::keymap::KeyKind::Semiturbid => {
                         if HAND_ASSIGNMENT[*r][*c] == 2 {
-                            Some(RIGHT_SEMITURBID_INDEX)
-                        } else {
                             Some(LEFT_SEMITURBID_INDEX)
+                        } else {
+                            Some(RIGHT_SEMITURBID_INDEX)
                         }
                     }
                 };
 
-                if let Some((r, c)) = additional_finger {
-                    score += FINGER_WEIGHTS[r][c];
-                }
+                key_sequence.push((Pos(*r, *c), additional_finger.map(|(r, c)| Pos(r, c))));
             }
         }
 
-        score += special_evaluations(conjunction, &pos_cache);
+        score += sequence_evaluation(&key_sequence);
     }
     score
 }

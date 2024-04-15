@@ -173,7 +173,10 @@ pub fn key_indices() -> HashSet<(usize, usize)> {
 mod constraints {
     use std::collections::HashSet;
 
-    use crate::{char_def::CHARS, key::Key};
+    use crate::{
+        char_def::{cleartone_chars, CHARS},
+        key::Key,
+    };
 
     use super::{
         LEFT_SEMITURBID_INDEX, LEFT_SHIFT_INDEX, LEFT_TURBID_INDEX, RIGHT_SEMITURBID_INDEX,
@@ -186,6 +189,25 @@ mod constraints {
         let right_shifted = layout[RIGHT_SHIFT_INDEX.0][RIGHT_SHIFT_INDEX.1].shifted();
 
         left_shifted == right_shifted
+    }
+
+    /// 左右のシフトキーには清音しか設定されていないかどうかを確認する
+    pub(super) fn should_shift_only_clear_tones(layout: &[Vec<Key>]) -> bool {
+        let clear_tones: HashSet<char> = cleartone_chars().into_iter().collect::<HashSet<_>>();
+
+        let left = &layout[LEFT_SHIFT_INDEX.0][LEFT_SHIFT_INDEX.1];
+        let right = &layout[RIGHT_SHIFT_INDEX.0][RIGHT_SHIFT_INDEX.1];
+
+        clear_tones.contains(&left.unshifted())
+            && clear_tones.contains(&right.unshifted())
+            && left
+                .shifted()
+                .map(|v| clear_tones.contains(&v))
+                .unwrap_or(true)
+            && right
+                .shifted()
+                .map(|v| clear_tones.contains(&v))
+                .unwrap_or(true)
     }
 
     /// 左右の濁音シフト間では、いずれかのキーにしか濁音が設定されていないかどうかを確認する
@@ -312,6 +334,28 @@ mod constraints {
 
             // act
             let ret = should_shift_having_same_key(&layout);
+
+            // assert
+            assert!(ret, "should be valid")
+        }
+
+        #[test]
+        fn having_clear_tone_only_in_shifts() {
+            // arrange
+            let mut layout = empty_layout();
+            put_key(
+                &mut layout,
+                Key::new_shift('に', Some('を')).unwrap(),
+                LEFT_SHIFT_INDEX,
+            );
+            put_key(
+                &mut layout,
+                Key::new_shift('ま', Some('を')).unwrap(),
+                RIGHT_SHIFT_INDEX,
+            );
+
+            // act
+            let ret = should_shift_only_clear_tones(&layout);
 
             // assert
             assert!(ret, "should be valid")
@@ -525,18 +569,28 @@ impl Keymap {
             }
 
             // シフトの位置だけは固定しておくので、最初に生成しておく
-            let shifted_char = pick_char(&mut cleartone_chars(), rng);
-            if let Some(p) = cloned.iter().position(|c| *c == shifted_char) {
-                cloned.remove(p);
-            }
+            let mut clear_tones = cleartone_chars();
 
+            let shifted_char = pick_char(&mut clear_tones, rng);
             // 左右シフトがshiftedになるケースは一通りしかないので、ここは常に同一になる
             layout[LEFT_SHIFT_INDEX.0][LEFT_SHIFT_INDEX.1] =
-                get_key_with_shift(shifted_char, &mut cloned, rng, Key::new_shift)
+                get_key_with_shift(shifted_char, &mut clear_tones, rng, Key::new_shift)
                     .expect("should be shift");
             layout[RIGHT_SHIFT_INDEX.0][RIGHT_SHIFT_INDEX.1] =
-                get_key_with_shift(shifted_char, &mut cloned, rng, Key::new_shift)
+                get_key_with_shift(shifted_char, &mut clear_tones, rng, Key::new_shift)
                     .expect("should be shift");
+
+            {
+                // 削除されたキーだけをclonedから消すときに、ここで元々のものとの差分を抜いておく
+                let cleartones: HashSet<char> = HashSet::from_iter(clear_tones.into_iter());
+
+                let cloned_chars: HashSet<char> = HashSet::from_iter(cleartone_chars().into_iter());
+                for v in cloned_chars.difference(&cleartones) {
+                    if let Some(p) = cloned.iter().position(|c| *v == *c) {
+                        cloned.remove(p);
+                    }
+                }
+            }
 
             layout[LEFT_TURBID_INDEX.0][LEFT_TURBID_INDEX.1] =
                 get_key(&mut cloned, rng, Key::new_turbid).expect("should be key");
@@ -593,6 +647,7 @@ impl Keymap {
     pub fn meet_requirements(&self) -> bool {
         let checks = [
             constraints::should_shift_having_same_key,
+            constraints::should_shift_only_clear_tones,
             constraints::should_be_explicit_between_left_turbid_and_right_semiturbit,
             constraints::should_only_one_turbid,
             constraints::should_only_one_semiturbit,

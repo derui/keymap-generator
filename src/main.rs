@@ -50,7 +50,7 @@ fn main() -> anyhow::Result<()> {
     while playground.generation() < 2000 {
         let ret = playground.advance(&mut rng, &conjunctions);
 
-        if best_score < ret.0 {
+        if best_score > ret.0 {
             log::info!(
                 "Got new best at {}, current best is {}",
                 playground.generation(),
