@@ -278,25 +278,25 @@ mod constraints {
 
                 if let Some(c) = key.shifted() {
                     if c != '　' && !chars.contains(&c) {
-                        log::debug!("{} found twice in keymap!", c)
+                        log::trace!("{} found twice in keymap!", c)
                     }
                     chars.remove(&c);
                 }
                 if let Some(c) = key.turbid() {
                     if c != '　' && !chars.contains(&c) {
-                        log::debug!("{} found twice in keymap!", c)
+                        log::trace!("{} found twice in keymap!", c)
                     }
                     chars.remove(&c);
                 }
                 if let Some(c) = key.semiturbid() {
                     if c != '　' && !chars.contains(&c) {
-                        log::debug!("{} found twice in keymap!", c)
+                        log::trace!("{} found twice in keymap!", c)
                     }
                     chars.remove(&c);
                 }
                 let c = key.unshifted();
                 if c != '　' && !chars.contains(&c) {
-                    log::debug!("{} found twice in keymap!", c)
+                    log::trace!("{} found twice in keymap!", c)
                 }
                 chars.remove(&c);
             }
@@ -919,17 +919,30 @@ impl Keymap {
 
                 // 各シフトの場合は、それぞれ逆手で押下するものとする
                 if let Some(shifted) = key.shifted() {
-                    let key = if c <= 4 { 'R' } else { 'L' };
+                    let key = if c <= 4 {
+                        key_layout[RIGHT_SHIFT_INDEX.0][RIGHT_SHIFT_INDEX.1]
+                    } else {
+                        key_layout[LEFT_SHIFT_INDEX.0][LEFT_SHIFT_INDEX.1]
+                    };
                     ret.push((shifted.to_string(), format!("{}{}", key, key_layout[r][c])));
                 }
 
                 if let Some(turbid) = key.turbid() {
-                    let key = if c <= 4 { 'R' } else { 'L' };
+                    let key = if c <= 4 {
+                        key_layout[RIGHT_TURBID_INDEX.0][RIGHT_TURBID_INDEX.1]
+                    } else {
+                        key_layout[LEFT_TURBID_INDEX.0][LEFT_TURBID_INDEX.1]
+                    };
                     ret.push((turbid.to_string(), format!("{}{}", key, key_layout[r][c])));
                 }
 
                 if let Some(semiturbid) = key.semiturbid() {
-                    let key = if c <= 4 { 'R' } else { 'L' };
+                    let key = if c <= 4 {
+                        key_layout[RIGHT_SEMITURBID_INDEX.0][RIGHT_SEMITURBID_INDEX.1]
+                    } else {
+                        key_layout[LEFT_SEMITURBID_INDEX.0][LEFT_SEMITURBID_INDEX.1]
+                    };
+
                     ret.push((
                         semiturbid.to_string(),
                         format!("{}{}", key, key_layout[r][c]),
