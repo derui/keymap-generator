@@ -51,9 +51,11 @@ fn main() -> anyhow::Result<()> {
     let mut playground = Playground::new(255, &mut rng);
     let mut best_score = u64::MAX;
     let mut best_keymap: Option<Keymap> = None;
+    let mut same_score_generation_count: usize = 0;
     let conjunctions = read_4gram(Path::new(&path))?;
 
-    while playground.generation() < 2000 {
+    // 100世代動かして変わらないようなら、現状での最適解になっていると判断する
+    while playground.generation() < 1000 && same_score_generation_count < 100 {
         let ret = playground.advance(&mut rng, &conjunctions);
 
         if best_score > ret.0 {
@@ -63,9 +65,11 @@ fn main() -> anyhow::Result<()> {
                 ret.0,
                 ret.1
             );
+            same_score_generation_count = 0;
         }
         best_score = ret.0;
         best_keymap = Some(ret.1);
+        same_score_generation_count += 1;
     }
 
     println!(

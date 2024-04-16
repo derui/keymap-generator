@@ -12,7 +12,7 @@ use crate::{
 #[rustfmt::skip]
 static FINGER_WEIGHTS: [[u64; 10];3] = [
     [10000, 30, 20, 30, 10000, 10000, 30, 20, 30, 10000],
-    [50,    30, 10, 10,    40,    40, 10, 10, 30,    50],
+    [40,    20, 10, 10,    40,    40, 10, 10, 20,    40],
     [80,    50, 40, 20,    60,    60, 20, 40, 50,    80],
 ];
 
@@ -158,6 +158,19 @@ fn two_conjunction_scores(first: &ShiftedPos, second: &ShiftedPos) -> u64 {
             // 2連接のスコアを返す
             first.0.connection_score(&second.0)
         },
+        |first: &ShiftedPos, second: &ShiftedPos| {
+            // 同指のシフトがつづいている場合はペナルティを与える
+            let (_, first) = first.clone();
+            let (_, second) = second.clone();
+            let first_hand = first.map(|p| HAND_ASSIGNMENT[p.0][p.1]).unwrap_or(0);
+            let second_hand = second.map(|p| HAND_ASSIGNMENT[p.0][p.1]).unwrap_or(0);
+
+            if first_hand == second_hand {
+                150
+            } else {
+                0
+            }
+        },
     ];
 
     rules
@@ -185,19 +198,8 @@ fn three_conjunction_scores(first: &ShiftedPos, second: &ShiftedPos, third: &Shi
             let (first, _) = first;
             let (second, _) = second;
             let (third, _) = third;
-            if first.is_same_hand_and_finger(second) && second.is_same_hand_and_finger(third) {
-                100 * FINGER_WEIGHTS[first.0][first.1]
-            } else {
-                0
-            }
-        },
-        |first: &ShiftedPos, second: &ShiftedPos, third: &ShiftedPos| {
-            // 同じ手を連続して打鍵しているばあいはペナルティを与える
-            let (first, _) = first;
-            let (second, _) = second;
-            let (third, _) = third;
             if first.is_same_hand(second) && second.is_same_hand(third) {
-                150
+                100
             } else {
                 0
             }
@@ -236,7 +238,11 @@ fn sequence_evaluation(sequence: &Vec<(Pos, Option<Pos>)>) -> u64 {
         .iter()
         .map(|(unshift, shift)| {
             let score_unshift = FINGER_WEIGHTS[unshift.0][unshift.1];
-            let score_shift = shift.clone().map(|p| FINGER_WEIGHTS[p.0][p.1]).unwrap_or(0);
+            // シフトは固有のコストがかかるものとしている
+            let score_shift = shift
+                .clone()
+                .map(|p| FINGER_WEIGHTS[p.0][p.1] + 50)
+                .unwrap_or(0);
             score_unshift + score_shift
         })
         .sum();

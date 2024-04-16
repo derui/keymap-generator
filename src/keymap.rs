@@ -1,6 +1,6 @@
 use std::{collections::HashSet, fmt::Display};
 
-use rand::{rngs::StdRng, Rng};
+use rand::{rngs::StdRng, seq::SliceRandom, Rng};
 
 use crate::{
     char_def::{self, cleartone_chars},
@@ -517,6 +517,16 @@ mod constraints {
     }
 }
 
+/// 対象のposが固有の位置かどうかを確認する
+fn is_fixed_position(pos: &(usize, usize)) -> bool {
+    *pos == LEFT_SHIFT_INDEX
+        || *pos == RIGHT_SHIFT_INDEX
+        || *pos == LEFT_TURBID_INDEX
+        || *pos == RIGHT_TURBID_INDEX
+        || *pos == LEFT_SEMITURBID_INDEX
+        || *pos == RIGHT_SEMITURBID_INDEX
+}
+
 impl Keymap {
     /// 指定されたseedを元にしてキーマップを生成する
     ///
@@ -678,6 +688,43 @@ impl Keymap {
         }
 
         None
+    }
+    /// ランダムに現状のキーマップを組み替える
+    ///
+    /// 単にランダムな交叉を実行した場合は、そもそも適応関数を満たさない可能性がほぼ100%であり、ほぼ実用に適さない。
+    /// ただし、一部分ずつの変異を繰り返しても、局所最適解に陥った場合には、それを脱出することができない。
+    /// そのため、ランダムな組み替えを行うことで、局所最適解に陥る可能性を減らすことを目的として、擬似的な交叉を行う。
+    ///
+    /// # Arguments
+    /// * `keymap` - 現在のキーマップ
+    ///
+    /// # Returns
+    /// 組み替え後のキーマップ
+
+    pub fn imitate_cross(&self, rng: &mut StdRng) -> Keymap {
+        let mut keymap = self.clone();
+
+        let indices = key_indices().into_iter().collect::<Vec<_>>();
+        let mut random_indices = (0..indices.len()).collect::<Vec<_>>();
+        random_indices.shuffle(rng);
+
+        // ここでの交叉は、一旦制約を無視してランダムに組み替える
+        for i in 0..(indices.len() / 2) {
+            let pos1 = indices[random_indices[i * 2]];
+            let pos2 = indices[random_indices[i * 2 + 1]];
+
+            if is_fixed_position(&pos1) || is_fixed_position(&pos2) {
+                continue;
+            }
+
+            let key1 = &self.layout[pos1.0][pos1.1];
+            let key2 = &self.layout[pos2.0][pos2.1];
+
+            keymap.layout[pos1.0][pos1.1] = key2.clone();
+            keymap.layout[pos2.0][pos2.1] = key1.clone();
+        }
+
+        keymap
     }
 
     /// keymapに対して操作を実行して、実行した結果のkeymapを返す
@@ -868,29 +915,17 @@ impl Keymap {
 
                 // 各シフトの場合は、それぞれ逆手で押下するものとする
                 if let Some(shifted) = key.shifted() {
-                    let key = if c <= 4 {
-                        key_layout[RIGHT_SHIFT_INDEX.0][RIGHT_SHIFT_INDEX.1]
-                    } else {
-                        key_layout[LEFT_SHIFT_INDEX.0][LEFT_SHIFT_INDEX.1]
-                    };
+                    let key = if c <= 4 { 'R' } else { 'L' };
                     ret.push((shifted.to_string(), format!("{}{}", key, key_layout[r][c])));
                 }
 
                 if let Some(turbid) = key.turbid() {
-                    let key = if c <= 4 {
-                        key_layout[RIGHT_TURBID_INDEX.0][RIGHT_TURBID_INDEX.1]
-                    } else {
-                        key_layout[LEFT_TURBID_INDEX.0][LEFT_TURBID_INDEX.1]
-                    };
+                    let key = if c <= 4 { 'R' } else { 'L' };
                     ret.push((turbid.to_string(), format!("{}{}", key, key_layout[r][c])));
                 }
 
                 if let Some(semiturbid) = key.semiturbid() {
-                    let key = if c <= 4 {
-                        key_layout[RIGHT_SEMITURBID_INDEX.0][RIGHT_SEMITURBID_INDEX.1]
-                    } else {
-                        key_layout[LEFT_SEMITURBID_INDEX.0][LEFT_SEMITURBID_INDEX.1]
-                    };
+                    let key = if c <= 4 { 'R' } else { 'L' };
                     ret.push((
                         semiturbid.to_string(),
                         format!("{}{}", key, key_layout[r][c]),

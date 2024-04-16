@@ -18,9 +18,10 @@ pub struct Playground {
     keymaps: Vec<Keymap>,
 }
 
-const MUTATION_PROPABILITY: f64 = 0.25;
+const MUTATION_PROPABILITY: f64 = 0.05;
+const CROSS_PROPABILITY: f64 = 0.50;
 const SAVE_PERCENT: f64 = 0.3;
-const WORKERS: u8 = 20;
+const WORKERS: u8 = 16;
 
 impl Playground {
     pub fn new(gen_count: u8, rng: &mut StdRng) -> Self {
@@ -71,6 +72,16 @@ impl Playground {
                 loop {
                     // 突然変異
                     let keymap = self.select(rng, &rank, &probabilities).mutate(rng);
+
+                    if keymap.meet_requirements() {
+                        new_keymaps.push(keymap);
+                        break;
+                    }
+                }
+            } else if prob < MUTATION_PROPABILITY + CROSS_PROPABILITY {
+                loop {
+                    // 交叉
+                    let keymap = self.select(rng, &rank, &probabilities).imitate_cross(rng);
 
                     if keymap.meet_requirements() {
                         new_keymaps.push(keymap);
