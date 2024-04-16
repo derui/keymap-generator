@@ -21,7 +21,7 @@ pub struct Playground {
 const MUTATION_PROPABILITY: f64 = 0.05;
 const CROSS_PROPABILITY: f64 = 0.35;
 const SAVE_PERCENT: f64 = 0.3;
-const WORKERS: u8 = 16;
+const WORKERS: u8 = 20;
 
 impl Playground {
     pub fn new(gen_count: u8, rng: &mut StdRng) -> Self {
