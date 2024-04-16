@@ -19,7 +19,7 @@ pub struct Playground {
 }
 
 const MUTATION_PROPABILITY: f64 = 0.05;
-const CROSS_PROPABILITY: f64 = 0.50;
+const CROSS_PROPABILITY: f64 = 0.35;
 const SAVE_PERCENT: f64 = 0.3;
 const WORKERS: u8 = 16;
 

@@ -704,7 +704,11 @@ impl Keymap {
     pub fn imitate_cross(&self, rng: &mut StdRng) -> Keymap {
         let mut keymap = self.clone();
 
-        let indices = key_indices().into_iter().collect::<Vec<_>>();
+        let mut indices = key_indices();
+        for p in EXCLUDE_MAP.iter() {
+            indices.remove(&p);
+        }
+        let indices = indices.into_iter().collect::<Vec<_>>();
         let mut random_indices = (0..indices.len()).collect::<Vec<_>>();
         random_indices.shuffle(rng);
 
