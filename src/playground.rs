@@ -73,12 +73,13 @@ impl Playground {
             let prob = rng.gen::<f64>();
 
             if prob < CROSS_PROPABILITY {
+                // 交叉
+                let keymap = self.select(rng, &rank, &probabilities);
                 loop {
-                    // 交叉
-                    let keymap = self.select(rng, &rank, &probabilities).imitate_cross(rng);
+                    let new_keymap = keymap.imitate_cross(rng);
 
-                    if keymap.meet_requirements() {
-                        new_keymaps.push(keymap);
+                    if new_keymap.meet_requirements() {
+                        new_keymaps.push(new_keymap);
                         break;
                     }
                 }
