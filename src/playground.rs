@@ -3,6 +3,7 @@ use std::sync::{mpsc::channel, Arc};
 use rand::{rngs::StdRng, Rng};
 
 use crate::{
+    connection_score::ConnectionScore,
     keymap::Keymap,
     score::{self, Conjunction},
 };
@@ -52,12 +53,17 @@ impl Playground {
     /// 世代を一つ進める。結果として、現世代でベストだったkeymapを返す
     ///
     /// 結果として、bestなscoreとkeymapを返す
-    pub fn advance(&mut self, rng: &mut StdRng, conjunctions: &[Conjunction]) -> (u64, Keymap) {
+    pub fn advance(
+        &mut self,
+        rng: &mut StdRng,
+        conjunctions: &[Conjunction],
+        pre_scores: Arc<Box<ConnectionScore>>,
+    ) -> (u64, Keymap) {
         self.generation += 1;
 
         let mut new_keymaps = Vec::new();
         let rank = self
-            .rank(conjunctions)
+            .rank(conjunctions, pre_scores.clone())
             .iter()
             .take((self.gen_count as f64 * SAVE_PERCENT) as usize)
             .cloned()
@@ -153,7 +159,11 @@ impl Playground {
     /// scoreに基づいてkeymapをランク付けする。
     ///
     /// この中から、全体の特定の%までに対して確率を按分する
-    fn rank(&self, conjunctions: &[Conjunction]) -> Vec<(u64, usize)> {
+    fn rank(
+        &self,
+        conjunctions: &[Conjunction],
+        pre_scores: Arc<Box<ConnectionScore>>,
+    ) -> Vec<(u64, usize)> {
         let pool = threadpool::ThreadPool::new(self.workers);
 
         let conjunctions = Arc::new(conjunctions.iter().cloned().collect::<Vec<_>>());
@@ -166,9 +176,10 @@ impl Playground {
             let tx = tx.clone();
             let keymap = k.clone();
             let conjunctions = conjunctions.clone();
+            let pre_scores = pre_scores.clone();
 
             pool.execute(move || {
-                let score = score::evaluate(&conjunctions, &keymap);
+                let score = score::evaluate(&conjunctions, &pre_scores, &keymap);
                 tx.send((score, idx)).expect("should be success")
             })
         });

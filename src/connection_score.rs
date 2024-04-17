@@ -1,12 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{
-    char_def::CHARS,
-    keymap::{
-        key_indices, KeyKind, Keymap, LEFT_SEMITURBID_INDEX, LEFT_SHIFT_INDEX, LEFT_TURBID_INDEX,
-        RIGHT_SEMITURBID_INDEX, RIGHT_SHIFT_INDEX, RIGHT_TURBID_INDEX,
-    },
-};
+use crate::keymap::key_indices;
 
 /// 各指が担当するキーに対する重み。
 #[rustfmt::skip]
@@ -88,7 +82,7 @@ impl ConnectionScore {
             .collect();
 
         let mut this = ConnectionScore {
-            scores: vec![0; 32 ^ 4],
+            scores: vec![0; (32 as usize).pow(4)],
             position_id_map,
         };
 
@@ -105,6 +99,24 @@ impl ConnectionScore {
         }
 
         this
+    }
+
+    /// キーから、評価の結果を返す
+    ///
+    /// ここでの結果は、4連接自体と、シフトに対する評価の両方の合算値である。
+    pub fn evaluate(
+        &self,
+        first: &ShiftedPos,
+        second: &ShiftedPos,
+        third: &ShiftedPos,
+        fourth: &ShiftedPos,
+    ) -> u64 {
+        let first: (usize, usize) = first.0.into();
+        let second: (usize, usize) = second.0.into();
+        let third: (usize, usize) = third.0.into();
+        let fourth: (usize, usize) = fourth.0.into();
+
+        self.scores[self.get_index(&first, &second, &third, &fourth)] as u64
     }
 
     /// 4連接の評価を行う
@@ -153,9 +165,9 @@ impl ConnectionScore {
 
     /// 3連接に対する評価を行う
     ///
-    /// 現状ではキーの値に対する評価のみである。
+    /// 基本的には、キー自体の重みが利用される
     fn three_conjunction_scores(&self, first: &Pos, second: &Pos, third: &Pos) -> u32 {
-        let mut score = FINGER_WEIGHTS[first.0][first.1]
+        let score = FINGER_WEIGHTS[first.0][first.1]
             + FINGER_WEIGHTS[second.0][second.1]
             + FINGER_WEIGHTS[third.0][third.1];
 
@@ -166,6 +178,14 @@ impl ConnectionScore {
                     && second.is_skip_row_on_same_finger(third)
                 {
                     300
+                } else {
+                    0
+                }
+            },
+            |first: &Pos, second: &Pos, third: &Pos| {
+                // 同じ指を連続して打鍵しているばあいはペナルティを与える
+                if first.is_same_hand_and_finger(second) && second.is_same_hand_and_finger(third) {
+                    250
                 } else {
                     0
                 }
@@ -212,12 +232,18 @@ impl ConnectionScore {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Clone)]
-struct Pos(usize, usize);
+#[derive(Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Clone, Copy)]
+pub struct Pos(usize, usize);
 
 impl From<(usize, usize)> for Pos {
     fn from((r, c): (usize, usize)) -> Self {
         Pos(r, c)
+    }
+}
+
+impl From<Pos> for (usize, usize) {
+    fn from(pos: Pos) -> Self {
+        (pos.0, pos.1)
     }
 }
 
@@ -228,7 +254,10 @@ impl Pos {
 
     /// 異指で段をスキップしているか
     fn is_skip_row(&self, other: &Pos) -> bool {
-        (self.0 as isize - other.0 as isize).abs() == 2
+        let hand_self = HAND_ASSIGNMENT[self.0][self.1];
+        let hand_other = HAND_ASSIGNMENT[other.0][other.1];
+
+        hand_self == hand_other && (self.0 as isize - other.0 as isize).abs() == 2
     }
 
     /// 同じ手で押下しているかどうか
@@ -248,6 +277,8 @@ impl Pos {
 
     /// 2連接に対する評価を実施する
     fn two_conjunction_scores(&self, other: &Pos) -> u32 {
+        let score = FINGER_WEIGHTS[self.0][self.1] + FINGER_WEIGHTS[other.0][other.1];
+
         let rules = [
             |first: &Pos, second: &Pos| {
                 // 同じ指で同じキーを連続して押下している場合はペナルティを与える
@@ -297,6 +328,9 @@ impl Pos {
 
         rules
             .iter()
-            .fold(0, |score, rule| score + rule(self, other))
+            .fold(score.into(), |score, rule| score + rule(self, other))
     }
 }
+
+/// シフトした位置も含めた位置情報
+pub type ShiftedPos = (Pos, Option<Pos>);

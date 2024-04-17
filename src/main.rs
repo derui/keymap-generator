@@ -1,10 +1,10 @@
-use std::{env::args, fs::File, path::Path};
+use std::{env::args, fs::File, path::Path, sync::Arc};
 
 use keymap::Keymap;
 use rand::{random, rngs::StdRng, SeedableRng};
 use score::Conjunction;
 
-use crate::playground::Playground;
+use crate::{connection_score::ConnectionScore, playground::Playground};
 
 mod char_def;
 mod connection_score;
@@ -53,9 +53,10 @@ fn main() -> anyhow::Result<()> {
     let mut best_score = u64::MAX;
     let mut best_keymap: Option<Keymap> = None;
     let conjunctions = read_4gram(Path::new(&path))?;
+    let scores = Arc::new(Box::new(ConnectionScore::new()));
 
     while playground.generation() < 1000 {
-        let ret = playground.advance(&mut rng, &conjunctions);
+        let ret = playground.advance(&mut rng, &conjunctions, scores.clone());
 
         if best_score > ret.0 {
             log::info!(
