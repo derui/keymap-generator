@@ -1,11 +1,10 @@
-use std::collections::HashMap;
-
 use crate::keymap::key_indices;
 
 /// 各指が担当するキーに対する重み。
 #[rustfmt::skip]
 static FINGER_WEIGHTS: [[u16; 10];3] = [
-    [1000, 30, 20, 50, 1000, 1000, 50, 20, 30, 1000],
+    // 0,0は利用しないので、デフォルトとして利用するr
+    [0, 30, 20, 50, 1000, 1000, 50, 20, 30, 1000],
     [30,   20, 10, 10,   30,   30, 10, 10, 20,   30],
     [50,   30, 30, 20,   60,   60, 20, 30, 30,   50],
 ];
@@ -63,7 +62,7 @@ static TWO_CONNECTION_WEIGHT: [(Pos, Pos, u16); 20] = [
     (Pos(1, 0), Pos(2, 4), 150),
     // 小指中段→人差し指伸ばし
     (Pos(1, 0), Pos(1, 4), 90),
-    // 中指中段→人差し冗談
+    // 中指中段→人差し指上段
     (Pos(1, 2), Pos(0, 3), 90),
     // 薬指上段→小指下段
     (Pos(0, 1), Pos(2, 0), 140),
@@ -72,30 +71,21 @@ static TWO_CONNECTION_WEIGHT: [(Pos, Pos, u16); 20] = [
 pub struct ConnectionScore {
     /// 4連接までのscore。
     scores: Vec<u32>,
-    /// positionと対応するキー位置のmapping
-    position_id_map: HashMap<Pos, usize>,
 }
 
 impl ConnectionScore {
     pub fn new() -> Self {
         let indices = key_indices().into_iter().collect::<Vec<_>>();
-        let position_id_map = indices
-            .iter()
-            .enumerate()
-            .map(|(i, pos)| (pos.clone().into(), i))
-            .collect();
-
         let mut this = ConnectionScore {
             scores: vec![0; (32 as usize).pow(4)],
-            position_id_map,
         };
 
-        for i in indices.iter() {
-            for j in indices.iter() {
-                for k in indices.iter() {
-                    for l in indices.iter() {
-                        let score = this.evaluate_connection(i, j, k, l);
-                        let index = this.get_index(i, j, k, l);
+        for i in indices.iter().cloned() {
+            for j in indices.iter().cloned() {
+                for k in indices.iter().cloned() {
+                    for l in indices.iter().cloned() {
+                        let score = this.evaluate_connection(&i, &j, &k, &l);
+                        let index = this.get_index(&Some(i), &Some(j), &Some(k), &Some(l));
                         this.scores[index] = score;
                     }
                 }
@@ -108,19 +98,19 @@ impl ConnectionScore {
     /// キーから、評価の結果を返す
     ///
     /// ここでの結果は、4連接自体と、シフトに対する評価の両方の合算値である。
-    pub fn evaluate(
-        &self,
-        first: &ShiftedPos,
-        second: &ShiftedPos,
-        third: &ShiftedPos,
-        fourth: &ShiftedPos,
-    ) -> u64 {
-        let first: (usize, usize) = first.0.into();
-        let second: (usize, usize) = second.0.into();
-        let third: (usize, usize) = third.0.into();
-        let fourth: (usize, usize) = fourth.0.into();
+    pub fn evaluate(&self, sequence: &Vec<Pos>) -> u64 {
+        let mut score = 0;
 
-        self.scores[self.get_index(&first, &second, &third, &fourth)] as u64
+        for idx in 0..=(sequence.len().saturating_sub(4)) {
+            let first: Option<(usize, usize)> = sequence.get(idx).cloned().map(Into::into);
+            let second: Option<(usize, usize)> = sequence.get(idx + 1).cloned().map(Into::into);
+            let third: Option<(usize, usize)> = sequence.get(idx + 2).cloned().map(Into::into);
+            let fourth: Option<(usize, usize)> = sequence.get(idx + 3).cloned().map(Into::into);
+
+            score += self.scores[self.get_index(&first, &second, &third, &fourth)] as u64;
+        }
+
+        score
     }
 
     /// 4連接の評価を行う
@@ -214,21 +204,22 @@ impl ConnectionScore {
     /// なので、シフトの評価自体は別途行うことにする。
     fn get_index(
         &self,
-        i: &(usize, usize),
-        j: &(usize, usize),
-        k: &(usize, usize),
-        l: &(usize, usize),
+        i: &Option<(usize, usize)>,
+        j: &Option<(usize, usize)>,
+        k: &Option<(usize, usize)>,
+        l: &Option<(usize, usize)>,
     ) -> usize {
         let bit_mask = 0b00011111;
-        let i: Pos = Pos::from(*i);
-        let j: Pos = Pos::from(*j);
-        let k: Pos = Pos::from(*k);
-        let l: Pos = Pos::from(*l);
+        let i: Pos = i.map_or(Pos(0, 0), Into::into);
+        let j: Pos = j.map_or(Pos(0, 0), Into::into);
+        let k: Pos = k.map_or(Pos(0, 0), Into::into);
+        let l: Pos = l.map_or(Pos(0, 0), Into::into);
 
-        let i = self.position_id_map[&i] & bit_mask;
-        let j = self.position_id_map[&j] & bit_mask;
-        let k = self.position_id_map[&k] & bit_mask;
-        let l = self.position_id_map[&l] & bit_mask;
+        // rowは0-2、colは0-9なので、全部合わせても31に収まるのでこうする
+        let i = (i.0 * 10 + i.1) & bit_mask;
+        let j = (j.0 * 10 + j.1) & bit_mask;
+        let k = (k.0 * 10 + k.1) & bit_mask;
+        let l = (l.0 * 10 + l.1) & bit_mask;
 
         i << 15 | j << 10 | k << 5 | l
     }
@@ -331,6 +322,3 @@ impl Pos {
             .fold(0, |score, rule| score + rule(self, other))
     }
 }
-
-/// シフトした位置も含めた位置情報
-pub type ShiftedPos = (Pos, Option<Pos>);

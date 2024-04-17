@@ -24,30 +24,6 @@ pub struct Conjunction {
     pub appearances: u32,
 }
 
-/// 連接に対して特殊な評価を行う。
-///
-/// # Arguments
-/// * `sequence` - 評価する対象のキー連接
-///
-/// # Returns
-/// 評価値
-fn sequence_evaluation(sequence: &Vec<(Pos, Option<Pos>)>, pre_scores: &ConnectionScore) -> u64 {
-    let score = sequence
-        .iter()
-        .map(|(_, shift)| {
-            // シフトは固有のコストがかかるものとしている
-            let score_shift = shift.clone().map(|_| 50).unwrap_or(0);
-            score_shift
-        })
-        .sum();
-
-    if sequence.len() == 4 {
-        score + pre_scores.evaluate(&sequence[0], &sequence[1], &sequence[2], &sequence[3])
-    } else {
-        score
-    }
-}
-
 /// [keymap]の評価を行う。scoreは低いほど良好であるとする。
 ///
 /// # Arguments
@@ -72,7 +48,7 @@ pub fn evaluate(
     }
 
     for conjunction in conjunctions {
-        let mut key_sequence: Vec<(Pos, Option<Pos>)> = Vec::new();
+        let mut key_sequence: Vec<Pos> = Vec::with_capacity(8);
 
         for c in conjunction.text.chars() {
             if let Some((k, (r, c))) = pos_cache.get(&c) {
@@ -103,14 +79,14 @@ pub fn evaluate(
                     }
                 };
 
-                key_sequence.push((
-                    (*r, *c).into(),
-                    additional_finger.map(|(r, c)| (r, c).into()),
-                ));
+                if let Some(shift) = additional_finger {
+                    key_sequence.push(shift.into());
+                }
+                key_sequence.push((*r, *c).into());
             }
         }
 
-        score += sequence_evaluation(&key_sequence, &pre_scores);
+        score += pre_scores.evaluate(&key_sequence) * conjunction.appearances as u64;
     }
     score
 }
