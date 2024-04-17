@@ -517,16 +517,6 @@ mod constraints {
     }
 }
 
-/// 対象のposが固有の位置かどうかを確認する
-fn is_fixed_position(pos: &(usize, usize)) -> bool {
-    *pos == LEFT_SHIFT_INDEX
-        || *pos == RIGHT_SHIFT_INDEX
-        || *pos == LEFT_TURBID_INDEX
-        || *pos == RIGHT_TURBID_INDEX
-        || *pos == LEFT_SEMITURBID_INDEX
-        || *pos == RIGHT_SEMITURBID_INDEX
-}
-
 impl Keymap {
     /// 指定されたseedを元にしてキーマップを生成する
     ///
@@ -708,6 +698,13 @@ impl Keymap {
         for p in EXCLUDE_MAP.iter() {
             indices.remove(&p);
         }
+        indices.remove(&LEFT_SHIFT_INDEX);
+        indices.remove(&RIGHT_SHIFT_INDEX);
+        indices.remove(&LEFT_TURBID_INDEX);
+        indices.remove(&RIGHT_TURBID_INDEX);
+        indices.remove(&LEFT_SEMITURBID_INDEX);
+        indices.remove(&RIGHT_SEMITURBID_INDEX);
+
         let indices = indices.into_iter().collect::<Vec<_>>();
         let mut random_indices = (0..indices.len()).collect::<Vec<_>>();
         random_indices.shuffle(rng);
@@ -716,10 +713,6 @@ impl Keymap {
         for i in 0..(indices.len() / 2) {
             let pos1 = indices[random_indices[i * 2]];
             let pos2 = indices[random_indices[i * 2 + 1]];
-
-            if is_fixed_position(&pos1) || is_fixed_position(&pos2) {
-                continue;
-            }
 
             let key1 = &self.layout[pos1.0][pos1.1];
             let key2 = &self.layout[pos2.0][pos2.1];

@@ -9,14 +9,6 @@ use crate::{
     },
 };
 
-/// 各指が担当するキーに対する重み。
-#[rustfmt::skip]
-static FINGER_WEIGHTS: [[u64; 10];3] = [
-    [10000, 30, 20, 30, 10000, 10000, 30, 20, 30, 10000],
-    [40,    20, 10, 10,    40,    40, 10, 10, 20,    40],
-    [80,    50, 40, 20,    60,    60, 20, 40, 50,    80],
-];
-
 /// キーを押下する手の割当。1 = 左手、2 = 右手
 static HAND_ASSIGNMENT: [[u8; 10]; 3] = [
     [1, 1, 1, 1, 1, 2, 2, 2, 2, 2],
@@ -44,13 +36,7 @@ fn sequence_evaluation(sequence: &Vec<(Pos, Option<Pos>)>, pre_scores: &Connecti
         .iter()
         .map(|(_, shift)| {
             // シフトは固有のコストがかかるものとしている
-            let score_shift = shift
-                .clone()
-                .map(|p| {
-                    let (r, c): (usize, usize) = p.into();
-                    FINGER_WEIGHTS[r][c] + 50
-                })
-                .unwrap_or(0);
+            let score_shift = shift.clone().map(|_| 50).unwrap_or(0);
             score_shift
         })
         .sum();

@@ -19,9 +19,8 @@ pub struct Playground {
     keymaps: Vec<Keymap>,
 }
 
-const MUTATION_PROPABILITY: f64 = 0.05;
-const CROSS_PROPABILITY: f64 = 0.35;
-const SAVE_PERCENT: f64 = 0.3;
+const MUTATION_PROPABILITY: f64 = 0.01;
+const CROSS_PROPABILITY: f64 = 0.85;
 const WORKERS: u8 = 20;
 
 impl Playground {
@@ -65,7 +64,6 @@ impl Playground {
         let rank = self
             .rank(conjunctions, pre_scores.clone())
             .iter()
-            .take((self.gen_count as f64 * SAVE_PERCENT) as usize)
             .cloned()
             .collect::<Vec<_>>();
         let probabilities = self.make_probabilities(&rank);
@@ -74,17 +72,7 @@ impl Playground {
         while new_keymaps.len() < self.gen_count as usize {
             let prob = rng.gen::<f64>();
 
-            if prob < MUTATION_PROPABILITY {
-                loop {
-                    // 突然変異
-                    let keymap = self.select(rng, &rank, &probabilities).mutate(rng);
-
-                    if keymap.meet_requirements() {
-                        new_keymaps.push(keymap);
-                        break;
-                    }
-                }
-            } else if prob < MUTATION_PROPABILITY + CROSS_PROPABILITY {
+            if prob < CROSS_PROPABILITY {
                 loop {
                     // 交叉
                     let keymap = self.select(rng, &rank, &probabilities).imitate_cross(rng);
@@ -101,13 +89,32 @@ impl Playground {
             }
         }
 
+        let new_keymaps = new_keymaps
+            .into_iter()
+            .map(|keymap| {
+                let prob = rng.gen::<f64>();
+                if prob < MUTATION_PROPABILITY {
+                    loop {
+                        // 突然変異
+                        let keymap = keymap.mutate(rng);
+
+                        if keymap.meet_requirements() {
+                            break keymap;
+                        }
+                    }
+                } else {
+                    keymap
+                }
+            })
+            .collect();
+
         let best_keymap = self.keymaps[rank[0].1].clone();
         self.keymaps = new_keymaps;
 
         log::debug!(
             "generation: {}, best score is: {}",
             self.generation,
-            rank[0].0
+            rank[0].0,
         );
 
         (rank[0].0, best_keymap.clone())

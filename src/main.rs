@@ -49,13 +49,13 @@ fn main() -> anyhow::Result<()> {
         .parse::<u64>()?;
     let mut rng = StdRng::seed_from_u64(seed);
 
-    let mut playground = Playground::new(255, &mut rng);
+    let mut playground = Playground::new(84, &mut rng);
     let mut best_score = u64::MAX;
     let mut best_keymap: Option<Keymap> = None;
     let conjunctions = read_4gram(Path::new(&path))?;
     let scores = Arc::new(Box::new(ConnectionScore::new()));
 
-    while playground.generation() < 1000 {
+    while playground.generation() < 2000 {
         let ret = playground.advance(&mut rng, &conjunctions, scores.clone());
 
         if best_score > ret.0 {

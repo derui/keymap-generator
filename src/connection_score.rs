@@ -6,8 +6,8 @@ use crate::keymap::key_indices;
 #[rustfmt::skip]
 static FINGER_WEIGHTS: [[u16; 10];3] = [
     [1000, 30, 20, 50, 1000, 1000, 50, 20, 30, 1000],
-    [40,   20, 10, 10,   30,   30, 10, 10, 20,   40],
-    [80,   40, 30, 20,   60,   60, 20, 30, 40,   80],
+    [30,   20, 10, 10,   30,   30, 10, 10, 20,   30],
+    [50,   30, 30, 20,   60,   60, 20, 30, 30,   50],
 ];
 
 /// キーを押下する手の割当。1 = 左手、2 = 右手
@@ -25,7 +25,7 @@ static FINGER_ASSIGNMENT: [[u8; 10]; 3] = [
 ];
 
 /// 2連接に対する重み。順序を持つ。
-static TWO_CONNECTION_WEIGHT: [(Pos, Pos, u16); 18] = [
+static TWO_CONNECTION_WEIGHT: [(Pos, Pos, u16); 20] = [
     // 人差し指伸ばし→小指下段
     (Pos(2, 5), Pos(2, 9), 150),
     // 人差し指伸ばし→小指下段
@@ -42,8 +42,10 @@ static TWO_CONNECTION_WEIGHT: [(Pos, Pos, u16); 18] = [
     (Pos(1, 9), Pos(2, 5), 150),
     // 小指中段→人差し指伸ばし
     (Pos(1, 9), Pos(1, 5), 90),
-    // 中指中段→人差し冗談
+    // 中指中段→人差し上段
     (Pos(1, 7), Pos(0, 6), 90),
+    // 薬指上段→小指下段
+    (Pos(0, 8), Pos(2, 9), 140),
     // 左手
     // 人差し指伸ばし→小指下段
     (Pos(2, 4), Pos(2, 0), 150),
@@ -63,6 +65,8 @@ static TWO_CONNECTION_WEIGHT: [(Pos, Pos, u16); 18] = [
     (Pos(1, 0), Pos(1, 4), 90),
     // 中指中段→人差し冗談
     (Pos(1, 2), Pos(0, 3), 90),
+    // 薬指上段→小指下段
+    (Pos(0, 1), Pos(2, 0), 140),
 ];
 
 pub struct ConnectionScore {
@@ -160,17 +164,15 @@ impl ConnectionScore {
         // 3連接の評価
         score += self.three_conjunction_scores(&i, &j, &k);
 
-        score + FINGER_WEIGHTS[l.0][l.1] as u32
+        score
+            + FINGER_WEIGHTS[i.0][i.1] as u32
+            + FINGER_WEIGHTS[j.0][j.1] as u32
+            + FINGER_WEIGHTS[k.0][k.1] as u32
+            + FINGER_WEIGHTS[l.0][l.1] as u32
     }
 
     /// 3連接に対する評価を行う
-    ///
-    /// 基本的には、キー自体の重みが利用される
     fn three_conjunction_scores(&self, first: &Pos, second: &Pos, third: &Pos) -> u32 {
-        let score = FINGER_WEIGHTS[first.0][first.1]
-            + FINGER_WEIGHTS[second.0][second.1]
-            + FINGER_WEIGHTS[third.0][third.1];
-
         let rules = [
             |first: &Pos, second: &Pos, third: &Pos| {
                 // 同じ指でスキップが連続している場合はペナルティ
@@ -200,9 +202,9 @@ impl ConnectionScore {
             },
         ];
 
-        rules.iter().fold(score.into(), |score, rule| {
-            score + rule(first, second, third)
-        })
+        rules
+            .iter()
+            .fold(0, |score, rule| score + rule(first, second, third))
     }
 
     /// 4連接に対応する全体のindexを返す。
@@ -277,8 +279,6 @@ impl Pos {
 
     /// 2連接に対する評価を実施する
     fn two_conjunction_scores(&self, other: &Pos) -> u32 {
-        let score = FINGER_WEIGHTS[self.0][self.1] + FINGER_WEIGHTS[other.0][other.1];
-
         let rules = [
             |first: &Pos, second: &Pos| {
                 // 同じ指で同じキーを連続して押下している場合はペナルティを与える
@@ -328,7 +328,7 @@ impl Pos {
 
         rules
             .iter()
-            .fold(score.into(), |score, rule| score + rule(self, other))
+            .fold(0, |score, rule| score + rule(self, other))
     }
 }
 
