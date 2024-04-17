@@ -881,7 +881,7 @@ impl Keymap {
 
         self.layout[pos.0][pos.1] = self.layout[pos.0][pos.1].flip();
 
-        // シフトキーの場合は、対応するキーも一緒にswapする
+        // シフトキーの場合は、対応するキーも一緒にflipする
         if pos == LEFT_SHIFT_INDEX {
             self.layout[RIGHT_SHIFT_INDEX.0][RIGHT_SHIFT_INDEX.1] =
                 self.layout[RIGHT_SHIFT_INDEX.0][RIGHT_SHIFT_INDEX.1].flip();
