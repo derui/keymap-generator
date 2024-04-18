@@ -1,147 +1,301 @@
 use std::collections::HashSet;
 
-/// ひらがなの一覧。評価で利用する
-pub const CHARS: [char; 83] = [
-    'あ', 'い', 'う', 'え', 'お', 'か', 'き', 'く', 'け', 'こ', 'さ', 'し', 'す', 'せ', 'そ', 'た',
-    'ち', 'つ', 'て', 'と', 'な', 'に', 'ぬ', 'ね', 'の', 'は', 'ひ', 'ふ', 'へ', 'ほ', 'ま', 'み',
-    'む', 'め', 'も', 'や', 'ゆ', 'よ', 'ら', 'り', 'る', 'れ', 'ろ', 'わ', 'を', 'ん', 'が', 'ぎ',
-    'ぐ', 'げ', 'ご', 'ざ', 'じ', 'ず', 'ぜ', 'ぞ', 'だ', 'ぢ', 'づ', 'で', 'ど', 'ば', 'び', 'ぶ',
-    'べ', 'ぼ', 'ぱ', 'ぴ', 'ぷ', 'ぺ', 'ぽ', 'ぁ', 'ぃ', 'ぅ', 'ぇ', 'ぉ', 'ゃ', 'ゅ', 'ょ', 'っ',
-    'ー', '、', '。',
-];
-
-/// キーに対して割付可能な文字の一覧定義
-const ASSIGNABLE_CHARS: [char; 50] = [
-    'あ', 'い', 'う', 'え', 'お', 'か', 'き', 'く', 'け', 'こ', 'さ', 'し', 'す', 'せ', 'そ', 'た',
-    'ち', 'つ', 'て', 'と', 'な', 'に', 'ぬ', 'ね', 'の', 'は', 'ひ', 'ふ', 'へ', 'ほ', 'ま', 'み',
-    'む', 'め', 'も', 'や', 'ゆ', 'よ', 'ら', 'り', 'る', 'れ', 'ろ', 'わ', 'を', 'ん', 'っ', 'ー',
-    '、', '。',
-];
-
-/// 入力可能とする文字の一覧を返す
-pub fn assignable_chars() -> Vec<char> {
-    Vec::from(ASSIGNABLE_CHARS)
-}
-
-/// 入力可能な清音の一覧を返す
-pub fn cleartone_chars() -> Vec<char> {
-    let mut vec = HashSet::from(ASSIGNABLE_CHARS);
-
-    for c in ASSIGNABLE_CHARS.iter() {
-        if get_turbid(*c).is_some() {
-            vec.remove(c);
-        } else if get_semiturbid(*c).is_some() {
-            vec.remove(c);
-        }
-    }
-
-    vec.into_iter().collect()
-}
-
-/// 文字に対応する濁音を返す
-fn get_turbid(c: char) -> Option<char> {
-    match c {
-        'か' => Some('が'),
-        'き' => Some('ぎ'),
-        'く' => Some('ぐ'),
-        'け' => Some('げ'),
-        'こ' => Some('ご'),
-        'さ' => Some('ざ'),
-        'し' => Some('じ'),
-        'す' => Some('ず'),
-        'せ' => Some('ぜ'),
-        'そ' => Some('ぞ'),
-        'た' => Some('だ'),
-        'ち' => Some('ぢ'),
-        'つ' => Some('づ'),
-        'て' => Some('で'),
-        'と' => Some('ど'),
-        'は' => Some('ば'),
-        'ひ' => Some('び'),
-        'ふ' => Some('ぶ'),
-        'へ' => Some('べ'),
-        'ほ' => Some('ぼ'),
-        _ => None,
-    }
-}
-
-/// 文字に対応する半濁音を返す
-fn get_semiturbid(c: char) -> Option<char> {
-    match c {
-        'は' => Some('ぱ'),
-        'ひ' => Some('ぴ'),
-        'ふ' => Some('ぷ'),
-        'へ' => Some('ぺ'),
-        'ほ' => Some('ぽ'),
-        'や' => Some('ゃ'),
-        'ゆ' => Some('ゅ'),
-        'よ' => Some('ょ'),
-        // これらの小書き文字は、頻度が低いのがわかっているので、半濁音シフトとして使う
-        'あ' => Some('ぁ'),
-        'い' => Some('ぃ'),
-        'う' => Some('ぅ'),
-        'え' => Some('ぇ'),
-        'お' => Some('ぉ'),
-        _ => None,
-    }
-}
-
-/// 各文字における定義
-///
-/// あくまで現状のものでしか無い
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub struct CharDef {
-    normal: char,
+    unshift: char,
     turbid: Option<char>,
     semiturbid: Option<char>,
 }
 
 impl CharDef {
-    /// 通常のキーに対応するキーを返す
-    pub fn find(normal: char) -> CharDef {
-        assert!(
-            ASSIGNABLE_CHARS.contains(&normal),
-            "Do not contains {}",
-            normal
-        );
-
-        CharDef {
-            normal,
-            turbid: get_turbid(normal),
-            semiturbid: get_semiturbid(normal),
-        }
+    /// 文字種の定義一覧を返す
+    pub fn definitions() -> Vec<CharDef> {
+        CHARS.to_vec()
     }
 
-    /// 単独押下で送出する文字をかえす
-    pub fn normal(&self) -> char {
-        self.normal
-    }
-
-    /// 濁音シフト時に送出する文字をかえす
-    pub fn turbid(&self) -> Option<char> {
-        self.turbid
-    }
-
-    /// 半濁音シフト時に送出する文字をかえす
-    pub fn semiturbid(&self) -> Option<char> {
-        self.semiturbid
-    }
-
-    /// 文字を設定する上で、他の文字と競合するかどうかを返す
-    ///
-    /// # Arguments
-    /// * `other` - 競合するかどうかを調べる文字
-    ///
-    /// # Returns
-    /// 競合する場合は`true`、しない場合は`false`
+    /// 文字の定義上、同一キーに割り当てることができるかどうかを返す
     pub fn conflicts(&self, other: &Self) -> bool {
         match (self.turbid, other.turbid, self.semiturbid, other.semiturbid) {
             (Some(_), Some(_), _, _) => true,
             (_, _, Some(_), Some(_)) => true,
-            _ => self.normal == other.normal,
+            _ => self.unshift == other.unshift,
         }
     }
+
+    /// 清音かどうかを返す
+    pub fn is_cleartone(&self) -> bool {
+        self.turbid.is_none() && self.semiturbid.is_none()
+    }
+
+    /// 対象の文字に対応する定義を返す
+    pub fn unshift(&self) -> char {
+        self.unshift
+    }
+
+    /// 対象の文字に対応する定義を返す
+    pub fn turbid(&self) -> Option<char> {
+        self.turbid
+    }
+
+    /// 対象の文字に対応する定義を返す
+    pub fn semiturbid(&self) -> Option<char> {
+        self.semiturbid
+    }
 }
+
+/// ひらがなの一覧。評価で利用する
+const CHARS: [CharDef; 50] = [
+    CharDef {
+        unshift: 'あ',
+        turbid: None,
+        semiturbid: Some('ぁ'),
+    },
+    CharDef {
+        unshift: 'い',
+        turbid: None,
+        semiturbid: Some('ぃ'),
+    },
+    CharDef {
+        unshift: 'う',
+        turbid: None,
+        semiturbid: Some('ぅ'),
+    },
+    CharDef {
+        unshift: 'え',
+        turbid: None,
+        semiturbid: Some('ぇ'),
+    },
+    CharDef {
+        unshift: 'お',
+        turbid: None,
+        semiturbid: Some('ぉ'),
+    },
+    CharDef {
+        unshift: 'か',
+        turbid: Some('が'),
+        semiturbid: None,
+    },
+    CharDef {
+        unshift: 'き',
+        turbid: Some('ぎ'),
+        semiturbid: None,
+    },
+    CharDef {
+        unshift: 'く',
+        turbid: Some('ぐ'),
+        semiturbid: None,
+    },
+    CharDef {
+        unshift: 'け',
+        turbid: Some('げ'),
+        semiturbid: None,
+    },
+    CharDef {
+        unshift: 'こ',
+        turbid: Some('ご'),
+        semiturbid: None,
+    },
+    CharDef {
+        unshift: 'さ',
+        turbid: Some('ざ'),
+        semiturbid: None,
+    },
+    CharDef {
+        unshift: 'し',
+        turbid: Some('じ'),
+        semiturbid: None,
+    },
+    CharDef {
+        unshift: 'す',
+        turbid: Some('ず'),
+        semiturbid: None,
+    },
+    CharDef {
+        unshift: 'せ',
+        turbid: Some('ぜ'),
+        semiturbid: None,
+    },
+    CharDef {
+        unshift: 'そ',
+        turbid: Some('ぞ'),
+        semiturbid: None,
+    },
+    CharDef {
+        unshift: 'た',
+        turbid: Some('だ'),
+        semiturbid: None,
+    },
+    CharDef {
+        unshift: 'ち',
+        turbid: Some('ぢ'),
+        semiturbid: None,
+    },
+    CharDef {
+        unshift: 'つ',
+        turbid: Some('づ'),
+        semiturbid: None,
+    },
+    CharDef {
+        unshift: 'て',
+        turbid: Some('で'),
+        semiturbid: None,
+    },
+    CharDef {
+        unshift: 'と',
+        turbid: Some('ど'),
+        semiturbid: None,
+    },
+    CharDef {
+        unshift: 'な',
+        turbid: None,
+        semiturbid: None,
+    },
+    CharDef {
+        unshift: 'に',
+        turbid: None,
+        semiturbid: None,
+    },
+    CharDef {
+        unshift: 'ぬ',
+        turbid: None,
+        semiturbid: None,
+    },
+    CharDef {
+        unshift: 'ね',
+        turbid: None,
+        semiturbid: None,
+    },
+    CharDef {
+        unshift: 'の',
+        turbid: None,
+        semiturbid: None,
+    },
+    CharDef {
+        unshift: 'は',
+        turbid: Some('ば'),
+        semiturbid: Some('ぱ'),
+    },
+    CharDef {
+        unshift: 'ひ',
+        turbid: Some('び'),
+        semiturbid: Some('ぴ'),
+    },
+    CharDef {
+        unshift: 'ふ',
+        turbid: Some('ぶ'),
+        semiturbid: Some('ぷ'),
+    },
+    CharDef {
+        unshift: 'へ',
+        turbid: Some('べ'),
+        semiturbid: Some('ぺ'),
+    },
+    CharDef {
+        unshift: 'ほ',
+        turbid: Some('ぼ'),
+        semiturbid: Some('ぽ'),
+    },
+    CharDef {
+        unshift: 'ま',
+        turbid: None,
+        semiturbid: None,
+    },
+    CharDef {
+        unshift: 'み',
+        turbid: None,
+        semiturbid: None,
+    },
+    CharDef {
+        unshift: 'む',
+        turbid: None,
+        semiturbid: None,
+    },
+    CharDef {
+        unshift: 'め',
+        turbid: None,
+        semiturbid: None,
+    },
+    CharDef {
+        unshift: 'も',
+        turbid: None,
+        semiturbid: None,
+    },
+    CharDef {
+        unshift: 'や',
+        turbid: None,
+        semiturbid: Some('ゃ'),
+    },
+    CharDef {
+        unshift: 'ゆ',
+        turbid: None,
+        semiturbid: Some('ゅ'),
+    },
+    CharDef {
+        unshift: 'よ',
+        turbid: None,
+        semiturbid: Some('ょ'),
+    },
+    CharDef {
+        unshift: 'ら',
+        turbid: None,
+        semiturbid: None,
+    },
+    CharDef {
+        unshift: 'り',
+        turbid: None,
+        semiturbid: None,
+    },
+    CharDef {
+        unshift: 'る',
+        turbid: None,
+        semiturbid: None,
+    },
+    CharDef {
+        unshift: 'れ',
+        turbid: None,
+        semiturbid: None,
+    },
+    CharDef {
+        unshift: 'ろ',
+        turbid: None,
+        semiturbid: None,
+    },
+    CharDef {
+        unshift: 'わ',
+        turbid: None,
+        semiturbid: None,
+    },
+    CharDef {
+        unshift: 'を',
+        turbid: None,
+        semiturbid: None,
+    },
+    CharDef {
+        unshift: 'ん',
+        turbid: None,
+        semiturbid: None,
+    },
+    CharDef {
+        unshift: 'っ',
+        turbid: None,
+        semiturbid: None,
+    },
+    CharDef {
+        unshift: 'っ',
+        turbid: None,
+        semiturbid: None,
+    },
+    CharDef {
+        unshift: '、',
+        turbid: None,
+        semiturbid: None,
+    },
+    CharDef {
+        unshift: '。',
+        turbid: None,
+        semiturbid: None,
+    },
+];
 
 #[cfg(test)]
 mod tests {
@@ -150,8 +304,14 @@ mod tests {
     #[test]
     fn no_conflict_between_no_turbid() {
         // arrange
-        let def1 = CharDef::find('ま');
-        let def2 = CharDef::find('み');
+        let def1 = CharDef::definitions()
+            .into_iter()
+            .find(|i| i.unshift() == 'ま')
+            .unwrap();
+        let def2 = CharDef::definitions()
+            .into_iter()
+            .find(|i| i.unshift() == 'み')
+            .unwrap();
 
         // act
         let ret = def1.conflicts(&def2);
@@ -163,8 +323,14 @@ mod tests {
     #[test]
     fn conflict_between_turbid() {
         // arrange
-        let def1 = CharDef::find('か');
-        let def2 = CharDef::find('し');
+        let def1 = CharDef::definitions()
+            .into_iter()
+            .find(|i| i.unshift() == 'か')
+            .unwrap();
+        let def2 = CharDef::definitions()
+            .into_iter()
+            .find(|i| i.unshift() == 'し')
+            .unwrap();
 
         // act
         let ret = def1.conflicts(&def2);
@@ -176,8 +342,14 @@ mod tests {
     #[test]
     fn conflict_between_semiturbid() {
         // arrange
-        let def1 = CharDef::find('は');
-        let def2 = CharDef::find('あ');
+        let def1 = CharDef::definitions()
+            .into_iter()
+            .find(|i| i.unshift() == 'は')
+            .unwrap();
+        let def2 = CharDef::definitions()
+            .into_iter()
+            .find(|i| i.unshift() == 'あ')
+            .unwrap();
 
         // act
         let ret = def1.conflicts(&def2);
