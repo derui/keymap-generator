@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub struct CharDef {
-    unshift: char,
+    normal: char,
     turbid: Option<char>,
     semiturbid: Option<char>,
 }
@@ -18,7 +18,7 @@ impl CharDef {
         match (self.turbid, other.turbid, self.semiturbid, other.semiturbid) {
             (Some(_), Some(_), _, _) => true,
             (_, _, Some(_), Some(_)) => true,
-            _ => self.unshift == other.unshift,
+            _ => self.normal == other.normal,
         }
     }
 
@@ -29,7 +29,7 @@ impl CharDef {
 
     /// 対象の文字に対応する定義を返す
     pub fn unshift(&self) -> char {
-        self.unshift
+        self.normal
     }
 
     /// 対象の文字に対応する定義を返す
@@ -46,252 +46,252 @@ impl CharDef {
 /// ひらがなの一覧。評価で利用する
 const CHARS: [CharDef; 50] = [
     CharDef {
-        unshift: 'あ',
+        normal: 'あ',
         turbid: None,
         semiturbid: Some('ぁ'),
     },
     CharDef {
-        unshift: 'い',
+        normal: 'い',
         turbid: None,
         semiturbid: Some('ぃ'),
     },
     CharDef {
-        unshift: 'う',
+        normal: 'う',
         turbid: None,
         semiturbid: Some('ぅ'),
     },
     CharDef {
-        unshift: 'え',
+        normal: 'え',
         turbid: None,
         semiturbid: Some('ぇ'),
     },
     CharDef {
-        unshift: 'お',
+        normal: 'お',
         turbid: None,
         semiturbid: Some('ぉ'),
     },
     CharDef {
-        unshift: 'か',
+        normal: 'か',
         turbid: Some('が'),
         semiturbid: None,
     },
     CharDef {
-        unshift: 'き',
+        normal: 'き',
         turbid: Some('ぎ'),
         semiturbid: None,
     },
     CharDef {
-        unshift: 'く',
+        normal: 'く',
         turbid: Some('ぐ'),
         semiturbid: None,
     },
     CharDef {
-        unshift: 'け',
+        normal: 'け',
         turbid: Some('げ'),
         semiturbid: None,
     },
     CharDef {
-        unshift: 'こ',
+        normal: 'こ',
         turbid: Some('ご'),
         semiturbid: None,
     },
     CharDef {
-        unshift: 'さ',
+        normal: 'さ',
         turbid: Some('ざ'),
         semiturbid: None,
     },
     CharDef {
-        unshift: 'し',
+        normal: 'し',
         turbid: Some('じ'),
         semiturbid: None,
     },
     CharDef {
-        unshift: 'す',
+        normal: 'す',
         turbid: Some('ず'),
         semiturbid: None,
     },
     CharDef {
-        unshift: 'せ',
+        normal: 'せ',
         turbid: Some('ぜ'),
         semiturbid: None,
     },
     CharDef {
-        unshift: 'そ',
+        normal: 'そ',
         turbid: Some('ぞ'),
         semiturbid: None,
     },
     CharDef {
-        unshift: 'た',
+        normal: 'た',
         turbid: Some('だ'),
         semiturbid: None,
     },
     CharDef {
-        unshift: 'ち',
+        normal: 'ち',
         turbid: Some('ぢ'),
         semiturbid: None,
     },
     CharDef {
-        unshift: 'つ',
+        normal: 'つ',
         turbid: Some('づ'),
         semiturbid: None,
     },
     CharDef {
-        unshift: 'て',
+        normal: 'て',
         turbid: Some('で'),
         semiturbid: None,
     },
     CharDef {
-        unshift: 'と',
+        normal: 'と',
         turbid: Some('ど'),
         semiturbid: None,
     },
     CharDef {
-        unshift: 'な',
+        normal: 'な',
         turbid: None,
         semiturbid: None,
     },
     CharDef {
-        unshift: 'に',
+        normal: 'に',
         turbid: None,
         semiturbid: None,
     },
     CharDef {
-        unshift: 'ぬ',
+        normal: 'ぬ',
         turbid: None,
         semiturbid: None,
     },
     CharDef {
-        unshift: 'ね',
+        normal: 'ね',
         turbid: None,
         semiturbid: None,
     },
     CharDef {
-        unshift: 'の',
+        normal: 'の',
         turbid: None,
         semiturbid: None,
     },
     CharDef {
-        unshift: 'は',
+        normal: 'は',
         turbid: Some('ば'),
         semiturbid: Some('ぱ'),
     },
     CharDef {
-        unshift: 'ひ',
+        normal: 'ひ',
         turbid: Some('び'),
         semiturbid: Some('ぴ'),
     },
     CharDef {
-        unshift: 'ふ',
+        normal: 'ふ',
         turbid: Some('ぶ'),
         semiturbid: Some('ぷ'),
     },
     CharDef {
-        unshift: 'へ',
+        normal: 'へ',
         turbid: Some('べ'),
         semiturbid: Some('ぺ'),
     },
     CharDef {
-        unshift: 'ほ',
+        normal: 'ほ',
         turbid: Some('ぼ'),
         semiturbid: Some('ぽ'),
     },
     CharDef {
-        unshift: 'ま',
+        normal: 'ま',
         turbid: None,
         semiturbid: None,
     },
     CharDef {
-        unshift: 'み',
+        normal: 'み',
         turbid: None,
         semiturbid: None,
     },
     CharDef {
-        unshift: 'む',
+        normal: 'む',
         turbid: None,
         semiturbid: None,
     },
     CharDef {
-        unshift: 'め',
+        normal: 'め',
         turbid: None,
         semiturbid: None,
     },
     CharDef {
-        unshift: 'も',
+        normal: 'も',
         turbid: None,
         semiturbid: None,
     },
     CharDef {
-        unshift: 'や',
+        normal: 'や',
         turbid: None,
         semiturbid: Some('ゃ'),
     },
     CharDef {
-        unshift: 'ゆ',
+        normal: 'ゆ',
         turbid: None,
         semiturbid: Some('ゅ'),
     },
     CharDef {
-        unshift: 'よ',
+        normal: 'よ',
         turbid: None,
         semiturbid: Some('ょ'),
     },
     CharDef {
-        unshift: 'ら',
+        normal: 'ら',
         turbid: None,
         semiturbid: None,
     },
     CharDef {
-        unshift: 'り',
+        normal: 'り',
         turbid: None,
         semiturbid: None,
     },
     CharDef {
-        unshift: 'る',
+        normal: 'る',
         turbid: None,
         semiturbid: None,
     },
     CharDef {
-        unshift: 'れ',
+        normal: 'れ',
         turbid: None,
         semiturbid: None,
     },
     CharDef {
-        unshift: 'ろ',
+        normal: 'ろ',
         turbid: None,
         semiturbid: None,
     },
     CharDef {
-        unshift: 'わ',
+        normal: 'わ',
         turbid: None,
         semiturbid: None,
     },
     CharDef {
-        unshift: 'を',
+        normal: 'を',
         turbid: None,
         semiturbid: None,
     },
     CharDef {
-        unshift: 'ん',
+        normal: 'ん',
         turbid: None,
         semiturbid: None,
     },
     CharDef {
-        unshift: 'っ',
+        normal: 'っ',
         turbid: None,
         semiturbid: None,
     },
     CharDef {
-        unshift: 'っ',
+        normal: 'っ',
         turbid: None,
         semiturbid: None,
     },
     CharDef {
-        unshift: '、',
+        normal: '、',
         turbid: None,
         semiturbid: None,
     },
     CharDef {
-        unshift: '。',
+        normal: '。',
         turbid: None,
         semiturbid: None,
     },
