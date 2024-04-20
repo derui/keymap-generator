@@ -109,12 +109,6 @@ impl Playground {
         let best_keymap = self.keymaps[rank[0].1].clone();
         self.keymaps = new_keymaps;
 
-        log::debug!(
-            "generation: {}, best score is: {}",
-            self.generation,
-            rank[0].0,
-        );
-
         (rank[0].0, best_keymap.clone())
     }
 

@@ -44,6 +44,38 @@ const QWERTY: [[char; 10]; 3] = [
     ['z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/'],
 ];
 
+struct Bench {
+    last_time: SystemTime,
+    generations_count: u64,
+}
+
+impl Bench {
+    fn new() -> Self {
+        Bench {
+            last_time: SystemTime::now(),
+            generations_count: 0,
+        }
+    }
+
+    fn update(&mut self, total_generations_count: u64) {
+        self.generations_count += 1;
+        let now = SystemTime::now();
+        let elapsed = now.duration_since(self.last_time).unwrap();
+        if elapsed.as_secs() > 60 {
+            let generation_per_sec = self.generations_count as f64 / elapsed.as_secs_f64();
+
+            log::info!(
+                "total {}, {} generations in 60 seconds, {} generation/sec",
+                total_generations_count,
+                self.generations_count,
+                generation_per_sec
+            );
+            self.last_time = now;
+            self.generations_count = 0;
+        }
+    }
+}
+
 fn main() -> anyhow::Result<()> {
     env_logger::init();
 
@@ -54,15 +86,15 @@ fn main() -> anyhow::Result<()> {
         .parse::<u64>()?;
     let mut rng = StdRng::seed_from_u64(seed);
 
+    let mut bench = Bench::new();
     let mut playground = Playground::new(84, &mut rng);
     let mut best_score = u64::MAX;
     let mut best_keymap: Option<Keymap> = None;
     let mut top_scores: BinaryHeap<Reverse<u64>> = BinaryHeap::new();
-    let mut best_updated_at = SystemTime::now();
     let conjunctions = read_4gram(Path::new(&path))?;
     let scores = Arc::new(ConnectionScore::new());
 
-    while best_updated_at.elapsed().unwrap() < 60 && !is_exit_score(&top_scores) {
+    while !is_exit_score(&mut top_scores) {
         let ret = playground.advance(&mut rng, &conjunctions, scores.clone());
 
         if best_score > ret.0 {
@@ -76,10 +108,10 @@ fn main() -> anyhow::Result<()> {
 
             best_score = ret.0;
             best_keymap = Some(ret.1);
-            best_updated_at = SystemTime::now();
         }
 
         top_scores.push(Reverse(ret.0));
+        bench.update(playground.generation());
     }
 
     println!(
@@ -94,7 +126,7 @@ fn main() -> anyhow::Result<()> {
 }
 
 /// exitするかどうかを決定する。トップ5が同一のスコアであれば終了する
-fn is_exit_score(score: &BinaryHeap<Reverse<u64>>) -> bool {
+fn is_exit_score(score: &mut BinaryHeap<Reverse<u64>>) -> bool {
     if score.len() < 10 {
         return false;
     }
@@ -103,5 +135,7 @@ fn is_exit_score(score: &BinaryHeap<Reverse<u64>>) -> bool {
 
     let base_score = iter.first().unwrap();
 
-    iter.iter().all(|v| v == base_score)
+    let ret = iter.iter().all(|v| v == base_score);
+    score.pop();
+    ret
 }

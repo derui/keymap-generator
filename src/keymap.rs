@@ -478,12 +478,7 @@ impl Keymap {
                     c.normal() == ha_col.normal()
                 });
 
-                // どっちかに割り当てる
-                if rng.gen::<bool>() {
-                    layout[idx] = KeyAssignment::A(KeyDef::unshift_from(&def));
-                } else {
-                    layout[idx] = KeyAssignment::A(KeyDef::shifted_from(&def));
-                }
+                layout[idx] = KeyAssignment::A(KeyDef::unshift_from(&def));
                 break;
             }
         }
@@ -515,12 +510,7 @@ impl Keymap {
                 }
                 let (_, def) = pick_def(chars, rng, idx, freq_table, |c| *c == ch);
 
-                // どっちかに割り当てる
-                if rng.gen::<bool>() {
-                    layout[idx] = KeyAssignment::A(KeyDef::unshift_from(&def));
-                } else {
-                    layout[idx] = KeyAssignment::A(KeyDef::shifted_from(&def));
-                }
+                layout[idx] = KeyAssignment::A(KeyDef::unshift_from(&def));
                 break;
             }
         }
@@ -568,12 +558,7 @@ impl Keymap {
                         assigned_to_turbid = true;
                     }
 
-                    // どっちかに割り当てる
-                    if rng.gen::<bool>() {
-                        layout[idx] = KeyAssignment::A(KeyDef::unshift_from(&def));
-                    } else {
-                        layout[idx] = KeyAssignment::A(KeyDef::shifted_from(&def));
-                    }
+                    layout[idx] = KeyAssignment::A(KeyDef::unshift_from(&def));
                     break;
                 }
 
@@ -597,7 +582,6 @@ impl Keymap {
             // 入る場所を探す
             loop {
                 let idx = rng.gen_range(0..layout.len());
-                let assign_shift: bool = rng.gen();
                 let (def_idx, def) = pick_def(chars, rng, idx, freq_table, |_| true);
 
                 if let KeyAssignment::A(k) = &layout[idx] {
@@ -607,11 +591,7 @@ impl Keymap {
                         break;
                     }
                 } else {
-                    if assign_shift {
-                        layout[idx] = KeyAssignment::A(KeyDef::shifted_from(&def));
-                    } else {
-                        layout[idx] = KeyAssignment::A(KeyDef::unshift_from(&def));
-                    }
+                    layout[idx] = KeyAssignment::A(KeyDef::unshift_from(&def));
                     break;
                 }
 

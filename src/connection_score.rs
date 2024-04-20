@@ -82,8 +82,21 @@ impl ConnectionScore {
         };
 
         for i in indices.iter().cloned() {
+            let score = this.evaluate_single_connection(&i.into());
+            let index = this.get_index(&Some(i.into()), &None, &None, &None);
+            this.scores[index] = score;
+
             for j in indices.iter().cloned() {
+                let score = this.evaluate_two_connection(&i.into(), &j.into());
+                let index = this.get_index(&Some(i.into()), &Some(j.into()), &None, &None);
+                this.scores[index] = score;
+
                 for k in indices.iter().cloned() {
+                    let score = this.evaluate_three_connection(&i.into(), &j.into(), &k.into());
+                    let index =
+                        this.get_index(&Some(i.into()), &Some(j.into()), &Some(k.into()), &None);
+                    this.scores[index] = score;
+
                     for l in indices.iter().cloned() {
                         let score =
                             this.evaluate_connection(&i.into(), &j.into(), &k.into(), &l.into());
@@ -172,6 +185,84 @@ impl ConnectionScore {
             + FINGER_WEIGHTS[j.0][j.1] as u32
             + FINGER_WEIGHTS[k.0][k.1] as u32
             + FINGER_WEIGHTS[l.0][l.1] as u32
+    }
+
+    /// 3連接の評価を行う
+    ///
+    /// 3連接の評価は、以下のscoreの合算とする。
+    /// - 先頭2連接の評価
+    /// - 今回打鍵するキーの評価
+    ///
+    /// 2連接の評価は、以下のルールに従う。
+    /// - TWO_CONNECTIONにあるcost。但し設定されていない場合は0
+    ///
+    /// # Arguments
+    /// * `i` - 1つ目のキー
+    /// * `j` - 2つ目のキー
+    /// * `k` - 3つ目のキー
+    ///
+    /// # Returns
+    /// 評価値
+    fn evaluate_three_connection(
+        &self,
+        i: &(usize, usize),
+        j: &(usize, usize),
+        k: &(usize, usize),
+    ) -> u32 {
+        let mut score = 0;
+        let i: Pos = Pos::from(*i);
+        let j: Pos = Pos::from(*j);
+        let k: Pos = Pos::from(*k);
+
+        // 2連接の評価
+        score += i.two_conjunction_scores(&j);
+        score += j.two_conjunction_scores(&k);
+
+        score
+            + FINGER_WEIGHTS[i.0][i.1] as u32
+            + FINGER_WEIGHTS[j.0][j.1] as u32
+            + FINGER_WEIGHTS[k.0][k.1] as u32
+    }
+
+    /// 2連接の評価を行う
+    ///
+    /// 2連接の評価は、以下のscoreの合算とする。
+    /// - 先頭2連接の評価
+    /// - 今回打鍵するキーの評価
+    ///
+    /// 2連接の評価は、以下のルールに従う。
+    /// - TWO_CONNECTIONにあるcost。但し設定されていない場合は0
+    ///
+    /// # Arguments
+    /// * `i` - 1つ目のキー
+    /// * `j` - 2つ目のキー
+    ///
+    /// # Returns
+    /// 評価値
+    fn evaluate_two_connection(&self, i: &(usize, usize), j: &(usize, usize)) -> u32 {
+        let mut score = 0;
+        let i: Pos = Pos::from(*i);
+        let j: Pos = Pos::from(*j);
+
+        // 2連接の評価
+        score += i.two_conjunction_scores(&j);
+
+        score + FINGER_WEIGHTS[i.0][i.1] as u32 + FINGER_WEIGHTS[j.0][j.1] as u32
+    }
+    /// 単一キーの評価を行う
+    ///
+    /// 単一キーの評価は、以下のscoreの合算とする。
+    /// - 今回打鍵するキーの評価
+    ///
+    /// # Arguments
+    /// * `i` - 1つ目のキー
+    ///
+    /// # Returns
+    /// 評価値
+    fn evaluate_single_connection(&self, i: &(usize, usize)) -> u32 {
+        let i: Pos = Pos::from(*i);
+
+        FINGER_WEIGHTS[i.0][i.1] as u32
     }
 
     /// 3連接に対する評価を行う
