@@ -108,33 +108,17 @@ impl ConnectionScore {
     pub fn evaluate(&self, sequence: &[(Pos, Option<Pos>)]) -> u64 {
         let mut score = 0;
 
-        let first: Option<(usize, usize)> = sequence.first().cloned().map(|(p, _)| p.into());
-        let second: Option<(usize, usize)> = sequence.get(1).cloned().map(|(p, _)| p.into());
-        let third: Option<(usize, usize)> = sequence.get(2).cloned().map(|(p, _)| p.into());
-        let fourth: Option<(usize, usize)> = sequence.get(3).cloned().map(|(p, _)| p.into());
+        let first: Option<(usize, usize)> = sequence.first().map(|(p, _)| p.into());
+        let second: Option<(usize, usize)> = sequence.get(1).map(|(p, _)| p.into());
+        let third: Option<(usize, usize)> = sequence.get(2).map(|(p, _)| p.into());
+        let fourth: Option<(usize, usize)> = sequence.get(3).map(|(p, _)| p.into());
 
         score += self.scores[self.get_index(&first, &second, &third, &fourth)] as u64;
 
-        let first: Option<(usize, usize)> = sequence
-            .first()
-            .cloned()
-            .and_then(|(_, v)| v)
-            .map(Into::into);
-        let second: Option<(usize, usize)> = sequence
-            .get(1)
-            .cloned()
-            .and_then(|(_, v)| v)
-            .map(Into::into);
-        let third: Option<(usize, usize)> = sequence
-            .get(2)
-            .cloned()
-            .and_then(|(_, v)| v)
-            .map(Into::into);
-        let fourth: Option<(usize, usize)> = sequence
-            .get(3)
-            .cloned()
-            .and_then(|(_, v)| v)
-            .map(Into::into);
+        let first: Option<(usize, usize)> = sequence.first().and_then(|(_, v)| *v).map(Into::into);
+        let second: Option<(usize, usize)> = sequence.get(1).and_then(|(_, v)| *v).map(Into::into);
+        let third: Option<(usize, usize)> = sequence.get(2).and_then(|(_, v)| *v).map(Into::into);
+        let fourth: Option<(usize, usize)> = sequence.get(3).and_then(|(_, v)| *v).map(Into::into);
 
         score +=
             (self.scores[self.get_index(&first, &second, &third, &fourth)] as f64 * 1.3) as u64;
@@ -276,6 +260,12 @@ impl From<&Point> for Pos {
 
 impl From<Pos> for (usize, usize) {
     fn from(pos: Pos) -> Self {
+        (pos.0, pos.1)
+    }
+}
+
+impl From<&Pos> for (usize, usize) {
+    fn from(pos: &Pos) -> Self {
         (pos.0, pos.1)
     }
 }

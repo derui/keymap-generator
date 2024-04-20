@@ -1,4 +1,7 @@
-use std::{collections::BinaryHeap, env::args, fs::File, path::Path, sync::Arc};
+use std::{
+    cmp::Reverse, collections::BinaryHeap, env::args, fs::File, path::Path, sync::Arc,
+    time::SystemTime,
+};
 
 use keymap::Keymap;
 use rand::{random, rngs::StdRng, SeedableRng};
@@ -54,11 +57,12 @@ fn main() -> anyhow::Result<()> {
     let mut playground = Playground::new(84, &mut rng);
     let mut best_score = u64::MAX;
     let mut best_keymap: Option<Keymap> = None;
-    let mut top_scores: BinaryHeap<u64> = BinaryHeap::new();
+    let mut top_scores: BinaryHeap<Reverse<u64>> = BinaryHeap::new();
+    let mut best_updated_at = SystemTime::now();
     let conjunctions = read_4gram(Path::new(&path))?;
     let scores = Arc::new(ConnectionScore::new());
 
-    while !is_exit_score(&top_scores) {
+    while best_updated_at.elapsed().unwrap() < 60 && !is_exit_score(&top_scores) {
         let ret = playground.advance(&mut rng, &conjunctions, scores.clone());
 
         if best_score > ret.0 {
@@ -72,14 +76,10 @@ fn main() -> anyhow::Result<()> {
 
             best_score = ret.0;
             best_keymap = Some(ret.1);
+            best_updated_at = SystemTime::now();
         }
 
-        if top_scores.len() < 10 {
-            top_scores.push(ret.0);
-        } else {
-            top_scores.shrink_to(10);
-            top_scores.push(ret.0);
-        }
+        top_scores.push(Reverse(ret.0));
     }
 
     println!(
@@ -93,14 +93,13 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn is_exit_score(score: &BinaryHeap<u64>) -> bool {
+/// exitするかどうかを決定する。トップ5が同一のスコアであれば終了する
+fn is_exit_score(score: &BinaryHeap<Reverse<u64>>) -> bool {
     if score.len() < 10 {
         return false;
     }
 
-    let mut iter = score.iter().collect::<Vec<_>>();
-    iter.sort();
-    iter.reverse();
+    let iter = score.iter().take(10).collect::<Vec<_>>();
 
     let base_score = iter.first().unwrap();
 
