@@ -4,6 +4,7 @@ use rand::{rngs::StdRng, Rng};
 
 use crate::{
     connection_score::ConnectionScore,
+    frequency_table::{self, FrequencyTable},
     keymap::Keymap,
     score::{self, Conjunction},
 };
@@ -17,6 +18,8 @@ pub struct Playground {
     // 全体で実行するworkerの最大数
     workers: usize,
     keymaps: Vec<Keymap>,
+
+    frequency_table: FrequencyTable,
 }
 
 const MUTATION_PROPABILITY: f64 = 0.01;
@@ -29,8 +32,9 @@ impl Playground {
 
         // まずは必要な数だけ生成しておく
         let mut keymaps = Vec::new();
+        let frequency_table = FrequencyTable::new();
         while keymaps.len() < gen_count as usize {
-            let keymap = Keymap::generate(rng);
+            let keymap = Keymap::generate(rng, &frequency_table);
 
             if keymap.meet_requirements() {
                 keymaps.push(keymap);
@@ -42,6 +46,7 @@ impl Playground {
             gen_count,
             keymaps,
             workers: WORKERS as usize,
+            frequency_table,
         }
     }
 
@@ -70,9 +75,19 @@ impl Playground {
 
             if prob < CROSS_PROPABILITY {
                 // 交叉
+                loop {
+                    let new_keymap = Keymap::generate(rng, &self.frequency_table);
+
+                    if new_keymap.meet_requirements() {
+                        new_keymaps.push(new_keymap);
+                        break;
+                    }
+                }
+            } else if prob < MUTATION_PROPABILITY + CROSS_PROPABILITY {
+                // 突然変異
                 let keymap = self.select(rng, &rank, &probabilities);
                 loop {
-                    let new_keymap = keymap.imitate_cross(rng);
+                    let new_keymap = keymap.mutate(rng);
 
                     if new_keymap.meet_requirements() {
                         new_keymaps.push(new_keymap);
@@ -86,24 +101,11 @@ impl Playground {
             }
         }
 
-        let new_keymaps = new_keymaps
-            .into_iter()
-            .map(|keymap| {
-                let prob = rng.gen::<f64>();
-                if prob < MUTATION_PROPABILITY {
-                    loop {
-                        // 突然変異
-                        let keymap = keymap.mutate(rng);
-
-                        if keymap.meet_requirements() {
-                            break keymap;
-                        }
-                    }
-                } else {
-                    keymap
-                }
-            })
-            .collect();
+        // 頻度表を更新する
+        for (prob, idx) in rank.iter() {
+            self.frequency_table
+                .update(&self.keymaps[*idx], *prob, self.keymaps.len());
+        }
 
         let best_keymap = self.keymaps[rank[0].1].clone();
         self.keymaps = new_keymaps;

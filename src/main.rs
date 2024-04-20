@@ -4,10 +4,13 @@ use keymap::Keymap;
 use rand::{random, rngs::StdRng, SeedableRng};
 use score::Conjunction;
 
-use crate::{connection_score::ConnectionScore, playground::Playground};
+use crate::{
+    connection_score::ConnectionScore, frequency_table::FrequencyTable, playground::Playground,
+};
 
 mod char_def;
 mod connection_score;
+mod frequency_table;
 mod key_def;
 mod keymap;
 mod layout;

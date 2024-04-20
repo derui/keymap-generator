@@ -41,6 +41,12 @@ impl CharDef {
     }
 }
 
+impl From<&CharDef> for char {
+    fn from(value: &CharDef) -> Self {
+        value.normal
+    }
+}
+
 /// 文字種の定義一覧を返す
 pub fn definitions() -> Vec<CharDef> {
     CHARS.to_vec()

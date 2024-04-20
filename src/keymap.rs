@@ -4,6 +4,7 @@ use rand::{rngs::StdRng, seq::SliceRandom, Rng};
 
 use crate::{
     char_def::{self, CharDef},
+    frequency_table::FrequencyTable,
     key_def::KeyDef,
     layout::{
         linear::{
@@ -373,22 +374,43 @@ mod constraints {
 /// # Arguments
 /// * `defs` - 文字のリスト
 /// * `rng` - 乱数生成器
+/// * `key_idx` - 対象のキーのindex
 /// * `pred` - 条件を判定する関数
 ///
 /// # Returns
 /// ランダムに選択された文字定義
-fn pick_def<F>(defs: &mut Vec<CharDef>, rng: &mut StdRng, f: F) -> CharDef
+fn pick_def<F>(
+    defs: &mut Vec<Option<CharDef>>,
+    rng: &mut StdRng,
+    key_idx: usize,
+    freq_table: &FrequencyTable,
+    f: F,
+) -> (usize, CharDef)
 where
     F: Fn(&CharDef) -> bool,
 {
-    let with_idx = defs
+    let chars = defs
         .iter()
-        .enumerate()
-        .filter(|(_, v)| f(*v))
+        .cloned()
+        .map(|v| {
+            if let Some(v) = v {
+                if f(&v) {
+                    Some(v)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
         .collect::<Vec<_>>();
-    let idx = rng.gen_range(0..with_idx.len());
+    let (idx, char) = freq_table.get_char(&chars, key_idx, rng.gen::<f64>());
 
-    defs.remove(with_idx[idx].0)
+    defs[idx] = None;
+    (
+        idx,
+        char_def::find(char).expect("can not found char: {char}"),
+    )
 }
 
 impl Keymap {
@@ -396,26 +418,31 @@ impl Keymap {
     ///
     /// 生成されたkeymapは、あくまでランダムなキーマップであり、実際に利用するためには、[Keymap::meet_requirements]がtrueを返すことを前提としなければ
     /// ならない。
-    pub fn generate(rng: &mut StdRng) -> Keymap {
+    pub fn generate(rng: &mut StdRng, freq_table: &FrequencyTable) -> Keymap {
         let mut layout = vec![KeyAssignment::U; 26];
-        let mut chars = char_def::definitions();
+        let mut chars = char_def::definitions()
+            .into_iter()
+            .map(|v| Some(v))
+            .collect();
 
         // まずシフトキーのシフト面に対して割り当てる。ここでは清音しか割り当てられない。
-        let def = pick_def(&mut chars, rng, |c| c.is_cleartone());
+        let (_, def) = pick_def(&mut chars, rng, LINEAR_L_SHIFT_INDEX, freq_table, |c| {
+            c.is_cleartone()
+        });
         layout[LINEAR_L_SHIFT_INDEX] = KeyAssignment::A(KeyDef::shifted_from(&def));
         layout[LINEAR_R_SHIFT_INDEX] = KeyAssignment::A(KeyDef::shifted_from(&def));
 
         // もっとも制約が強いハ行の文字から割り当てていく。ここでの割り当ては、シフトキーなどを除いて行っている
-        Keymap::assign_ha_row(&mut layout, rng, &mut chars);
+        Keymap::assign_ha_row(&mut layout, rng, &mut chars, freq_table);
 
         // 制約が多い半濁音を設定する
-        Keymap::assign_semiturbids(&mut layout, rng, &mut chars);
+        Keymap::assign_semiturbids(&mut layout, rng, &mut chars, freq_table);
 
         // 制約が多い濁音を設定する
-        Keymap::assign_turbids(&mut layout, rng, &mut chars);
+        Keymap::assign_turbids(&mut layout, rng, &mut chars, freq_table);
 
         // 残りの場所に追加していく。
-        Keymap::assign_keys(&mut layout, rng, &mut chars);
+        Keymap::assign_keys(&mut layout, rng, &mut chars, freq_table);
 
         if !chars.is_empty() {
             panic!("Leave some chars: {:?}", chars)
@@ -425,14 +452,18 @@ impl Keymap {
             panic!("Leave some chars: {}", Keymap { layout });
         }
 
-        log::info!("generated");
         Keymap { layout }
     }
 
     /// ハ行を割り当てる
     ///
     /// ハ行は、その特殊性から、最初に割り当てることが望ましい。ただし、各シフトの場所には割り当てられないものとする
-    fn assign_ha_row(layout: &mut [KeyAssignment], rng: &mut StdRng, chars: &mut Vec<CharDef>) {
+    fn assign_ha_row(
+        layout: &mut [KeyAssignment],
+        rng: &mut StdRng,
+        chars: &mut Vec<Option<CharDef>>,
+        freq_table: &FrequencyTable,
+    ) {
         let special_keys = linear::indices_of_special_keys();
         let ha_row = char_def::definitions()
             .into_iter()
@@ -446,14 +477,16 @@ impl Keymap {
             .collect::<Vec<_>>();
 
         for ha_col in ha_row {
-            let def = pick_def(chars, rng, |c| c.normal() == ha_col.normal());
-
             loop {
                 let idx = rng.gen_range(0..layout.len());
 
                 if special_keys.contains(&idx) || layout[idx] != KeyAssignment::U {
                     continue;
                 }
+
+                let (_, def) = pick_def(chars, rng, idx, freq_table, |c| {
+                    c.normal() == ha_col.normal()
+                });
 
                 // どっちかに割り当てる
                 if rng.gen::<bool>() {
@@ -473,24 +506,24 @@ impl Keymap {
     fn assign_semiturbids(
         layout: &mut [KeyAssignment],
         rng: &mut StdRng,
-        chars: &mut Vec<CharDef>,
+        chars: &mut Vec<Option<CharDef>>,
+        freq_table: &FrequencyTable,
     ) {
         let special_keys = linear::indices_of_turbid_related_keys();
         let semiturbids = chars
             .iter()
             .cloned()
-            .filter(|c| c.semiturbid().is_some())
+            .filter_map(|c| c.filter(|c| c.semiturbid().is_some()))
             .collect::<Vec<_>>();
 
         for ch in semiturbids {
-            let def = pick_def(chars, rng, |c| *c == ch);
-
             loop {
                 let idx = rng.gen_range(0..layout.len());
 
                 if special_keys.contains(&idx) || layout[idx] != KeyAssignment::U {
                     continue;
                 }
+                let (_, def) = pick_def(chars, rng, idx, freq_table, |c| *c == ch);
 
                 // どっちかに割り当てる
                 if rng.gen::<bool>() {
@@ -506,18 +539,21 @@ impl Keymap {
     /// 濁音があるキーを設定する
     ///
     /// 濁音は、濁音シフト間では排他にしなければならない。
-    fn assign_turbids(layout: &mut [KeyAssignment], rng: &mut StdRng, chars: &mut Vec<CharDef>) {
+    fn assign_turbids(
+        layout: &mut [KeyAssignment],
+        rng: &mut StdRng,
+        char_defs: &mut Vec<Option<CharDef>>,
+        freq_table: &FrequencyTable,
+    ) {
         // どっちかにすでに設定していたらそれ以上はやらないようにする
         let mut assigned_to_turbid = false;
-        let turbids = chars
+        let turbids = char_defs
             .iter()
             .cloned()
-            .filter(|c| c.turbid().is_some())
+            .filter_map(|c| c.filter(|c| c.turbid().is_some()))
             .collect::<Vec<_>>();
 
         for ch in turbids {
-            let def = pick_def(chars, rng, |c| *c == ch);
-
             loop {
                 let idx = rng.gen_range(0..layout.len());
 
@@ -526,17 +562,18 @@ impl Keymap {
                 {
                     continue;
                 }
+                let (def_idx, def) = pick_def(char_defs, rng, idx, freq_table, |c| *c == ch);
 
                 if let KeyAssignment::A(k) = &layout[idx] {
                     if let Some(k) = k.merge(&def) {
-                        if (idx == LINEAR_L_TURBID_INDEX || idx == LINEAR_R_TURBID_INDEX) {
+                        if idx == LINEAR_L_TURBID_INDEX || idx == LINEAR_R_TURBID_INDEX {
                             assigned_to_turbid = true;
                         }
                         layout[idx] = KeyAssignment::A(k);
                         break;
                     }
                 } else {
-                    if (idx == LINEAR_L_TURBID_INDEX || idx == LINEAR_R_TURBID_INDEX) {
+                    if idx == LINEAR_L_TURBID_INDEX || idx == LINEAR_R_TURBID_INDEX {
                         assigned_to_turbid = true;
                     }
 
@@ -548,6 +585,9 @@ impl Keymap {
                     }
                     break;
                 }
+
+                // 入れられなかったら戻す
+                char_defs[def_idx] = Some(def);
             }
         }
     }
@@ -555,24 +595,25 @@ impl Keymap {
     /// キー全体の配置を行う
     ///
     /// ここでの配置は、すでに制約の多い部分は事前に設定してある状態なので、そのまま入れられるところに入れていけばよい
-    fn assign_keys(layout: &mut [KeyAssignment], rng: &mut StdRng, chars: &mut Vec<CharDef>) {
+    fn assign_keys(
+        layout: &mut [KeyAssignment],
+        rng: &mut StdRng,
+        chars: &mut Vec<Option<CharDef>>,
+        freq_table: &FrequencyTable,
+    ) {
         // 各文字を設定していく。
-        while !chars.is_empty() {
-            let def = pick_def(chars, rng, |_| true);
-
-            log::debug!("target def: {:?}", def);
+        while !chars.iter().all(|v| v.is_none()) {
             // 入る場所を探す
             loop {
                 let idx = rng.gen_range(0..layout.len());
                 let assign_shift: bool = rng.gen();
+                let (def_idx, def) = pick_def(chars, rng, idx, freq_table, |_| true);
 
                 if let KeyAssignment::A(k) = &layout[idx] {
                     // この場合は、対象の場所に対してmerge出来るかどうかを確認する
                     if let Some(k) = k.merge(&def) {
                         layout[idx] = KeyAssignment::A(k);
                         break;
-                    } else {
-                        continue;
                     }
                 } else {
                     if assign_shift {
@@ -582,6 +623,8 @@ impl Keymap {
                     }
                     break;
                 }
+
+                chars[def_idx] = Some(def)
             }
         }
     }
@@ -631,45 +674,6 @@ impl Keymap {
         }
 
         None
-    }
-    /// ランダムに現状のキーマップを組み替える
-    ///
-    /// 単にランダムな交叉を実行した場合は、そもそも適応関数を満たさない可能性がほぼ100%であり、ほぼ実用に適さない。
-    /// ただし、一部分ずつの変異を繰り返しても、局所最適解に陥った場合には、それを脱出することができない。
-    ///
-    /// # Arguments
-    /// * `keymap` - 現在のキーマップ
-    ///
-    /// # Returns
-    /// 組み替え後のキーマップ
-    pub fn imitate_cross(&self, rng: &mut StdRng) -> Keymap {
-        let mut keymap = self.clone();
-
-        let specials = linear::indices_of_special_keys();
-        let indices: Vec<Point> = linear::linear_layout().to_vec();
-        let mut random_indices = (0..indices.len()).collect::<Vec<_>>();
-        random_indices.shuffle(rng);
-
-        // ここでの交叉は、一旦制約を無視してランダムに組み替える
-        for i in 0..(indices.len() / 2) {
-            if rng.gen() {
-                continue;
-            }
-            let idx1 = random_indices[i * 2];
-            let idx2 = random_indices[i * 2 + 1];
-
-            if specials.contains(&idx1) || specials.contains(&idx2) {
-                continue;
-            }
-
-            let key1 = &self.layout[idx1];
-            let key2 = &self.layout[idx2];
-
-            keymap.layout[idx1] = key2.clone();
-            keymap.layout[idx2] = key1.clone();
-        }
-
-        keymap
     }
 
     /// keymapに対して操作を実行して、実行した結果のkeymapを返す
@@ -919,6 +923,36 @@ impl Keymap {
             .collect::<Vec<_>>();
 
         self.format_keymap(&keys)
+    }
+
+    /// key defをiterateできるiteratorを返す
+    pub fn iter(&self) -> KeymapIterator {
+        KeymapIterator {
+            keymap: self,
+            index: 0,
+        }
+    }
+}
+
+pub struct KeymapIterator<'a> {
+    keymap: &'a Keymap,
+    index: usize,
+}
+
+impl<'a> Iterator for KeymapIterator<'a> {
+    type Item = &'a KeyDef;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while self.index < self.keymap.layout.len() {
+            // 割当のない場所がありうる
+            if let KeyAssignment::A(k) = &self.keymap.layout[self.index] {
+                self.index += 1;
+                return Some(k);
+            }
+            self.index += 1;
+        }
+
+        None
     }
 }
 
