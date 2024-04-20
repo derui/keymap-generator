@@ -62,7 +62,7 @@ pub fn find(char: char) -> Option<CharDef> {
 
 /// すべての文字を返す
 pub fn all_chars() -> Vec<char> {
-    CHARS.to_vec().iter().map(|c| c.chars()).flatten().collect()
+    CHARS.to_vec().iter().flat_map(|c| c.chars()).collect()
 }
 
 /// ひらがなの一覧。評価で利用する
@@ -321,7 +321,7 @@ const CHARS: [CharDef; 50] = [
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::char_def;
 
     #[test]
     fn no_conflict_between_no_turbid() {
@@ -364,11 +364,11 @@ mod tests {
     #[test]
     fn conflict_between_semiturbid() {
         // arrange
-        let def1 = CharDef::definitions()
+        let def1 = char_def::definitions()
             .into_iter()
             .find(|i| i.unshift() == 'は')
             .unwrap();
-        let def2 = CharDef::definitions()
+        let def2 = char_def::definitions()
             .into_iter()
             .find(|i| i.unshift() == 'あ')
             .unwrap();

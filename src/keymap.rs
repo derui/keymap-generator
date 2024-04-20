@@ -1,10 +1,17 @@
-use std::{collections::HashSet, fmt::Display};
+use std::fmt::Display;
 
 use rand::{rngs::StdRng, seq::SliceRandom, Rng};
 
 use crate::{
-    char_def::{self, cleartone_chars},
-    key::Key,
+    char_def::{self, CharDef},
+    key_def::KeyDef,
+    layout::{
+        linear::{
+            self, LINEAR_L_SEMITURBID_INDEX, LINEAR_L_SHIFT_INDEX, LINEAR_L_TURBID_INDEX,
+            LINEAR_R_SEMITURBID_INDEX, LINEAR_R_SHIFT_INDEX, LINEAR_R_TURBID_INDEX,
+        },
+        Point,
+    },
 };
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -15,222 +22,132 @@ pub enum KeyKind {
     Semiturbid,
 }
 
+#[derive(Debug, PartialEq, Eq, Clone)]
+enum KeyAssignment {
+    /// 割当済。変更することも出来る。
+    A(KeyDef),
+
+    /// 未割当
+    U,
+}
+
+impl KeyAssignment {
+    /// 対象の文字が入力可能であるかを返す
+    fn contains(&self, c: char) -> bool {
+        match self {
+            KeyAssignment::A(k) => k.chars().contains(&c),
+            KeyAssignment::U => false,
+        }
+    }
+
+    /// assignのキーについて、内容をflipする
+    fn flip(&self) -> Self {
+        match self {
+            KeyAssignment::A(k) => KeyAssignment::A(k.flip()),
+            KeyAssignment::U => KeyAssignment::U,
+        }
+    }
+
+    /// assignされているキーのうち、無シフト面を交換する
+    fn swap_unshift(&self, other: &Self) -> Option<(Self, Self)> {
+        match (self, other) {
+            (KeyAssignment::A(l), KeyAssignment::A(r)) => {
+                if l.unshift() == r.unshift() {
+                    return None;
+                }
+
+                match (l.replace_unshift(r), r.replace_unshift(l)) {
+                    (Some(l), Some(r)) => Some((KeyAssignment::A(l), KeyAssignment::A(r))),
+                    _ => None,
+                }
+            }
+            _ => None,
+        }
+    }
+
+    /// assignされているキーのうち、無シフト面を交換する
+    fn swap_shifted(&self, other: &Self) -> Option<(Self, Self)> {
+        match (self, other) {
+            (KeyAssignment::A(l), KeyAssignment::A(r)) => {
+                if l.unshift() == r.unshift() {
+                    return None;
+                }
+
+                match (l.replace_shifted(r), r.replace_shifted(l)) {
+                    (Some(l), Some(r)) => Some((KeyAssignment::A(l), KeyAssignment::A(r))),
+                    _ => None,
+                }
+            }
+            _ => None,
+        }
+    }
+}
+
 /// 有効なキーマップ
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Keymap {
-    layout: Vec<Vec<Key>>,
-}
-
-/// [chars]からランダムに一文字取得する
-///
-/// # Arguments
-/// * `chars` - 文字のリスト
-/// * `rng` - 乱数生成器
-///
-/// # Returns
-/// ランダムに選択された文字
-fn pick_char(chars: &mut Vec<char>, rng: &mut StdRng) -> char {
-    let idx = rng.gen_range(0..chars.len());
-    let c = chars[idx];
-    chars.remove(idx);
-    c
-}
-
-/// [chars]からランダムにキーを生成する
-///
-/// # Arguments
-/// * `chars` - 文字のリスト
-/// * `rng` - 乱数生成器
-/// * `generator` - キーを生成する関数
-///
-/// # Returns
-/// ランダムに選択され、generatorで生成されたキー
-fn get_key(
-    chars: &mut Vec<char>,
-    rng: &mut StdRng,
-    generator: fn(char, Option<char>) -> Option<Key>,
-) -> Option<Key> {
-    if chars.is_empty() {
-        panic!("Invalid sequence")
-    }
-
-    let mut key: Option<Key> = None;
-    while key.is_none() {
-        let (c, idx) = peek_char(chars, rng);
-        let shifted_char = peek_char_optional(chars, rng);
-        key = generator(c, shifted_char.map(|v| v.0));
-
-        if key.is_some() {
-            let mut char_set: HashSet<char> = chars.iter().cloned().collect();
-
-            char_set.remove(&chars[idx]);
-            if let Some((_, idx)) = shifted_char {
-                char_set.remove(&chars[idx]);
-            }
-            chars.clear();
-            chars.extend_from_slice(&char_set.into_iter().collect::<Vec<_>>());
-        }
-    }
-
-    key
-}
-
-/// [shift]と競合しないように、[chars]からランダムにキーを生成する
-///
-/// # Arguments
-/// * `shift` - シフト面の文字
-/// * `chars` - 文字のリスト
-/// * `rng` - 乱数生成器
-/// * `generator` - キーを生成する関数
-///
-/// # Returns
-/// ランダムに選択され、generatorで生成されたキー
-fn get_key_with_shift(
-    shift: char,
-    chars: &mut Vec<char>,
-    rng: &mut StdRng,
-    generator: fn(char, Option<char>) -> Option<Key>,
-) -> Option<Key> {
-    if chars.is_empty() {
-        panic!("Invalid sequence")
-    }
-
-    let mut key: Option<Key> = None;
-    while key.is_none() {
-        let (c, idx) = peek_char(chars, rng);
-        key = generator(c, Some(shift));
-
-        if key.is_some() {
-            chars.remove(idx);
-        }
-    }
-
-    key
-}
-
-/// [chars]からランダムに一文字確認する
-///
-/// この処理では[chars]は変更されない。
-///
-/// # Arguments
-/// * `chars` - 文字のリスト
-/// * `rng` - 乱数生成器
-///
-/// # Returns
-/// ランダムに選択された文字とそのindex
-fn peek_char(chars: &Vec<char>, rng: &mut StdRng) -> (char, usize) {
-    let idx = rng.gen_range(0..chars.len());
-    let c = chars[idx];
-    (c, idx)
-}
-
-/// [chars]からランダムに一文字確認する
-///
-/// この処理では[chars]は変更されない。
-///
-/// # Arguments
-/// * `chars` - 文字のリスト
-/// * `rng` - 乱数生成器
-///
-/// # Returns
-/// ランダムに選択された文字とそのindex
-fn peek_char_optional(chars: &Vec<char>, rng: &mut StdRng) -> Option<(char, usize)> {
-    if !rng.gen::<bool>() || chars.is_empty() {
-        None
-    } else {
-        Some(peek_char(chars, rng))
-    }
-}
-
-// layout上で利用しないキーの位置
-pub const EXCLUDE_MAP: [(usize, usize); 4] = [(0, 0), (0, 4), (0, 5), (0, 9)];
-// 左手シフトキーのindex
-pub const LEFT_SHIFT_INDEX: (usize, usize) = (1, 2);
-// 右手シフトキーのindex
-pub const RIGHT_SHIFT_INDEX: (usize, usize) = (1, 7);
-// 左手濁音シフトキーのindex
-pub const LEFT_TURBID_INDEX: (usize, usize) = (1, 3);
-// 右手濁音シフトキーのindex
-pub const RIGHT_TURBID_INDEX: (usize, usize) = (1, 6);
-// 左手半濁音シフトキーのindex
-pub const LEFT_SEMITURBID_INDEX: (usize, usize) = (2, 3);
-// 右手半濁音シフトキーのindex
-pub const RIGHT_SEMITURBID_INDEX: (usize, usize) = (2, 6);
-
-/// このkeymapにおける、有効なキーのインデックスを返す
-pub fn key_indices() -> HashSet<(usize, usize)> {
-    let mut indices: HashSet<(usize, usize)> = (0..3)
-        .flat_map(|r| (0..10).map(move |c| (r as usize, c as usize)))
-        .collect();
-
-    for exclude in EXCLUDE_MAP {
-        indices.remove(&exclude);
-    }
-
-    indices
+    layout: Vec<KeyAssignment>,
 }
 
 mod constraints {
     use std::collections::HashSet;
 
     use crate::{
-        char_def::{cleartone_chars, CHARS},
-        key::Key,
+        char_def,
+        layout::linear::{
+            LINEAR_L_SEMITURBID_INDEX, LINEAR_L_SHIFT_INDEX, LINEAR_L_TURBID_INDEX,
+            LINEAR_R_SEMITURBID_INDEX, LINEAR_R_SHIFT_INDEX, LINEAR_R_TURBID_INDEX,
+        },
     };
 
-    use super::{
-        LEFT_SEMITURBID_INDEX, LEFT_SHIFT_INDEX, LEFT_TURBID_INDEX, RIGHT_SEMITURBID_INDEX,
-        RIGHT_SHIFT_INDEX, RIGHT_TURBID_INDEX,
-    };
+    use super::KeyAssignment;
 
-    /// 左右のシフトキーが同一のキーを指しているかどうかを確認する
-    pub(super) fn should_shift_having_same_key(layout: &[Vec<Key>]) -> bool {
-        let left_shifted = layout[LEFT_SHIFT_INDEX.0][LEFT_SHIFT_INDEX.1].shifted();
-        let right_shifted = layout[RIGHT_SHIFT_INDEX.0][RIGHT_SHIFT_INDEX.1].shifted();
+    /// 左右のシフトキーに割り当てられている文字が同一であるか確認する
+    pub(super) fn should_shift_having_same_key(layout: &[KeyAssignment]) -> bool {
+        let left_shifted = &layout[LINEAR_L_SHIFT_INDEX];
+        let right_shifted = &layout[LINEAR_R_SHIFT_INDEX];
 
-        left_shifted == right_shifted
+        match (left_shifted, right_shifted) {
+            (KeyAssignment::A(l), KeyAssignment::A(r)) => l.shifted() == r.shifted(),
+            _ => false,
+        }
     }
 
     /// 左右のシフトキーには清音しか設定されていないかどうかを確認する
-    pub(super) fn should_shift_only_clear_tones(layout: &[Vec<Key>]) -> bool {
-        let clear_tones: HashSet<char> = cleartone_chars().into_iter().collect::<HashSet<_>>();
+    pub(super) fn should_shift_only_clear_tones(layout: &[KeyAssignment]) -> bool {
+        let left_shifted = &layout[LINEAR_L_SHIFT_INDEX];
+        let right_shifted = &layout[LINEAR_R_SHIFT_INDEX];
 
-        let left = &layout[LEFT_SHIFT_INDEX.0][LEFT_SHIFT_INDEX.1];
-        let right = &layout[RIGHT_SHIFT_INDEX.0][RIGHT_SHIFT_INDEX.1];
-
-        clear_tones.contains(&left.unshifted())
-            && clear_tones.contains(&right.unshifted())
-            && left
-                .shifted()
-                .map(|v| clear_tones.contains(&v))
-                .unwrap_or(true)
-            && right
-                .shifted()
-                .map(|v| clear_tones.contains(&v))
-                .unwrap_or(true)
+        match (left_shifted, right_shifted) {
+            (KeyAssignment::A(l), KeyAssignment::A(r)) => {
+                let l = l
+                    .shifted()
+                    .and_then(char_def::find)
+                    .map_or(false, |c| c.is_cleartone());
+                let r = r
+                    .shifted()
+                    .and_then(char_def::find)
+                    .map_or(false, |c| c.is_cleartone());
+                l && r
+            }
+            _ => false,
+        }
     }
 
     /// 左右の濁音シフト間では、いずれかのキーにしか濁音が設定されていないかどうかを確認する
-    pub(super) fn should_only_one_turbid(layout: &[Vec<Key>]) -> bool {
-        let left_turbid = layout[LEFT_TURBID_INDEX.0][LEFT_TURBID_INDEX.1].turbid();
-        let right_turbid = layout[RIGHT_TURBID_INDEX.0][RIGHT_TURBID_INDEX.1].turbid();
+    pub(super) fn should_only_one_turbid(layout: &[KeyAssignment]) -> bool {
+        let left_turbid = &layout[LINEAR_L_TURBID_INDEX];
+        let right_turbid = &layout[LINEAR_R_TURBID_INDEX];
 
-        matches!(
-            (left_turbid, right_turbid),
-            (Some(_), None) | (None, Some(_))
-        )
-    }
+        match (left_turbid, right_turbid) {
+            (KeyAssignment::A(l), KeyAssignment::A(r)) => {
+                let l = l.turbid();
+                let r = r.turbid();
 
-    /// 左右の半濁音シフト間では、いずれかのキーにしか半濁音が設定されていないかどうかを確認する
-    pub(super) fn should_only_one_semiturbit(layout: &[Vec<Key>]) -> bool {
-        let left_semiturbid = layout[LEFT_SEMITURBID_INDEX.0][LEFT_SEMITURBID_INDEX.1].semiturbid();
-        let right_semiturbid =
-            layout[RIGHT_SEMITURBID_INDEX.0][RIGHT_SEMITURBID_INDEX.1].semiturbid();
-
-        matches!(
-            (left_semiturbid, right_semiturbid),
-            (Some(_), None) | (None, Some(_))
-        )
+                matches!((l, r), (Some(_), None) | (None, Some(_)))
+            }
+            _ => true,
+        }
     }
 
     /// 左右の濁音・半濁音の間では、いずれかのキーにしか濁音と半濁音が設定されていないかどうかを確認する
@@ -240,65 +157,51 @@ mod constraints {
     /// * 半濁音キーに濁音が設定されていて、濁音キーには半濁音が設定されていない
     /// のいずれかである
     pub(super) fn should_be_explicit_between_left_turbid_and_right_semiturbit(
-        layout: &[Vec<Key>],
+        layout: &[KeyAssignment],
     ) -> bool {
-        let left_turbid = &layout[LEFT_TURBID_INDEX.0][LEFT_TURBID_INDEX.1];
-        let right_semiturbid = &layout[RIGHT_SEMITURBID_INDEX.0][RIGHT_SEMITURBID_INDEX.1];
+        let left_turbid = &layout[LINEAR_L_TURBID_INDEX];
+        let right_semiturbid = &layout[LINEAR_R_SEMITURBID_INDEX];
 
-        matches!(
-            (right_semiturbid.turbid(), left_turbid.semiturbid(),),
-            (None, None) | (Some(_), None) | (None, Some(_))
-        )
+        match (left_turbid, right_semiturbid) {
+            (KeyAssignment::A(l), KeyAssignment::A(r)) => {
+                matches!(
+                    (r.turbid(), l.semiturbid(),),
+                    (None, None) | (Some(_), None) | (None, Some(_))
+                )
+            }
+            _ => true,
+        }
     }
 
     /// 左右の濁音・半濁音の間では、いずれかのキーにしか濁音と半濁音が設定されていないかどうかを確認する
     pub(super) fn should_be_explicit_between_right_turbid_and_left_semiturbit(
-        layout: &[Vec<Key>],
+        layout: &[KeyAssignment],
     ) -> bool {
         // 濁音と半濁音を同時に押下したとき、両方に値が入っていると競合してしまうので、それを防ぐ
-        let right_turbid = &layout[RIGHT_TURBID_INDEX.0][RIGHT_TURBID_INDEX.1];
-        let left_semiturbid = &layout[LEFT_SEMITURBID_INDEX.0][LEFT_SEMITURBID_INDEX.1];
+        let right_turbid = &layout[LINEAR_R_TURBID_INDEX];
+        let left_semiturbid = &layout[LINEAR_L_SEMITURBID_INDEX];
 
-        matches!(
-            (left_semiturbid.turbid(), right_turbid.semiturbid(),),
-            (None, None) | (Some(_), None) | (None, Some(_))
-        )
+        match (right_turbid, left_semiturbid) {
+            (KeyAssignment::A(r), KeyAssignment::A(l)) => {
+                matches!(
+                    (l.turbid(), r.semiturbid(),),
+                    (None, None) | (Some(_), None) | (None, Some(_))
+                )
+            }
+            _ => true,
+        }
     }
 
     /// すべての文字が入力できる状態であることを確認する
-    pub(super) fn should_be_able_to_all_input(layout: &[Vec<Key>]) -> bool {
-        let mut chars: HashSet<char> = CHARS.iter().cloned().collect();
+    pub(super) fn should_be_able_to_all_input(layout: &[KeyAssignment]) -> bool {
+        let mut chars: HashSet<char> = char_def::all_chars().into_iter().collect();
 
-        for r in 0..3 {
-            for c in 0..10 {
-                let key = &layout[r][c];
-                if matches!(key, Key::Empty) {
-                    continue;
+        for assignment in layout.iter() {
+            match assignment {
+                KeyAssignment::A(k) => {
+                    k.chars().iter().all(|c| chars.remove(c));
                 }
-
-                if let Some(c) = key.shifted() {
-                    if c != '　' && !chars.contains(&c) {
-                        log::trace!("{} found twice in keymap!", c)
-                    }
-                    chars.remove(&c);
-                }
-                if let Some(c) = key.turbid() {
-                    if c != '　' && !chars.contains(&c) {
-                        log::trace!("{} found twice in keymap!", c)
-                    }
-                    chars.remove(&c);
-                }
-                if let Some(c) = key.semiturbid() {
-                    if c != '　' && !chars.contains(&c) {
-                        log::trace!("{} found twice in keymap!", c)
-                    }
-                    chars.remove(&c);
-                }
-                let c = key.unshifted();
-                if c != '　' && !chars.contains(&c) {
-                    log::trace!("{} found twice in keymap!", c)
-                }
-                chars.remove(&c);
+                KeyAssignment::U => continue,
             }
         }
 
@@ -307,30 +210,25 @@ mod constraints {
 
     #[cfg(test)]
     mod tests {
+        use crate::key_def::KeyDef;
+
         use super::*;
 
-        fn empty_layout() -> Vec<Vec<Key>> {
-            vec![vec![Key::empty(); 10]; 3]
+        fn empty_layout() -> Vec<KeyAssignment> {
+            vec![KeyAssignment::U; 26]
         }
 
-        fn put_key(layout: &mut [Vec<Key>], key: Key, pos: (usize, usize)) {
-            layout[pos.0][pos.1] = key;
+        fn put_key(layout: &mut [KeyAssignment], key: KeyDef, pos: usize) {
+            layout[pos] = KeyAssignment::A(key);
         }
 
         #[test]
         fn having_same_key_between_shift() {
             // arrange
             let mut layout = empty_layout();
-            put_key(
-                &mut layout,
-                Key::new_shift('あ', Some('を')).unwrap(),
-                LEFT_SHIFT_INDEX,
-            );
-            put_key(
-                &mut layout,
-                Key::new_shift('か', Some('を')).unwrap(),
-                RIGHT_SHIFT_INDEX,
-            );
+            let c1 = char_def::find('を').unwrap();
+            put_key(&mut layout, KeyDef::shifted_from(&c1), LINEAR_L_SHIFT_INDEX);
+            put_key(&mut layout, KeyDef::shifted_from(&c1), LINEAR_R_SHIFT_INDEX);
 
             // act
             let ret = should_shift_having_same_key(&layout);
@@ -343,16 +241,9 @@ mod constraints {
         fn having_clear_tone_only_in_shifts() {
             // arrange
             let mut layout = empty_layout();
-            put_key(
-                &mut layout,
-                Key::new_shift('に', Some('を')).unwrap(),
-                LEFT_SHIFT_INDEX,
-            );
-            put_key(
-                &mut layout,
-                Key::new_shift('ま', Some('を')).unwrap(),
-                RIGHT_SHIFT_INDEX,
-            );
+            let c1 = char_def::find('を').unwrap();
+            put_key(&mut layout, KeyDef::shifted_from(&c1), LINEAR_L_SHIFT_INDEX);
+            put_key(&mut layout, KeyDef::shifted_from(&c1), LINEAR_R_SHIFT_INDEX);
 
             // act
             let ret = should_shift_only_clear_tones(&layout);
@@ -365,16 +256,10 @@ mod constraints {
         fn not_having_same_key_between_shift() {
             // arrange
             let mut layout = empty_layout();
-            put_key(
-                &mut layout,
-                Key::new_shift('あ', Some('ぬ')).unwrap(),
-                LEFT_SHIFT_INDEX,
-            );
-            put_key(
-                &mut layout,
-                Key::new_shift('か', Some('を')).unwrap(),
-                RIGHT_SHIFT_INDEX,
-            );
+            let c1 = char_def::find('を').unwrap();
+            let c2 = char_def::find('に').unwrap();
+            put_key(&mut layout, KeyDef::shifted_from(&c1), LINEAR_L_SHIFT_INDEX);
+            put_key(&mut layout, KeyDef::shifted_from(&c2), LINEAR_R_SHIFT_INDEX);
 
             // act
             let ret = should_shift_having_same_key(&layout);
@@ -387,15 +272,17 @@ mod constraints {
         fn only_one_turbid_between_turbid_keys() {
             // arrange
             let mut layout = empty_layout();
+            let c1 = char_def::find('あ').unwrap();
+            let c2 = char_def::find('か').unwrap();
             put_key(
                 &mut layout,
-                Key::new_turbid('あ', Some('ぬ')).unwrap(),
-                LEFT_TURBID_INDEX,
+                KeyDef::unshift_from(&c1),
+                LINEAR_L_TURBID_INDEX,
             );
             put_key(
                 &mut layout,
-                Key::new_turbid('か', Some('を')).unwrap(),
-                RIGHT_TURBID_INDEX,
+                KeyDef::unshift_from(&c2),
+                LINEAR_R_TURBID_INDEX,
             );
 
             // act
@@ -409,15 +296,17 @@ mod constraints {
         fn two_turbid_between_turbid_keys() {
             // arrange
             let mut layout = empty_layout();
+            let c1 = char_def::find('し').unwrap();
+            let c2 = char_def::find('か').unwrap();
             put_key(
                 &mut layout,
-                Key::new_turbid('し', Some('ぬ')).unwrap(),
-                LEFT_TURBID_INDEX,
+                KeyDef::unshift_from(&c1),
+                LINEAR_L_TURBID_INDEX,
             );
             put_key(
                 &mut layout,
-                Key::new_turbid('か', Some('を')).unwrap(),
-                RIGHT_TURBID_INDEX,
+                KeyDef::unshift_from(&c2),
+                LINEAR_R_TURBID_INDEX,
             );
 
             // act
@@ -428,62 +317,20 @@ mod constraints {
         }
 
         #[test]
-        fn only_one_semiturbid_between_semiturbid_keys() {
-            // arrange
-            let mut layout = empty_layout();
-            put_key(
-                &mut layout,
-                Key::new_semiturbid('あ', Some('ぬ')).unwrap(),
-                LEFT_SEMITURBID_INDEX,
-            );
-            put_key(
-                &mut layout,
-                Key::new_semiturbid('か', Some('を')).unwrap(),
-                RIGHT_SEMITURBID_INDEX,
-            );
-
-            // act
-            let ret = should_only_one_semiturbit(&layout);
-
-            // assert
-            assert!(ret, "should be valid")
-        }
-
-        #[test]
-        fn two_semiturbid_between_semiturbid_keys() {
-            // arrange
-            let mut layout = empty_layout();
-            put_key(
-                &mut layout,
-                Key::new_semiturbid('は', Some('ぬ')).unwrap(),
-                LEFT_SEMITURBID_INDEX,
-            );
-            put_key(
-                &mut layout,
-                Key::new_semiturbid('ひ', Some('を')).unwrap(),
-                RIGHT_SEMITURBID_INDEX,
-            );
-
-            // act
-            let ret = should_only_one_semiturbit(&layout);
-
-            // assert
-            assert!(!ret, "should be valid")
-        }
-
-        #[test]
         fn only_one_turbid_and_semiturbid_set_between_left_turbid_and_right_semiturbid() {
             // arrange
             let mut layout = empty_layout();
+            let c1 = char_def::find('か').unwrap();
+            let c2 = char_def::find('ま').unwrap();
             put_key(
                 &mut layout,
-                Key::new_semiturbid('か', Some('ぬ')).unwrap(),
-                LEFT_TURBID_INDEX,
+                KeyDef::unshift_from(&c1),
+                LINEAR_L_TURBID_INDEX,
             );
             put_key(
                 &mut layout,
-                Key::new_semiturbid('ま', Some('を')).unwrap(),
-                RIGHT_SEMITURBID_INDEX,
+                KeyDef::unshift_from(&c2),
+                LINEAR_R_SEMITURBID_INDEX,
             );
 
             // act
@@ -497,15 +344,17 @@ mod constraints {
         fn only_one_turbid_and_semiturbid_set_between_right_turbid_and_left_semiturbid() {
             // arrange
             let mut layout = empty_layout();
+            let c1 = char_def::find('か').unwrap();
+            let c2 = char_def::find('ま').unwrap();
             put_key(
                 &mut layout,
-                Key::new_turbid('か', Some('ぬ')).unwrap(),
-                RIGHT_TURBID_INDEX,
+                KeyDef::unshift_from(&c1),
+                LINEAR_R_TURBID_INDEX,
             );
             put_key(
                 &mut layout,
-                Key::new_semiturbid('ま', Some('を')).unwrap(),
-                LEFT_SEMITURBID_INDEX,
+                KeyDef::unshift_from(&c2),
+                LINEAR_L_SEMITURBID_INDEX,
             );
 
             // act
@@ -517,28 +366,51 @@ mod constraints {
     }
 }
 
+/// [defs]から条件に合致する中で、ランダムに一つの定義を選択する
+///
+/// # Arguments
+/// * `defs` - 文字のリスト
+/// * `rng` - 乱数生成器
+/// * `pred` - 条件を判定する関数
+///
+/// # Returns
+/// ランダムに選択された文字定義
+fn pick_def<F>(defs: &mut Vec<CharDef>, rng: &mut StdRng, f: F) -> CharDef
+where
+    F: Fn(&CharDef) -> bool,
+{
+    let with_idx = defs
+        .iter()
+        .enumerate()
+        .filter(|(_, v)| f(v))
+        .collect::<Vec<_>>();
+    let idx = rng.gen_range(0..with_idx.len());
+
+    defs.remove(idx)
+}
+
 impl Keymap {
     /// 指定されたseedを元にしてキーマップを生成する
     ///
     /// 生成されたkeymapは、あくまでランダムなキーマップであり、実際に利用するためには、[Keymap::meet_requirements]がtrueを返すことを前提としなければ
     /// ならない。
     pub fn generate(rng: &mut StdRng) -> Keymap {
-        let mut layout = vec![vec![Key::empty(); 10]; 3];
-        let mut assignable_chars = char_def::assignable_chars();
-        // 対応するインデックスは最初になんとかしておく
-        let mut indices = key_indices();
-        indices.remove(&LEFT_SHIFT_INDEX);
-        indices.remove(&RIGHT_SHIFT_INDEX);
-        indices.remove(&LEFT_TURBID_INDEX);
-        indices.remove(&RIGHT_TURBID_INDEX);
-        indices.remove(&LEFT_SEMITURBID_INDEX);
-        indices.remove(&RIGHT_SEMITURBID_INDEX);
+        let mut layout = vec![KeyAssignment::U; 26];
+        let mut chars = char_def::definitions();
 
-        // 残りの場所に追加していく。基本的に単打はふやすべきではあるので、一旦単打だけ埋める
-        Keymap::assign_keys(&mut layout, rng, &mut assignable_chars, &indices);
+        // まずシフトキーのシフト面に対して割り当てる。ここでは清音しか割り当てられない。
+        let def = pick_def(&mut chars, rng, |c| c.is_cleartone());
+        layout[LINEAR_L_SHIFT_INDEX] = KeyAssignment::A(KeyDef::shifted_from(&def));
+        layout[LINEAR_R_SHIFT_INDEX] = KeyAssignment::A(KeyDef::shifted_from(&def));
 
-        if !assignable_chars.is_empty() {
-            panic!("Leave some chars: {:?}", assignable_chars)
+        // 次に、もっとも制約が強いハ行の文字から割り当てていく。ここでの割り当ては、シフトキーなどを除いて行っている
+        Keymap::assign_ha_row(&mut layout, rng, &mut chars);
+
+        // 残りの場所に追加していく。
+        Keymap::assign_keys(&mut layout, rng, &mut chars);
+
+        if !chars.is_empty() {
+            panic!("Leave some chars: {:?}", chars)
         }
 
         if !constraints::should_be_able_to_all_input(&layout) {
@@ -548,90 +420,73 @@ impl Keymap {
         Keymap { layout }
     }
 
+    /// ハ行を割り当てる
+    ///
+    /// ハ行は、その特殊性から、最初に割り当てることが望ましい。ただし、各シフトの場所には割り当てられないものとする
+    fn assign_ha_row(layout: &mut [KeyAssignment], rng: &mut StdRng, chars: &mut Vec<CharDef>) {
+        let special_keys = linear::indices_of_special_keys();
+        let ha_row = char_def::definitions()
+            .into_iter()
+            .filter(|c| {
+                c.unshift() == 'は'
+                    || c.unshift() == 'ひ'
+                    || c.unshift() == 'ふ'
+                    || c.unshift() == 'へ'
+                    || c.unshift() == 'ほ'
+            })
+            .collect::<Vec<_>>();
+
+        for ha_col in ha_row {
+            let def = pick_def(chars, rng, |c| *c == ha_col);
+
+            loop {
+                let idx = rng.gen_range(0..layout.len());
+
+                if special_keys.contains(&idx) {
+                    continue;
+                }
+
+                // どっちかに割り当てる
+                if rng.gen::<bool>() {
+                    layout[idx] = KeyAssignment::A(KeyDef::unshift_from(&def));
+                } else {
+                    layout[idx] = KeyAssignment::A(KeyDef::shifted_from(&def));
+                }
+            }
+        }
+    }
+
     /// キー全体の配置を行う
     ///
-    /// ただし、全体としてランダムな生成であるため、そもそも完全にアサインできないケースが多々ある。
-    fn assign_keys(
-        layout: &mut [Vec<Key>],
-        rng: &mut StdRng,
-        assignable_chars: &mut Vec<char>,
-        indices: &HashSet<(usize, usize)>,
-    ) {
-        let mut cloned: Vec<char> = assignable_chars.to_vec();
+    /// ここでの配置は、すでに制約の多い部分は事前に設定してある状態なので、そのまま入れられるところに入れていけばよい
+    fn assign_keys(layout: &mut [KeyAssignment], rng: &mut StdRng, chars: &mut Vec<CharDef>) {
+        // 各文字を設定していく。
+        loop {
+            let def = pick_def(chars, rng, |_| true);
 
-        // 残りの場所に追加していく。基本的に単打はふやすべきではあるので、一旦単打だけ埋める
-        while !cloned.is_empty() {
-            cloned.clear();
-            cloned.extend_from_slice(assignable_chars);
+            // 入る場所を探す
+            loop {
+                let idx = rng.gen_range(0..layout.len());
+                let assign_shift = rng.gen::<bool>();
 
-            for (r, c) in indices.iter() {
-                layout[*r][*c] = Key::empty();
-            }
-
-            // シフトの位置だけは固定しておくので、最初に生成しておく
-            let mut clear_tones = cleartone_chars();
-
-            let shifted_char = pick_char(&mut clear_tones, rng);
-            // 左右シフトがshiftedになるケースは一通りしかないので、ここは常に同一になる
-            layout[LEFT_SHIFT_INDEX.0][LEFT_SHIFT_INDEX.1] =
-                get_key_with_shift(shifted_char, &mut clear_tones, rng, Key::new_shift)
-                    .expect("should be shift");
-            layout[RIGHT_SHIFT_INDEX.0][RIGHT_SHIFT_INDEX.1] =
-                get_key_with_shift(shifted_char, &mut clear_tones, rng, Key::new_shift)
-                    .expect("should be shift");
-
-            {
-                // 削除されたキーだけをclonedから消すときに、ここで元々のものとの差分を抜いておく
-                let cleartones: HashSet<char> = HashSet::from_iter(clear_tones.into_iter());
-
-                let cloned_chars: HashSet<char> = HashSet::from_iter(cleartone_chars().into_iter());
-                for v in cloned_chars.difference(&cleartones) {
-                    if let Some(p) = cloned.iter().position(|c| *v == *c) {
-                        cloned.remove(p);
-                    }
-                }
-            }
-
-            layout[LEFT_TURBID_INDEX.0][LEFT_TURBID_INDEX.1] =
-                get_key(&mut cloned, rng, Key::new_turbid).expect("should be key");
-            layout[RIGHT_TURBID_INDEX.0][RIGHT_TURBID_INDEX.1] =
-                get_key(&mut cloned, rng, Key::new_turbid).expect("should be key");
-            layout[LEFT_SEMITURBID_INDEX.0][LEFT_SEMITURBID_INDEX.1] =
-                get_key(&mut cloned, rng, Key::new_semiturbid).expect("should be key");
-            layout[RIGHT_SEMITURBID_INDEX.0][RIGHT_SEMITURBID_INDEX.1] =
-                get_key(&mut cloned, rng, Key::new_semiturbid).expect("should be key");
-
-            for (r, c) in indices.iter() {
-                layout[*r][*c] = get_key(&mut cloned, rng, Key::new_normal).expect("should be key")
-            }
-
-            // 2週目で、入るところから入れていくが、差分がなくなってもまだ空ではない場合は再度実行する
-            while {
-                let current_count = cloned.len();
-
-                for (r, c) in indices.iter() {
-                    if cloned.is_empty() {
+                if let KeyAssignment::A(k) = &layout[idx] {
+                    // この場合は、対象の場所に対してmerge出来るかどうかを確認する
+                    if let Some(k) = k.merge(&def) {
+                        layout[idx] = KeyAssignment::A(k);
                         break;
-                    }
-
-                    let current = &layout[*r][*c];
-                    if current.shifted().is_some() {
+                    } else {
                         continue;
                     }
-                    let (char, idx) = peek_char(&cloned, rng);
-
-                    if let Some(key) = Key::new_normal(current.unshifted(), Some(char)) {
-                        cloned.remove(idx);
-                        layout[*r][*c] = key;
+                } else {
+                    if assign_shift {
+                        layout[idx] = KeyAssignment::A(KeyDef::shifted_from(&def));
+                    } else {
+                        layout[idx] = KeyAssignment::A(KeyDef::unshift_from(&def));
                     }
+                    break;
                 }
-
-                current_count != cloned.len() && !cloned.is_empty()
-            } {}
+            }
         }
-
-        // 全部入れ終わっているはずなのでclearする
-        assignable_chars.clear();
     }
 
     /// keymap自体が、全体の要求を満たしているかどうかを確認する
@@ -650,7 +505,6 @@ impl Keymap {
             constraints::should_shift_only_clear_tones,
             constraints::should_be_explicit_between_left_turbid_and_right_semiturbit,
             constraints::should_only_one_turbid,
-            constraints::should_only_one_semiturbit,
             constraints::should_be_explicit_between_right_turbid_and_left_semiturbit,
             constraints::should_be_able_to_all_input,
         ];
@@ -661,19 +515,21 @@ impl Keymap {
     /// 指定した文字を入力できるキーを返す
     ///
     /// 対象の文字が存在しない場合はNoneを返す
-    pub fn get(&self, char: char) -> Option<(KeyKind, (usize, usize))> {
-        for (r, c) in key_indices() {
-            let key = &self.layout[r][c];
+    pub fn get(&self, char: char) -> Option<(KeyKind, Point)> {
+        let layout = linear::linear_layout();
 
-            if key.contains(char) {
-                let kind = match key {
-                    Key::Normal(_) => KeyKind::Normal,
-                    Key::Shifter(_) => KeyKind::Shift,
-                    Key::Turbid(_) => KeyKind::Turbid,
-                    Key::Semiturbid(_) => KeyKind::Semiturbid,
-                    Key::Empty => return None,
+        for (idx, assignment) in self.layout.iter().enumerate() {
+            if assignment.contains(char) {
+                let kind = match idx {
+                    LINEAR_L_SHIFT_INDEX | LINEAR_R_SHIFT_INDEX => KeyKind::Shift,
+                    LINEAR_L_TURBID_INDEX => KeyKind::Turbid,
+                    LINEAR_R_TURBID_INDEX => KeyKind::Turbid,
+                    LINEAR_L_SEMITURBID_INDEX => KeyKind::Semiturbid,
+                    LINEAR_R_SEMITURBID_INDEX => KeyKind::Semiturbid,
+                    _ => KeyKind::Normal,
                 };
-                return Some((kind, (r, c)));
+
+                return Some((kind, layout[idx]));
             }
         }
 
@@ -689,38 +545,31 @@ impl Keymap {
     ///
     /// # Returns
     /// 組み替え後のキーマップ
-
     pub fn imitate_cross(&self, rng: &mut StdRng) -> Keymap {
         let mut keymap = self.clone();
 
-        let mut indices = key_indices();
-        for p in EXCLUDE_MAP.iter() {
-            indices.remove(&p);
-        }
-        indices.remove(&LEFT_SHIFT_INDEX);
-        indices.remove(&RIGHT_SHIFT_INDEX);
-        indices.remove(&LEFT_TURBID_INDEX);
-        indices.remove(&RIGHT_TURBID_INDEX);
-        indices.remove(&LEFT_SEMITURBID_INDEX);
-        indices.remove(&RIGHT_SEMITURBID_INDEX);
-
-        let indices = indices.into_iter().collect::<Vec<_>>();
+        let specials = linear::indices_of_special_keys();
+        let indices: Vec<Point> = linear::linear_layout().to_vec();
         let mut random_indices = (0..indices.len()).collect::<Vec<_>>();
         random_indices.shuffle(rng);
 
         // ここでの交叉は、一旦制約を無視してランダムに組み替える
         for i in 0..(indices.len() / 2) {
-            if rng.gen_range(0..2) == 0 {
+            if rng.gen() {
                 continue;
             }
-            let pos1 = indices[random_indices[i * 2]];
-            let pos2 = indices[random_indices[i * 2 + 1]];
+            let idx1 = random_indices[i * 2];
+            let idx2 = random_indices[i * 2 + 1];
 
-            let key1 = &self.layout[pos1.0][pos1.1];
-            let key2 = &self.layout[pos2.0][pos2.1];
+            if specials.contains(&idx1) || specials.contains(&idx2) {
+                continue;
+            }
 
-            keymap.layout[pos1.0][pos1.1] = key2.clone();
-            keymap.layout[pos2.0][pos2.1] = key1.clone();
+            let key1 = &self.layout[idx1];
+            let key2 = &self.layout[idx2];
+
+            keymap.layout[idx1] = key2.clone();
+            keymap.layout[idx2] = key1.clone();
         }
 
         keymap
@@ -736,8 +585,6 @@ impl Keymap {
             0 => keymap.swap_unshift_between_keys(rng),
             1 => keymap.swap_shifted_between_keys(rng),
             2 => keymap.flip_key(rng),
-            3 => keymap.swap_shift_of_shift_key(rng),
-            4 => keymap.swap_shift_and_unshift(rng),
             _ => (),
         }
 
@@ -746,24 +593,19 @@ impl Keymap {
 
     /// 任意のkeyにおけるunshiftedを交換する。
     fn swap_unshift_between_keys(&mut self, rng: &mut StdRng) {
-        let layout = Vec::from_iter(key_indices());
-
         loop {
-            let idx1 = rng.gen_range(0..layout.len());
-            let idx2 = rng.gen_range(0..layout.len());
+            let idx1 = rng.gen_range(0..self.layout.len());
+            let idx2 = rng.gen_range(0..self.layout.len());
 
             if idx1 == idx2 {
                 continue;
             }
-            let pos1 = layout[idx1];
-            let pos2 = layout[idx2];
+            let key1 = &self.layout[idx1];
+            let key2 = &self.layout[idx2];
 
-            let key1 = &self.layout[pos1.0][pos1.1];
-            let key2 = &self.layout[pos2.0][pos2.1];
-
-            if let Some((new_key1, new_key2)) = key1.swap_unshifted(key2) {
-                self.layout[pos1.0][pos1.1] = new_key1;
-                self.layout[pos2.0][pos2.1] = new_key2;
+            if let Some((new_key1, new_key2)) = key1.swap_unshift(key2) {
+                self.layout[idx1] = new_key1;
+                self.layout[idx2] = new_key2;
                 break;
             }
         }
@@ -771,97 +613,25 @@ impl Keymap {
 
     /// 任意のkeyにおけるshiftedを交換する。ただし、シフトキー自体が対象になる場合は対象外とする。
     fn swap_shifted_between_keys(&mut self, rng: &mut StdRng) {
-        let layout = Vec::from_iter(key_indices());
-
         loop {
-            let idx1 = rng.gen_range(0..layout.len());
-            let idx2 = rng.gen_range(0..layout.len());
+            let idx1 = rng.gen_range(0..self.layout.len());
+            let idx2 = rng.gen_range(0..self.layout.len());
 
-            if idx1 == idx2 {
-                continue;
-            }
-            let pos1 = layout[idx1];
-            let pos2 = layout[idx2];
-
-            if pos1 == LEFT_SHIFT_INDEX
-                || pos1 == RIGHT_SHIFT_INDEX
-                || pos2 == LEFT_SHIFT_INDEX
-                || pos2 == RIGHT_SHIFT_INDEX
+            if idx1 == idx2
+                || idx1 == LINEAR_L_SHIFT_INDEX
+                || idx1 == LINEAR_R_SHIFT_INDEX
+                || idx2 == LINEAR_L_SHIFT_INDEX
+                || idx2 == LINEAR_R_SHIFT_INDEX
             {
                 continue;
             }
 
-            let key1 = &self.layout[pos1.0][pos1.1];
-            let key2 = &self.layout[pos2.0][pos2.1];
+            let key1 = &self.layout[idx1];
+            let key2 = &self.layout[idx2];
 
             if let Some((new_key1, new_key2)) = key1.swap_shifted(key2) {
-                self.layout[pos1.0][pos1.1] = new_key1;
-                self.layout[pos2.0][pos2.1] = new_key2;
-
-                break;
-            }
-        }
-    }
-
-    /// 任意のキーとshiftのshift面を取り替える
-    fn swap_shift_of_shift_key(&mut self, rng: &mut StdRng) {
-        let layout = Vec::from_iter(key_indices());
-
-        loop {
-            let idx = rng.gen_range(0..layout.len());
-            let pos = layout[idx];
-
-            if pos == LEFT_SHIFT_INDEX || pos == RIGHT_SHIFT_INDEX {
-                continue;
-            }
-
-            let key1 = &self.layout[pos.0][pos.1];
-            let left_shift = &self.layout[LEFT_SHIFT_INDEX.0][LEFT_SHIFT_INDEX.1];
-            let right_shift = &self.layout[RIGHT_SHIFT_INDEX.0][RIGHT_SHIFT_INDEX.1];
-
-            if let Some((new_key1, new_key2)) = key1.swap_shifted(left_shift) {
-                if let Some((_, right_shift)) = key1.swap_shifted(right_shift) {
-                    self.layout[pos.0][pos.1] = new_key1;
-                    self.layout[LEFT_SHIFT_INDEX.0][LEFT_SHIFT_INDEX.1] = new_key2;
-                    self.layout[RIGHT_SHIFT_INDEX.0][RIGHT_SHIFT_INDEX.1] = right_shift;
-
-                    break;
-                }
-            }
-        }
-    }
-
-    /// 任意のキー同士のshiftとunshiftを交換する
-    ///
-    /// ただし、対象のキーがシフトキーの場合は除外する
-    fn swap_shift_and_unshift(&mut self, rng: &mut StdRng) {
-        let layout = Vec::from_iter(key_indices());
-
-        loop {
-            let idx1 = rng.gen_range(0..layout.len());
-            let idx2 = rng.gen_range(0..layout.len());
-
-            if idx1 == idx2 {
-                continue;
-            }
-            let pos1 = layout[idx1];
-            let pos2 = layout[idx2];
-
-            if pos1 == LEFT_SHIFT_INDEX
-                || pos1 == RIGHT_SHIFT_INDEX
-                || pos2 == LEFT_SHIFT_INDEX
-                || pos2 == RIGHT_SHIFT_INDEX
-            {
-                continue;
-            }
-
-            let key1 = &self.layout[pos1.0][pos1.1];
-            let key2 = &self.layout[pos2.0][pos2.1];
-            let key1 = key1.flip();
-
-            if let Some((new_key1, new_key2)) = key1.swap_shifted(key2) {
-                self.layout[pos1.0][pos1.1] = new_key1;
-                self.layout[pos2.0][pos2.1] = new_key2;
+                self.layout[idx1] = new_key1;
+                self.layout[idx2] = new_key2;
 
                 break;
             }
@@ -876,20 +646,16 @@ impl Keymap {
     /// # Return
     /// 交換されたkeymap
     fn flip_key(&mut self, rng: &mut StdRng) {
-        let layout = Vec::from_iter(key_indices());
+        let idx = rng.gen_range(0..self.layout.len());
+        let key = &self.layout[idx];
 
-        let idx = rng.gen_range(0..layout.len());
-        let pos = layout[idx];
-
-        self.layout[pos.0][pos.1] = self.layout[pos.0][pos.1].flip();
+        self.layout[idx] = key.flip();
 
         // シフトキーの場合は、対応するキーも一緒にflipする
-        if pos == LEFT_SHIFT_INDEX {
-            self.layout[RIGHT_SHIFT_INDEX.0][RIGHT_SHIFT_INDEX.1] =
-                self.layout[RIGHT_SHIFT_INDEX.0][RIGHT_SHIFT_INDEX.1].flip();
-        } else if pos == RIGHT_SHIFT_INDEX {
-            self.layout[LEFT_SHIFT_INDEX.0][LEFT_SHIFT_INDEX.1] =
-                self.layout[LEFT_SHIFT_INDEX.0][LEFT_SHIFT_INDEX.1].flip();
+        if idx == LINEAR_L_SHIFT_INDEX {
+            self.layout[LINEAR_R_SHIFT_INDEX] = self.layout[LINEAR_R_SHIFT_INDEX].flip();
+        } else if idx == LINEAR_R_SHIFT_INDEX {
+            self.layout[LINEAR_L_SHIFT_INDEX] = self.layout[LINEAR_L_SHIFT_INDEX].flip();
         }
     }
 
@@ -903,53 +669,61 @@ impl Keymap {
     /// 最初のセルにひらがな、２番めのセルにkeyのcombinationを返す
     pub fn key_combinations(&self, key_layout: &[[char; 10]; 3]) -> Vec<(String, String)> {
         let mut ret: Vec<(String, String)> = Vec::new();
+        let layout = linear::linear_layout();
 
-        for (r, rows) in self.layout.iter().enumerate() {
-            for (c, key) in rows.iter().enumerate() {
-                if matches!(key, Key::Empty) {
-                    continue;
-                }
-
-                ret.push((key.unshifted().to_string(), key_layout[r][c].to_string()));
-
-                // 各シフトの場合は、それぞれ逆手で押下するものとする
-                if let Some(shifted) = key.shifted() {
-                    let key = if c <= 4 {
-                        key_layout[RIGHT_SHIFT_INDEX.0][RIGHT_SHIFT_INDEX.1]
-                    } else {
-                        key_layout[LEFT_SHIFT_INDEX.0][LEFT_SHIFT_INDEX.1]
-                    };
-                    ret.push((shifted.to_string(), format!("{}{}", key, key_layout[r][c])));
-                }
-
-                if let Some(turbid) = key.turbid() {
-                    let key = if c <= 4 {
-                        key_layout[RIGHT_TURBID_INDEX.0][RIGHT_TURBID_INDEX.1]
-                    } else {
-                        key_layout[LEFT_TURBID_INDEX.0][LEFT_TURBID_INDEX.1]
-                    };
-                    ret.push((turbid.to_string(), format!("{}{}", key, key_layout[r][c])));
-                }
-
-                if let Some(semiturbid) = key.semiturbid() {
-                    let key = if c <= 4 {
-                        key_layout[RIGHT_SEMITURBID_INDEX.0][RIGHT_SEMITURBID_INDEX.1]
-                    } else {
-                        key_layout[LEFT_SEMITURBID_INDEX.0][LEFT_SEMITURBID_INDEX.1]
-                    };
-
+        for (r, key) in self.layout.iter().enumerate() {
+            match key {
+                KeyAssignment::A(key) => {
+                    let (r, c): (usize, usize) = layout[r].into();
                     ret.push((
-                        semiturbid.to_string(),
-                        format!("{}{}", key, key_layout[r][c]),
+                        key.unshift().map_or(String::new(), |c| c.to_string()),
+                        key_layout[r][c].to_string(),
                     ));
+
+                    // 各シフトの場合は、それぞれ逆手で押下するものとする
+                    if let Some(shifted) = key.shifted() {
+                        let (sr, sc) = if c <= 4 {
+                            layout[LINEAR_R_SHIFT_INDEX].into()
+                        } else {
+                            layout[LINEAR_L_SHIFT_INDEX].into()
+                        };
+                        let key = key_layout[sr][sc];
+                        ret.push((shifted.to_string(), format!("{}{}", key, key_layout[r][c])));
+                    }
+
+                    if let Some(turbid) = key.turbid() {
+                        let (sr, sc) = if c <= 4 {
+                            layout[LINEAR_R_TURBID_INDEX].into()
+                        } else {
+                            layout[LINEAR_L_TURBID_INDEX].into()
+                        };
+                        let key = key_layout[sr][sc];
+                        ret.push((turbid.to_string(), format!("{}{}", key, key_layout[r][c])));
+                    }
+
+                    if let Some(semiturbid) = key.semiturbid() {
+                        let (sr, sc) = if c <= 4 {
+                            layout[LINEAR_R_SEMITURBID_INDEX].into()
+                        } else {
+                            layout[LINEAR_L_SEMITURBID_INDEX].into()
+                        };
+                        let key = key_layout[sr][sc];
+
+                        ret.push((
+                            semiturbid.to_string(),
+                            format!("{}{}", key, key_layout[r][c]),
+                        ));
+                    }
                 }
+                KeyAssignment::U => continue,
             }
         }
 
         ret
     }
 
-    fn format_keymap(&self, layout: &Vec<Vec<Option<char>>>) -> String {
+    fn format_keymap(&self, layout: &[Option<char>]) -> String {
+        let layout_mapping = linear::linear_layout();
         let header: String = (0..9)
             .map(|_| "┳".to_string())
             .collect::<Vec<_>>()
@@ -965,8 +739,14 @@ impl Keymap {
                 .join("━"),
             "━┫"
         );
+        let mut square_layout = vec![vec![None; 10]; 3];
+        for (idx, ch) in layout.iter().enumerate() {
+            let (r, c): (usize, usize) = layout_mapping[idx].into();
 
-        let keys: Vec<String> = layout
+            square_layout[r][c] = *ch;
+        }
+
+        let keys: Vec<String> = square_layout
             .iter()
             .map(|row| {
                 let row: Vec<String> = row
@@ -996,8 +776,11 @@ impl Keymap {
         let keys = self
             .layout
             .iter()
-            .map(|r| r.iter().map(|c| Some(c.unshifted())).collect())
-            .collect();
+            .map(|r| match r {
+                KeyAssignment::A(k) => k.unshift(),
+                KeyAssignment::U => None,
+            })
+            .collect::<Vec<_>>();
 
         self.format_keymap(&keys)
     }
@@ -1006,8 +789,11 @@ impl Keymap {
         let keys = self
             .layout
             .iter()
-            .map(|r| r.iter().map(|c| c.shifted()).collect())
-            .collect();
+            .map(|r| match r {
+                KeyAssignment::A(k) => k.shifted(),
+                KeyAssignment::U => None,
+            })
+            .collect::<Vec<_>>();
 
         self.format_keymap(&keys)
     }
@@ -1016,8 +802,11 @@ impl Keymap {
         let keys = self
             .layout
             .iter()
-            .map(|r| r.iter().map(|c| c.turbid()).collect())
-            .collect();
+            .map(|r| match r {
+                KeyAssignment::A(k) => k.turbid(),
+                KeyAssignment::U => None,
+            })
+            .collect::<Vec<_>>();
 
         self.format_keymap(&keys)
     }
@@ -1026,8 +815,11 @@ impl Keymap {
         let keys = self
             .layout
             .iter()
-            .map(|r| r.iter().map(|c| c.semiturbid()).collect())
-            .collect();
+            .map(|r| match r {
+                KeyAssignment::A(k) => k.semiturbid(),
+                KeyAssignment::U => None,
+            })
+            .collect::<Vec<_>>();
 
         self.format_keymap(&keys)
     }

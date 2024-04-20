@@ -8,11 +8,9 @@ use crate::{connection_score::ConnectionScore, playground::Playground};
 
 mod char_def;
 mod connection_score;
-mod key;
 mod key_def;
 mod keymap;
 mod layout;
-mod new_keymap;
 mod playground;
 mod score;
 

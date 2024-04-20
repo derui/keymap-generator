@@ -61,11 +61,7 @@ impl Playground {
         self.generation += 1;
 
         let mut new_keymaps = Vec::new();
-        let rank = self
-            .rank(conjunctions, pre_scores.clone())
-            .iter()
-            .cloned()
-            .collect::<Vec<_>>();
+        let rank = self.rank(conjunctions, pre_scores.clone()).to_vec();
         let probabilities = self.make_probabilities(&rank);
 
         // new_keymapsがgen_countになるまで繰り返す
@@ -174,7 +170,7 @@ impl Playground {
     ) -> Vec<(u64, usize)> {
         let pool = threadpool::ThreadPool::new(self.workers);
 
-        let conjunctions = Arc::new(conjunctions.iter().cloned().collect::<Vec<_>>());
+        let conjunctions = Arc::new(conjunctions.to_vec());
 
         let mut scores = Vec::new();
         let keymaps = self.keymaps.clone();

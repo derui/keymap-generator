@@ -1,11 +1,16 @@
 use std::collections::HashMap;
 
 use crate::{
-    char_def::CHARS,
+    char_def,
     connection_score::{ConnectionScore, Pos},
-    keymap::{
-        KeyKind, Keymap, LEFT_SEMITURBID_INDEX, LEFT_SHIFT_INDEX, LEFT_TURBID_INDEX,
-        RIGHT_SEMITURBID_INDEX, RIGHT_SHIFT_INDEX, RIGHT_TURBID_INDEX,
+    keymap::{KeyKind, Keymap},
+    layout::{
+        self,
+        linear::{
+            LINEAR_L_SEMITURBID_INDEX, LINEAR_L_SHIFT_INDEX, LINEAR_L_TURBID_INDEX,
+            LINEAR_R_SEMITURBID_INDEX, LINEAR_R_SHIFT_INDEX, LINEAR_R_TURBID_INDEX,
+        },
+        Point,
     },
 };
 
@@ -38,51 +43,51 @@ pub fn evaluate(
     keymap: &Keymap,
 ) -> u64 {
     let mut score = 0;
+    let linear_layout = layout::linear::linear_layout();
 
-    let mut pos_cache: HashMap<char, (KeyKind, (usize, usize))> = HashMap::new();
+    let mut pos_cache: HashMap<char, (KeyKind, Point)> = HashMap::new();
 
-    for c in CHARS.iter() {
+    for c in char_def::all_chars().iter() {
         if let Some(v) = keymap.get(*c) {
             pos_cache.insert(*c, v);
         }
     }
 
     for conjunction in conjunctions {
-        let mut key_sequence: Vec<Pos> = Vec::with_capacity(8);
+        let mut key_sequence: Vec<(Pos, Option<Pos>)> = Vec::with_capacity(4);
 
         for c in conjunction.text.chars() {
-            if let Some((k, (r, c))) = pos_cache.get(&c) {
+            if let Some((k, point)) = pos_cache.get(&c) {
+                let (r, c): (usize, usize) = point.into();
+
                 // 対象の文字がshift/濁音/半濁音の場合は、それに対応するキーも評価に加える
                 // この場合、一応1動作として扱うのだが、次の打鍵に対してそれぞれからの評価が追加されるものとする
-                let additional_finger = match k {
+                let additional_finger: Option<Pos> = match k {
                     crate::keymap::KeyKind::Normal => None,
                     crate::keymap::KeyKind::Shift => {
-                        if HAND_ASSIGNMENT[*r][*c] == 2 {
-                            Some(LEFT_SHIFT_INDEX)
+                        if HAND_ASSIGNMENT[r][c] == 2 {
+                            Some((&linear_layout[LINEAR_L_SHIFT_INDEX]).into())
                         } else {
-                            Some(RIGHT_SHIFT_INDEX)
+                            Some((&linear_layout[LINEAR_R_SHIFT_INDEX]).into())
                         }
                     }
                     crate::keymap::KeyKind::Turbid => {
-                        if HAND_ASSIGNMENT[*r][*c] == 2 {
-                            Some(LEFT_TURBID_INDEX)
+                        if HAND_ASSIGNMENT[r][c] == 2 {
+                            Some((&linear_layout[LINEAR_L_TURBID_INDEX]).into())
                         } else {
-                            Some(RIGHT_TURBID_INDEX)
+                            Some((&linear_layout[LINEAR_R_TURBID_INDEX]).into())
                         }
                     }
                     crate::keymap::KeyKind::Semiturbid => {
-                        if HAND_ASSIGNMENT[*r][*c] == 2 {
-                            Some(LEFT_SEMITURBID_INDEX)
+                        if HAND_ASSIGNMENT[r][c] == 2 {
+                            Some((&linear_layout[LINEAR_L_SEMITURBID_INDEX]).into())
                         } else {
-                            Some(RIGHT_SEMITURBID_INDEX)
+                            Some((&linear_layout[LINEAR_R_SEMITURBID_INDEX]).into())
                         }
                     }
                 };
 
-                if let Some(shift) = additional_finger {
-                    key_sequence.push(shift.into());
-                }
-                key_sequence.push((*r, *c).into());
+                key_sequence.push(((r, c).into(), additional_finger));
             }
         }
 

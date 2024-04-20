@@ -19,7 +19,7 @@ impl KeyDef {
     /// 無シフトに対して[def]を設定した[KeyDef]を返す
     pub fn unshift_from(def: &CharDef) -> Self {
         KeyDef {
-            unshift: Some(def.clone()),
+            unshift: Some(*def),
             shifted: None,
         }
     }
@@ -28,7 +28,45 @@ impl KeyDef {
     pub fn shifted_from(def: &CharDef) -> Self {
         KeyDef {
             unshift: None,
-            shifted: Some(def.clone()),
+            shifted: Some(*def),
+        }
+    }
+
+    /// 無シフト面を、 `def` で置き換えた結果を返す。
+    ///
+    /// # Arguments
+    /// * `def` - 無シフト面を置き換える[KeyDef]
+    ///
+    /// # Returns
+    /// 置き換えた結果干渉する場合はNoneを返す
+    pub fn replace_unshift(&self, def: &Self) -> Option<Self> {
+        let tmp = KeyDef {
+            unshift: None,
+            shifted: self.shifted,
+        };
+
+        match def.unshift {
+            Some(unshift) => tmp.merge(&unshift),
+            None => Some(tmp),
+        }
+    }
+
+    /// シフト面を、 `def` で置き換えた結果を返す。
+    ///
+    /// # Arguments
+    /// * `def` - シフト面を置き換える[KeyDef]
+    ///
+    /// # Returns
+    /// 置き換えた結果干渉する場合はNoneを返す
+    pub fn replace_shifted(&self, def: &Self) -> Option<Self> {
+        let tmp = KeyDef {
+            unshift: self.unshift,
+            shifted: None,
+        };
+
+        match def.shifted {
+            Some(shifted) => tmp.merge(&shifted),
+            None => Some(tmp),
         }
     }
 
@@ -51,7 +89,7 @@ impl KeyDef {
                 } else {
                     Some(KeyDef {
                         unshift: Some(unshifted),
-                        shifted: Some(def.clone()),
+                        shifted: Some(*def),
                     })
                 }
             }
@@ -60,7 +98,7 @@ impl KeyDef {
                     None
                 } else {
                     Some(KeyDef {
-                        unshift: Some(def.clone()),
+                        unshift: Some(*def),
                         shifted: Some(shifted),
                     })
                 }

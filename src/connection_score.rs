@@ -1,4 +1,4 @@
-use crate::keymap::key_indices;
+use crate::layout::{linear::linear_layout, Point};
 
 /// 各指が担当するキーに対する重み。
 /// http://61degc.seesaa.net/article/284288569.html
@@ -77,17 +77,23 @@ pub struct ConnectionScore {
 
 impl ConnectionScore {
     pub fn new() -> Self {
-        let indices = key_indices().into_iter().collect::<Vec<_>>();
+        let indices = linear_layout();
         let mut this = ConnectionScore {
-            scores: vec![0; (32 as usize).pow(4)],
+            scores: vec![0; 32_usize.pow(4)],
         };
 
         for i in indices.iter().cloned() {
             for j in indices.iter().cloned() {
                 for k in indices.iter().cloned() {
                     for l in indices.iter().cloned() {
-                        let score = this.evaluate_connection(&i, &j, &k, &l);
-                        let index = this.get_index(&Some(i), &Some(j), &Some(k), &Some(l));
+                        let score =
+                            this.evaluate_connection(&i.into(), &j.into(), &k.into(), &l.into());
+                        let index = this.get_index(
+                            &Some(i.into()),
+                            &Some(j.into()),
+                            &Some(k.into()),
+                            &Some(l.into()),
+                        );
                         this.scores[index] = score;
                     }
                 }
@@ -100,17 +106,15 @@ impl ConnectionScore {
     /// キーから、評価の結果を返す
     ///
     /// ここでの結果は、4連接自体と、シフトに対する評価の両方の合算値である。
-    pub fn evaluate(&self, sequence: &Vec<Pos>) -> u64 {
+    pub fn evaluate(&self, sequence: &[(Pos, Option<Pos>)]) -> u64 {
         let mut score = 0;
 
-        for idx in 0..=(sequence.len().saturating_sub(4)) {
-            let first: Option<(usize, usize)> = sequence.get(idx).cloned().map(Into::into);
-            let second: Option<(usize, usize)> = sequence.get(idx + 1).cloned().map(Into::into);
-            let third: Option<(usize, usize)> = sequence.get(idx + 2).cloned().map(Into::into);
-            let fourth: Option<(usize, usize)> = sequence.get(idx + 3).cloned().map(Into::into);
+        let first: Option<(usize, usize)> = sequence.first().cloned().map(|(p, _)| p.into());
+        let second: Option<(usize, usize)> = sequence.get(1).cloned().map(|(p, _)| p.into());
+        let third: Option<(usize, usize)> = sequence.get(2).cloned().map(|(p, _)| p.into());
+        let fourth: Option<(usize, usize)> = sequence.get(3).cloned().map(|(p, _)| p.into());
 
-            score += self.scores[self.get_index(&first, &second, &third, &fourth)] as u64;
-        }
+        score += self.scores[self.get_index(&first, &second, &third, &fourth)] as u64;
 
         score
     }
@@ -236,6 +240,13 @@ impl From<(usize, usize)> for Pos {
     }
 }
 
+impl From<&Point> for Pos {
+    fn from(value: &Point) -> Self {
+        let (r, c): (usize, usize) = value.into();
+        Pos(r, c)
+    }
+}
+
 impl From<Pos> for (usize, usize) {
     fn from(pos: Pos) -> Self {
         (pos.0, pos.1)
@@ -283,7 +294,7 @@ impl Pos {
             },
             |first: &Pos, second: &Pos| {
                 // 同じ指で同じ行をスキップしている場合はペナルティを与える
-                if first.is_skip_row_on_same_finger(&second) {
+                if first.is_skip_row_on_same_finger(second) {
                     100
                 } else {
                     0
@@ -291,7 +302,7 @@ impl Pos {
             },
             |first: &Pos, second: &Pos| {
                 // 同じ指を連続して打鍵しているばあいはペナルティを与える
-                if first.is_same_hand_and_finger(&second) {
+                if first.is_same_hand_and_finger(second) {
                     50
                 } else {
                     0
@@ -299,7 +310,7 @@ impl Pos {
             },
             |first: &Pos, second: &Pos| {
                 // 段飛ばしをしている場合はペナルティを与える
-                if first.is_skip_row(&second) {
+                if first.is_skip_row(second) {
                     100
                 } else {
                     0
