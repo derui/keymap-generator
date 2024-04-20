@@ -4,7 +4,7 @@ use rand::{rngs::StdRng, Rng};
 
 use crate::{
     connection_score::ConnectionScore,
-    frequency_table::{self, FrequencyTable},
+    frequency_table::FrequencyTable,
     keymap::Keymap,
     score::{self, Conjunction},
 };

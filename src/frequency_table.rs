@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{char_def, key_def::KeyDef, keymap::Keymap};
+use crate::{char_def, keymap::Keymap};
 
 /// キーの出現回数を記録するテーブル
 #[derive(Debug)]

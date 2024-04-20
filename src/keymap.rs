@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use rand::{rngs::StdRng, seq::SliceRandom, Rng};
+use rand::{rngs::StdRng, Rng};
 
 use crate::{
     char_def::{self, CharDef},
