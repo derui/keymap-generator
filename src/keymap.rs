@@ -199,13 +199,14 @@ mod constraints {
         for assignment in layout.iter() {
             match assignment {
                 KeyAssignment::A(k) => {
-                    k.chars().iter().all(|c| chars.remove(c));
+                    k.chars().iter().for_each(|c| {
+                        chars.remove(c);
+                    });
                 }
                 KeyAssignment::U => continue,
             }
         }
 
-        log::debug!("{:?}", chars);
         chars.is_empty()
     }
 
@@ -407,6 +408,12 @@ impl Keymap {
         // もっとも制約が強いハ行の文字から割り当てていく。ここでの割り当ては、シフトキーなどを除いて行っている
         Keymap::assign_ha_row(&mut layout, rng, &mut chars);
 
+        // 制約が多い半濁音を設定する
+        Keymap::assign_semiturbids(&mut layout, rng, &mut chars);
+
+        // 制約が多い濁音を設定する
+        Keymap::assign_turbids(&mut layout, rng, &mut chars);
+
         // 残りの場所に追加していく。
         Keymap::assign_keys(&mut layout, rng, &mut chars);
 
@@ -418,6 +425,7 @@ impl Keymap {
             panic!("Leave some chars: {}", Keymap { layout });
         }
 
+        log::info!("generated");
         Keymap { layout }
     }
 
@@ -454,6 +462,92 @@ impl Keymap {
                     layout[idx] = KeyAssignment::A(KeyDef::shifted_from(&def));
                 }
                 break;
+            }
+        }
+    }
+
+    /// 半濁音があるキーを設定する
+    ///
+    /// 半濁音は、濁音と半濁音キーに対しては設定しないものとする。これは、互いに濁音と半濁音に割り当ててしまうと、
+    /// 確定することができなくなるためである。
+    fn assign_semiturbids(
+        layout: &mut [KeyAssignment],
+        rng: &mut StdRng,
+        chars: &mut Vec<CharDef>,
+    ) {
+        let special_keys = linear::indices_of_turbid_related_keys();
+        let semiturbids = chars
+            .iter()
+            .cloned()
+            .filter(|c| c.semiturbid().is_some())
+            .collect::<Vec<_>>();
+
+        for ch in semiturbids {
+            let def = pick_def(chars, rng, |c| *c == ch);
+
+            loop {
+                let idx = rng.gen_range(0..layout.len());
+
+                if special_keys.contains(&idx) || layout[idx] != KeyAssignment::U {
+                    continue;
+                }
+
+                // どっちかに割り当てる
+                if rng.gen::<bool>() {
+                    layout[idx] = KeyAssignment::A(KeyDef::unshift_from(&def));
+                } else {
+                    layout[idx] = KeyAssignment::A(KeyDef::shifted_from(&def));
+                }
+                break;
+            }
+        }
+    }
+
+    /// 濁音があるキーを設定する
+    ///
+    /// 濁音は、濁音シフト間では排他にしなければならない。
+    fn assign_turbids(layout: &mut [KeyAssignment], rng: &mut StdRng, chars: &mut Vec<CharDef>) {
+        // どっちかにすでに設定していたらそれ以上はやらないようにする
+        let mut assigned_to_turbid = false;
+        let turbids = chars
+            .iter()
+            .cloned()
+            .filter(|c| c.turbid().is_some())
+            .collect::<Vec<_>>();
+
+        for ch in turbids {
+            let def = pick_def(chars, rng, |c| *c == ch);
+
+            loop {
+                let idx = rng.gen_range(0..layout.len());
+
+                if (idx == LINEAR_L_TURBID_INDEX || idx == LINEAR_R_TURBID_INDEX)
+                    && assigned_to_turbid
+                {
+                    continue;
+                }
+
+                if let KeyAssignment::A(k) = &layout[idx] {
+                    if let Some(k) = k.merge(&def) {
+                        if (idx == LINEAR_L_TURBID_INDEX || idx == LINEAR_R_TURBID_INDEX) {
+                            assigned_to_turbid = true;
+                        }
+                        layout[idx] = KeyAssignment::A(k);
+                        break;
+                    }
+                } else {
+                    if (idx == LINEAR_L_TURBID_INDEX || idx == LINEAR_R_TURBID_INDEX) {
+                        assigned_to_turbid = true;
+                    }
+
+                    // どっちかに割り当てる
+                    if rng.gen::<bool>() {
+                        layout[idx] = KeyAssignment::A(KeyDef::unshift_from(&def));
+                    } else {
+                        layout[idx] = KeyAssignment::A(KeyDef::shifted_from(&def));
+                    }
+                    break;
+                }
             }
         }
     }

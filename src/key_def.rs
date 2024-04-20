@@ -34,6 +34,10 @@ impl KeyDef {
 
     /// 文字の定義上、同一キー上でマージ可能であるかどうか返す
     fn conflicts(&self, other: &CharDef) -> bool {
+        if matches!((self.unshift, self.shifted), (Some(_), Some(_))) {
+            return true;
+        }
+
         match (
             self.turbid(),
             other.turbid(),
@@ -109,7 +113,10 @@ impl KeyDef {
                 unshift: Some(*def),
                 shifted: Some(shifted),
             }),
-            _ => unreachable!("unshift and shifted are None. It should not be happened."),
+            _ => Some(KeyDef {
+                unshift: Some(def.clone()),
+                shifted: None,
+            }),
         }
     }
 
@@ -228,6 +235,19 @@ mod tests {
 
         // act
         let ret = key.merge(&char_def::find('か').unwrap());
+
+        // assert
+        assert_eq!(ret, None);
+    }
+
+    #[test]
+    fn can_not_merge_full_defined() {
+        // arrange
+        let key = KeyDef::unshift_from(&char_def::find('か').unwrap());
+        let key = key.merge(&char_def::find('あ').unwrap()).unwrap();
+
+        // act
+        let ret = key.merge(&char_def::find('ま').unwrap());
 
         // assert
         assert_eq!(ret, None);

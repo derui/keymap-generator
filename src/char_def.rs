@@ -294,17 +294,17 @@ const CHARS: [CharDef; 50] = [
         semiturbid: None,
     },
     CharDef {
-        normal: 'っ',
-        turbid: None,
-        semiturbid: None,
-    },
-    CharDef {
         normal: '、',
         turbid: None,
         semiturbid: None,
     },
     CharDef {
         normal: '。',
+        turbid: None,
+        semiturbid: None,
+    },
+    CharDef {
+        normal: 'ー',
         turbid: None,
         semiturbid: None,
     },
