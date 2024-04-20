@@ -205,6 +205,7 @@ mod constraints {
             }
         }
 
+        log::debug!("{:?}", chars);
         chars.is_empty()
     }
 
@@ -366,7 +367,7 @@ mod constraints {
     }
 }
 
-/// [defs]から条件に合致する中で、ランダムに一つの定義を選択する
+/// [defs]から条件に合致する中で、ランダムに一つの定義を選択する。選択された定義は `defs` から削除される
 ///
 /// # Arguments
 /// * `defs` - 文字のリスト
@@ -382,11 +383,11 @@ where
     let with_idx = defs
         .iter()
         .enumerate()
-        .filter(|(_, v)| f(v))
+        .filter(|(_, v)| f(*v))
         .collect::<Vec<_>>();
     let idx = rng.gen_range(0..with_idx.len());
 
-    defs.remove(idx)
+    defs.remove(with_idx[idx].0)
 }
 
 impl Keymap {
@@ -403,7 +404,7 @@ impl Keymap {
         layout[LINEAR_L_SHIFT_INDEX] = KeyAssignment::A(KeyDef::shifted_from(&def));
         layout[LINEAR_R_SHIFT_INDEX] = KeyAssignment::A(KeyDef::shifted_from(&def));
 
-        // 次に、もっとも制約が強いハ行の文字から割り当てていく。ここでの割り当ては、シフトキーなどを除いて行っている
+        // もっとも制約が強いハ行の文字から割り当てていく。ここでの割り当ては、シフトキーなどを除いて行っている
         Keymap::assign_ha_row(&mut layout, rng, &mut chars);
 
         // 残りの場所に追加していく。
@@ -428,21 +429,21 @@ impl Keymap {
         let ha_row = char_def::definitions()
             .into_iter()
             .filter(|c| {
-                c.unshift() == 'は'
-                    || c.unshift() == 'ひ'
-                    || c.unshift() == 'ふ'
-                    || c.unshift() == 'へ'
-                    || c.unshift() == 'ほ'
+                c.normal() == 'は'
+                    || c.normal() == 'ひ'
+                    || c.normal() == 'ふ'
+                    || c.normal() == 'へ'
+                    || c.normal() == 'ほ'
             })
             .collect::<Vec<_>>();
 
         for ha_col in ha_row {
-            let def = pick_def(chars, rng, |c| *c == ha_col);
+            let def = pick_def(chars, rng, |c| c.normal() == ha_col.normal());
 
             loop {
                 let idx = rng.gen_range(0..layout.len());
 
-                if special_keys.contains(&idx) {
+                if special_keys.contains(&idx) || layout[idx] != KeyAssignment::U {
                     continue;
                 }
 
@@ -452,6 +453,7 @@ impl Keymap {
                 } else {
                     layout[idx] = KeyAssignment::A(KeyDef::shifted_from(&def));
                 }
+                break;
             }
         }
     }
@@ -461,13 +463,14 @@ impl Keymap {
     /// ここでの配置は、すでに制約の多い部分は事前に設定してある状態なので、そのまま入れられるところに入れていけばよい
     fn assign_keys(layout: &mut [KeyAssignment], rng: &mut StdRng, chars: &mut Vec<CharDef>) {
         // 各文字を設定していく。
-        loop {
+        while !chars.is_empty() {
             let def = pick_def(chars, rng, |_| true);
 
+            log::debug!("target def: {:?}", def);
             // 入る場所を探す
             loop {
                 let idx = rng.gen_range(0..layout.len());
-                let assign_shift = rng.gen::<bool>();
+                let assign_shift: bool = rng.gen();
 
                 if let KeyAssignment::A(k) = &layout[idx] {
                     // この場合は、対象の場所に対してmerge出来るかどうかを確認する

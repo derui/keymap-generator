@@ -32,6 +32,20 @@ impl KeyDef {
         }
     }
 
+    /// 文字の定義上、同一キー上でマージ可能であるかどうか返す
+    fn conflicts(&self, other: &CharDef) -> bool {
+        match (
+            self.turbid(),
+            other.turbid(),
+            self.semiturbid(),
+            other.semiturbid(),
+        ) {
+            (Some(_), Some(_), _, _) => true,
+            (_, _, Some(_), Some(_)) => true,
+            _ => self.unshift == Some(*other) || self.shifted == Some(*other),
+        }
+    }
+
     /// 無シフト面を、 `def` で置き換えた結果を返す。
     ///
     /// # Arguments
@@ -81,40 +95,32 @@ impl KeyDef {
     /// マージした結果の[KeyDef]。競合している場合はNone
     pub fn merge(&self, def: &CharDef) -> Option<Self> {
         // すでに埋まっている場合はマージできない。マージできる場合は、埋まっていない方にマージする
+        if self.conflicts(def) {
+            return None;
+        }
+
         match (self.unshift, self.shifted) {
             (Some(_), Some(_)) => None,
-            (Some(unshifted), None) => {
-                if unshifted.conflicts(def) {
-                    None
-                } else {
-                    Some(KeyDef {
-                        unshift: Some(unshifted),
-                        shifted: Some(*def),
-                    })
-                }
-            }
-            (None, Some(shifted)) => {
-                if shifted.conflicts(def) {
-                    None
-                } else {
-                    Some(KeyDef {
-                        unshift: Some(*def),
-                        shifted: Some(shifted),
-                    })
-                }
-            }
+            (Some(unshift), None) => Some(KeyDef {
+                unshift: Some(unshift),
+                shifted: Some(*def),
+            }),
+            (None, Some(shifted)) => Some(KeyDef {
+                unshift: Some(*def),
+                shifted: Some(shifted),
+            }),
             _ => unreachable!("unshift and shifted are None. It should not be happened."),
         }
     }
 
     /// 無シフト面の文字があれば返す
     pub fn unshift(&self) -> Option<char> {
-        self.unshift.map(|c| c.unshift())
+        self.unshift.map(|c| c.normal())
     }
 
     /// シフト面の文字があれば返す
     pub fn shifted(&self) -> Option<char> {
-        self.shifted.map(|c| c.unshift())
+        self.shifted.map(|c| c.normal())
     }
 
     /// 濁点シフト面の文字があれば返す
@@ -124,8 +130,8 @@ impl KeyDef {
             self.shifted.and_then(|v| v.turbid()),
         ) {
             // 両方があるケースは存在しない
-            (Some(unshifted), None) => Some(unshifted),
-            (None, Some(shifted)) => Some(shifted),
+            (Some(c), None) => Some(c),
+            (None, Some(c)) => Some(c),
             _ => None,
         }
     }
@@ -137,8 +143,8 @@ impl KeyDef {
             self.shifted.and_then(|v| v.semiturbid()),
         ) {
             // 両方があるケースは存在しない
-            (Some(unshifted), None) => Some(unshifted),
-            (None, Some(shifted)) => Some(shifted),
+            (Some(c), None) => Some(c),
+            (None, Some(c)) => Some(c),
             _ => None,
         }
     }
@@ -210,6 +216,18 @@ mod tests {
 
         // act
         let ret = key.merge(&char_def::find('さ').unwrap());
+
+        // assert
+        assert_eq!(ret, None);
+    }
+
+    #[test]
+    fn can_not_merge_same_char_def() {
+        // arrange
+        let key = KeyDef::unshift_from(&char_def::find('か').unwrap());
+
+        // act
+        let ret = key.merge(&char_def::find('か').unwrap());
 
         // assert
         assert_eq!(ret, None);

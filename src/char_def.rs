@@ -6,22 +6,13 @@ pub struct CharDef {
 }
 
 impl CharDef {
-    /// 文字の定義上、同一キーに割り当てることができるかどうかを返す
-    pub fn conflicts(&self, other: &Self) -> bool {
-        match (self.turbid, other.turbid, self.semiturbid, other.semiturbid) {
-            (Some(_), Some(_), _, _) => true,
-            (_, _, Some(_), Some(_)) => true,
-            _ => self.normal == other.normal,
-        }
-    }
-
     /// 清音かどうかを返す
     pub fn is_cleartone(&self) -> bool {
         self.turbid.is_none() && self.semiturbid.is_none()
     }
 
     /// 対象の文字に対応する定義を返す
-    pub fn unshift(&self) -> char {
+    pub fn normal(&self) -> char {
         self.normal
     }
 
@@ -318,65 +309,3 @@ const CHARS: [CharDef; 50] = [
         semiturbid: None,
     },
 ];
-
-#[cfg(test)]
-mod tests {
-    use crate::char_def;
-
-    #[test]
-    fn no_conflict_between_no_turbid() {
-        // arrange
-        let def1 = super::definitions()
-            .into_iter()
-            .find(|i| i.unshift() == 'ま')
-            .unwrap();
-        let def2 = super::definitions()
-            .into_iter()
-            .find(|i| i.unshift() == 'み')
-            .unwrap();
-
-        // act
-        let ret = def1.conflicts(&def2);
-
-        // assert
-        assert!(!ret);
-    }
-
-    #[test]
-    fn conflict_between_turbid() {
-        // arrange
-        let def1 = super::definitions()
-            .into_iter()
-            .find(|i| i.unshift() == 'か')
-            .unwrap();
-        let def2 = super::definitions()
-            .into_iter()
-            .find(|i| i.unshift() == 'し')
-            .unwrap();
-
-        // act
-        let ret = def1.conflicts(&def2);
-
-        // assert
-        assert!(ret);
-    }
-
-    #[test]
-    fn conflict_between_semiturbid() {
-        // arrange
-        let def1 = char_def::definitions()
-            .into_iter()
-            .find(|i| i.unshift() == 'は')
-            .unwrap();
-        let def2 = char_def::definitions()
-            .into_iter()
-            .find(|i| i.unshift() == 'あ')
-            .unwrap();
-
-        // act
-        let ret = def1.conflicts(&def2);
-
-        // assert
-        assert!(ret);
-    }
-}
