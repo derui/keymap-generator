@@ -380,7 +380,7 @@ mod constraints {
 /// # Returns
 /// ランダムに選択された文字定義
 fn pick_def<F>(
-    defs: &mut Vec<Option<CharDef>>,
+    defs: &mut [Option<CharDef>],
     rng: &mut StdRng,
     key_idx: usize,
     freq_table: &FrequencyTable,
@@ -410,7 +410,10 @@ impl Keymap {
     /// ならない。
     pub fn generate(rng: &mut StdRng, freq_table: &FrequencyTable) -> Keymap {
         let mut layout = vec![KeyAssignment::U; 26];
-        let mut chars = char_def::definitions().into_iter().map(Some).collect();
+        let mut chars = char_def::definitions()
+            .into_iter()
+            .map(Some)
+            .collect::<Vec<_>>();
 
         // まずシフトキーのシフト面に対して割り当てる。ここでは清音しか割り当てられない。
         let (_, def) = pick_def(&mut chars, rng, LINEAR_L_SHIFT_INDEX, freq_table, |c| {
@@ -448,7 +451,7 @@ impl Keymap {
     fn assign_ha_row(
         layout: &mut [KeyAssignment],
         rng: &mut StdRng,
-        chars: &mut Vec<Option<CharDef>>,
+        chars: &mut [Option<CharDef>],
         freq_table: &FrequencyTable,
     ) {
         let special_keys = linear::indices_of_special_keys();
@@ -493,7 +496,7 @@ impl Keymap {
     fn assign_semiturbids(
         layout: &mut [KeyAssignment],
         rng: &mut StdRng,
-        chars: &mut Vec<Option<CharDef>>,
+        chars: &mut [Option<CharDef>],
         freq_table: &FrequencyTable,
     ) {
         let special_keys = linear::indices_of_turbid_related_keys();
@@ -529,7 +532,7 @@ impl Keymap {
     fn assign_turbids(
         layout: &mut [KeyAssignment],
         rng: &mut StdRng,
-        char_defs: &mut Vec<Option<CharDef>>,
+        char_defs: &mut [Option<CharDef>],
         freq_table: &FrequencyTable,
     ) {
         // どっちかにすでに設定していたらそれ以上はやらないようにする
@@ -586,7 +589,7 @@ impl Keymap {
     fn assign_keys(
         layout: &mut [KeyAssignment],
         rng: &mut StdRng,
-        chars: &mut Vec<Option<CharDef>>,
+        chars: &mut [Option<CharDef>],
         freq_table: &FrequencyTable,
     ) {
         // 各文字を設定していく。

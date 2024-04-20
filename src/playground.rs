@@ -23,8 +23,8 @@ pub struct Playground {
 }
 
 const MUTATION_PROPABILITY: f64 = 0.01;
-const CROSS_PROPABILITY: f64 = 0.85;
-const WORKERS: u8 = 12;
+const CROSS_PROPABILITY: f64 = 0.95;
+const WORKERS: u8 = 20;
 
 impl Playground {
     pub fn new(gen_count: u8, rng: &mut StdRng) -> Self {
@@ -61,7 +61,7 @@ impl Playground {
         &mut self,
         rng: &mut StdRng,
         conjunctions: &[Conjunction],
-        pre_scores: Arc<Box<ConnectionScore>>,
+        pre_scores: Arc<ConnectionScore>,
     ) -> (u64, Keymap) {
         self.generation += 1;
 
@@ -103,8 +103,7 @@ impl Playground {
 
         // 頻度表を更新する
         for (rank, (_, idx)) in rank.iter().enumerate() {
-            self.frequency_table
-                .update(&self.keymaps[*idx], rank, self.keymaps.len());
+            self.frequency_table.update(&self.keymaps[*idx], rank);
         }
 
         let best_keymap = self.keymaps[rank[0].1].clone();
@@ -168,7 +167,7 @@ impl Playground {
     fn rank(
         &self,
         conjunctions: &[Conjunction],
-        pre_scores: Arc<Box<ConnectionScore>>,
+        pre_scores: Arc<ConnectionScore>,
     ) -> Vec<(u64, usize)> {
         let pool = threadpool::ThreadPool::new(self.workers);
 

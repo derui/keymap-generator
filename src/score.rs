@@ -59,9 +59,8 @@ pub fn evaluate(
         }
     }
 
+    let mut key_sequence: Vec<(Pos, Option<Pos>)> = Vec::with_capacity(4);
     for conjunction in conjunctions {
-        let mut key_sequence: Vec<(Pos, Option<Pos>)> = Vec::with_capacity(4);
-
         for c in conjunction.text.chars() {
             if let Some((k, point)) = pos_cache.get(&(c.into())) {
                 let (r, c): (usize, usize) = point.into();
@@ -98,6 +97,7 @@ pub fn evaluate(
         }
 
         score += pre_scores.evaluate(&key_sequence) * conjunction.appearances as u64;
+        key_sequence.clear()
     }
     score
 }

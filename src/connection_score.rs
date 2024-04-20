@@ -241,10 +241,18 @@ impl ConnectionScore {
         let bit_mask = 0b00011111;
         // rowは0-2、colは0-9なので、全部合わせても31に収まるのでこうする。bit maskは本来なくてもいいのだが、一応追加している
         let mut index: usize = 0;
-        i.map(|(r, c)| index = (index << 5) | ((r * 10 + c) & bit_mask));
-        j.map(|(r, c)| index = (index << 5) | ((r * 10 + c) & bit_mask));
-        k.map(|(r, c)| index = (index << 5) | ((r * 10 + c) & bit_mask));
-        l.map(|(r, c)| index = (index << 5) | ((r * 10 + c) & bit_mask));
+        if let Some((r, c)) = i {
+            index = (index << 5) | ((r * 10 + c) & bit_mask)
+        }
+        if let Some((r, c)) = j {
+            index = (index << 5) | ((r * 10 + c) & bit_mask)
+        }
+        if let Some((r, c)) = k {
+            index = (index << 5) | ((r * 10 + c) & bit_mask)
+        }
+        if let Some((r, c)) = l {
+            index = (index << 5) | ((r * 10 + c) & bit_mask)
+        }
 
         index
     }

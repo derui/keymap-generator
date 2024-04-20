@@ -70,7 +70,7 @@ impl FrequencyTable {
         for (idx, target) in chars.iter().enumerate() {
             if target.is_some() {
                 let freq = &self.frequency[key_idx][idx];
-                let prob = (past_freq + *freq) as f64 / total_availability as f64;
+                let prob = (past_freq + *freq) / total_availability;
 
                 if prob >= probability {
                     return (idx, self.character_index_map[&idx]);
@@ -85,8 +85,8 @@ impl FrequencyTable {
     /// `keymap` にある文字から、頻度表を更新する
     ///
     /// このとき、全体のrankに対する順位を考慮する。1 - rank/total_keymaps が回数に加算される
-    pub fn update(&mut self, keymap: &Keymap, rank: usize, total_keymaps: usize) {
-        let coefficient = 1.0 - rank as f64 / total_keymaps as f64;
+    pub fn update(&mut self, keymap: &Keymap, rank: usize) {
+        let coefficient = 1.0 / (1.0 + rank as f64);
 
         // シフトの場合でも同じキーへの割当として扱う
         for (c, idx) in self.character_map.iter() {

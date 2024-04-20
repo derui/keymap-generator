@@ -1,4 +1,4 @@
-use std::{env::args, fs::File, path::Path, sync::Arc, time::SystemTime};
+use std::{collections::BinaryHeap, env::args, fs::File, path::Path, sync::Arc};
 
 use keymap::Keymap;
 use rand::{random, rngs::StdRng, SeedableRng};
@@ -54,24 +54,31 @@ fn main() -> anyhow::Result<()> {
     let mut playground = Playground::new(84, &mut rng);
     let mut best_score = u64::MAX;
     let mut best_keymap: Option<Keymap> = None;
-    let mut last_updated_best = SystemTime::now();
+    let mut top_scores: BinaryHeap<u64> = BinaryHeap::new();
     let conjunctions = read_4gram(Path::new(&path))?;
-    let scores = Arc::new(Box::new(ConnectionScore::new()));
+    let scores = Arc::new(ConnectionScore::new());
 
-    while last_updated_best.elapsed().unwrap().as_secs() < 60 {
+    while !is_exit_score(&top_scores) {
         let ret = playground.advance(&mut rng, &conjunctions, scores.clone());
 
         if best_score > ret.0 {
             log::info!(
-                "Got new best at {}, score is {}, current best is {}",
+                "Got new best at {}, score is {}, current best is {} for evaluation:\n{:?}",
                 playground.generation(),
                 ret.0,
-                ret.1
+                ret.1,
+                ret.1.key_combinations(&QWERTY)
             );
 
-            last_updated_best = SystemTime::now();
             best_score = ret.0;
             best_keymap = Some(ret.1);
+        }
+
+        if top_scores.len() < 10 {
+            top_scores.push(ret.0);
+        } else {
+            top_scores.shrink_to(10);
+            top_scores.push(ret.0);
         }
     }
 
@@ -84,4 +91,18 @@ fn main() -> anyhow::Result<()> {
     );
 
     Ok(())
+}
+
+fn is_exit_score(score: &BinaryHeap<u64>) -> bool {
+    if score.len() < 10 {
+        return false;
+    }
+
+    let mut iter = score.iter().collect::<Vec<_>>();
+    iter.sort();
+    iter.reverse();
+
+    let base_score = iter.first().unwrap();
+
+    iter.iter().all(|v| v == base_score)
 }
