@@ -392,17 +392,7 @@ where
     let chars = defs
         .iter()
         .cloned()
-        .map(|v| {
-            if let Some(v) = v {
-                if f(&v) {
-                    Some(v)
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        })
+        .map(|v| v.filter(|v| f(v)))
         .collect::<Vec<_>>();
     let (idx, char) = freq_table.get_char(&chars, key_idx, rng.gen::<f64>());
 
@@ -420,10 +410,7 @@ impl Keymap {
     /// ならない。
     pub fn generate(rng: &mut StdRng, freq_table: &FrequencyTable) -> Keymap {
         let mut layout = vec![KeyAssignment::U; 26];
-        let mut chars = char_def::definitions()
-            .into_iter()
-            .map(|v| Some(v))
-            .collect();
+        let mut chars = char_def::definitions().into_iter().map(Some).collect();
 
         // まずシフトキーのシフト面に対して割り当てる。ここでは清音しか割り当てられない。
         let (_, def) = pick_def(&mut chars, rng, LINEAR_L_SHIFT_INDEX, freq_table, |c| {
@@ -444,7 +431,7 @@ impl Keymap {
         // 残りの場所に追加していく。
         Keymap::assign_keys(&mut layout, rng, &mut chars, freq_table);
 
-        if !chars.is_empty() {
+        if !chars.iter().all(|v| v.is_none()) {
             panic!("Leave some chars: {:?}", chars)
         }
 
@@ -562,6 +549,7 @@ impl Keymap {
                 {
                     continue;
                 }
+
                 let (def_idx, def) = pick_def(char_defs, rng, idx, freq_table, |c| *c == ch);
 
                 if let KeyAssignment::A(k) = &layout[idx] {
@@ -776,10 +764,11 @@ impl Keymap {
             match key {
                 KeyAssignment::A(key) => {
                     let (r, c): (usize, usize) = layout[r].into();
-                    ret.push((
-                        key.unshift().map_or(String::new(), |c| c.to_string()),
-                        key_layout[r][c].to_string(),
-                    ));
+                    if let Some(unshift) = key.unshift() {
+                        ret.push((unshift.to_string(), key_layout[r][c].to_string()));
+                    } else {
+                        continue;
+                    }
 
                     // 各シフトの場合は、それぞれ逆手で押下するものとする
                     if let Some(shifted) = key.shifted() {

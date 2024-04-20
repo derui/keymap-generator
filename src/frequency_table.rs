@@ -66,22 +66,27 @@ impl FrequencyTable {
             }
         });
 
-        for (idx, freq) in target_row.iter().enumerate() {
-            let prob = *freq as f64 / total_availability as f64;
+        let mut past_freq = 0;
+        for (idx, target) in chars.iter().enumerate() {
+            if target.is_some() {
+                let freq = &self.frequency[key_idx][idx];
+                let prob = (past_freq + *freq) as f64 / total_availability as f64;
 
-            if prob >= probability {
-                return (idx, self.character_index_map[&idx].clone());
+                if prob >= probability {
+                    return (idx, self.character_index_map[&idx]);
+                }
+                past_freq += *freq;
             }
         }
 
-        return (0, self.character_index_map[&0].clone());
+        unreachable!("should return some character before comes here")
     }
 
     /// `keymap` にある文字から、頻度表を更新する
     ///
     /// このとき、全体のrankに対する順位を考慮する。1 - rank/total_keymaps が回数に加算される
-    pub fn update(&mut self, keymap: &Keymap, rank: u64, total_keymaps: usize) {
-        let coefficient = ((1.0 - rank as f64 / total_keymaps as f64) * 100.0 as f64) as u64;
+    pub fn update(&mut self, keymap: &Keymap, rank: usize, total_keymaps: usize) {
+        let coefficient = 1.0 * ((1.0 - rank as f64 / total_keymaps as f64) * 100.0_f64) + 1.0;
 
         // シフトの場合でも同じキーへの割当として扱う
         for (c, idx) in self.character_map.iter() {
@@ -90,7 +95,7 @@ impl FrequencyTable {
                 .enumerate()
                 .find(|(_, k)| k.unshift() == Some(*c))
             {
-                self.frequency[key_idx][*idx] += coefficient;
+                self.frequency[key_idx][*idx] += coefficient as u64;
             }
 
             if let Some((key_idx, _)) = keymap
@@ -98,7 +103,7 @@ impl FrequencyTable {
                 .enumerate()
                 .find(|(_, k)| k.shifted() == Some(*c))
             {
-                self.frequency[key_idx][*idx] += coefficient;
+                self.frequency[key_idx][*idx] += coefficient as u64;
             }
         }
     }

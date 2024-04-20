@@ -57,7 +57,7 @@ fn main() -> anyhow::Result<()> {
     let conjunctions = read_4gram(Path::new(&path))?;
     let scores = Arc::new(Box::new(ConnectionScore::new()));
 
-    while playground.generation() < 1000 {
+    while playground.generation() < 5000 {
         let ret = playground.advance(&mut rng, &conjunctions, scores.clone());
 
         if best_score > ret.0 {

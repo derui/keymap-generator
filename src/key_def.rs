@@ -114,7 +114,7 @@ impl KeyDef {
                 shifted: Some(shifted),
             }),
             _ => Some(KeyDef {
-                unshift: Some(def.clone()),
+                unshift: Some(*def),
                 shifted: None,
             }),
         }

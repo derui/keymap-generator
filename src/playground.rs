@@ -24,7 +24,7 @@ pub struct Playground {
 
 const MUTATION_PROPABILITY: f64 = 0.01;
 const CROSS_PROPABILITY: f64 = 0.85;
-const WORKERS: u8 = 20;
+const WORKERS: u8 = 12;
 
 impl Playground {
     pub fn new(gen_count: u8, rng: &mut StdRng) -> Self {
@@ -102,9 +102,9 @@ impl Playground {
         }
 
         // 頻度表を更新する
-        for (prob, idx) in rank.iter() {
+        for (rank, (_, idx)) in rank.iter().enumerate() {
             self.frequency_table
-                .update(&self.keymaps[*idx], *prob, self.keymaps.len());
+                .update(&self.keymaps[*idx], rank, self.keymaps.len());
         }
 
         let best_keymap = self.keymaps[rank[0].1].clone();

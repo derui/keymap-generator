@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use nohash_hasher::BuildNoHashHasher;
+
 use crate::{
     char_def,
     connection_score::{ConnectionScore, Pos},
@@ -45,11 +47,15 @@ pub fn evaluate(
     let mut score = 0;
     let linear_layout = layout::linear::linear_layout();
 
-    let mut pos_cache: HashMap<char, (KeyKind, Point)> = HashMap::new();
+    let mut pos_cache: HashMap<u32, (KeyKind, Point), BuildNoHashHasher<u32>> =
+        HashMap::with_capacity_and_hasher(
+            char_def::all_chars().len(),
+            nohash_hasher::BuildNoHashHasher::default(),
+        );
 
     for c in char_def::all_chars().iter() {
         if let Some(v) = keymap.get(*c) {
-            pos_cache.insert(*c, v);
+            pos_cache.insert((*c).into(), v);
         }
     }
 
@@ -57,7 +63,7 @@ pub fn evaluate(
         let mut key_sequence: Vec<(Pos, Option<Pos>)> = Vec::with_capacity(4);
 
         for c in conjunction.text.chars() {
-            if let Some((k, point)) = pos_cache.get(&c) {
+            if let Some((k, point)) = pos_cache.get(&(c.into())) {
                 let (r, c): (usize, usize) = point.into();
 
                 // 対象の文字がshift/濁音/半濁音の場合は、それに対応するキーも評価に加える

@@ -116,6 +116,29 @@ impl ConnectionScore {
 
         score += self.scores[self.get_index(&first, &second, &third, &fourth)] as u64;
 
+        let first: Option<(usize, usize)> = sequence
+            .first()
+            .cloned()
+            .and_then(|(_, v)| v)
+            .map(Into::into);
+        let second: Option<(usize, usize)> = sequence
+            .get(1)
+            .cloned()
+            .and_then(|(_, v)| v)
+            .map(Into::into);
+        let third: Option<(usize, usize)> = sequence
+            .get(2)
+            .cloned()
+            .and_then(|(_, v)| v)
+            .map(Into::into);
+        let fourth: Option<(usize, usize)> = sequence
+            .get(3)
+            .cloned()
+            .and_then(|(_, v)| v)
+            .map(Into::into);
+
+        score += self.scores[self.get_index(&first, &second, &third, &fourth)] as u64;
+
         score
     }
 
