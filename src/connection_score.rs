@@ -5,10 +5,9 @@ use crate::layout::{linear::linear_layout, Point};
 /// 上記を左右同置に改変
 #[rustfmt::skip]
 static FINGER_WEIGHTS: [[u16; 10];3] = [
-    // 0,0は利用しないので、デフォルトとして利用する
-    [0,   126, 105, 152,  1000,  1000, 152, 105, 126, 1000],
-    [97,   96,  91,  90,   138,   138,  90,  91,  96,   97],
-    [157, 169, 170, 135,   146,   146, 135, 170, 169,  157],
+    [1000,   126, 105, 152,  1000,  1000, 152, 105, 126, 1000],
+    [97,      96,  91,  90,   138,   138,  90,  91,  96,   97],
+    [157,    169, 170, 135,   146,   146, 135, 170, 169,  157],
 ];
 
 /// キーを押下する手の割当。1 = 左手、2 = 右手
@@ -137,7 +136,8 @@ impl ConnectionScore {
             .and_then(|(_, v)| v)
             .map(Into::into);
 
-        score += self.scores[self.get_index(&first, &second, &third, &fourth)] as u64;
+        score +=
+            (self.scores[self.get_index(&first, &second, &third, &fourth)] as f64 * 1.3) as u64;
 
         score
     }
@@ -239,18 +239,14 @@ impl ConnectionScore {
         l: &Option<(usize, usize)>,
     ) -> usize {
         let bit_mask = 0b00011111;
-        let i: Pos = i.map_or(Pos(0, 0), Into::into);
-        let j: Pos = j.map_or(Pos(0, 0), Into::into);
-        let k: Pos = k.map_or(Pos(0, 0), Into::into);
-        let l: Pos = l.map_or(Pos(0, 0), Into::into);
+        // rowは0-2、colは0-9なので、全部合わせても31に収まるのでこうする。bit maskは本来なくてもいいのだが、一応追加している
+        let mut index: usize = 0;
+        i.map(|(r, c)| index = (index << 5) | ((r * 10 + c) & bit_mask));
+        j.map(|(r, c)| index = (index << 5) | ((r * 10 + c) & bit_mask));
+        k.map(|(r, c)| index = (index << 5) | ((r * 10 + c) & bit_mask));
+        l.map(|(r, c)| index = (index << 5) | ((r * 10 + c) & bit_mask));
 
-        // rowは0-2、colは0-9なので、全部合わせても31に収まるのでこうする
-        let i = (i.0 * 10 + i.1) & bit_mask;
-        let j = (j.0 * 10 + j.1) & bit_mask;
-        let k = (k.0 * 10 + k.1) & bit_mask;
-        let l = (l.0 * 10 + l.1) & bit_mask;
-
-        i << 15 | j << 10 | k << 5 | l
+        index
     }
 }
 

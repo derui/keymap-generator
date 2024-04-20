@@ -8,7 +8,7 @@ pub struct FrequencyTable {
     // 各キーごとに、どの文字がどれだけ出現したかを記録する
     //
     // キーの数として、シフトへの割当も１キーとしてカウントしている。シフト自体は +26 のオフセットとしている
-    frequency: [[u64; 50]; 26],
+    frequency: [[f64; 50]; 26],
 
     // 文字と頻度表におけるindexのマッピング
     character_map: HashMap<char, usize>,
@@ -23,7 +23,7 @@ impl FrequencyTable {
     /// 確率が0にならないように、初期値は1としている
     pub fn new() -> Self {
         FrequencyTable {
-            frequency: [[1; 50]; 26],
+            frequency: [[1.0; 50]; 26],
             character_map: char_def::definitions()
                 .into_iter()
                 .enumerate()
@@ -57,7 +57,7 @@ impl FrequencyTable {
     {
         let target_row = self.frequency[key_idx];
 
-        let total_availability = chars.iter().fold(0, |acc, c| {
+        let total_availability = chars.iter().fold(0.0, |acc, c| {
             if let Some(c) = c {
                 let key: char = c.into();
                 acc + target_row[self.character_map[&key]]
@@ -66,7 +66,7 @@ impl FrequencyTable {
             }
         });
 
-        let mut past_freq = 0;
+        let mut past_freq = 0.0;
         for (idx, target) in chars.iter().enumerate() {
             if target.is_some() {
                 let freq = &self.frequency[key_idx][idx];
@@ -86,7 +86,7 @@ impl FrequencyTable {
     ///
     /// このとき、全体のrankに対する順位を考慮する。1 - rank/total_keymaps が回数に加算される
     pub fn update(&mut self, keymap: &Keymap, rank: usize, total_keymaps: usize) {
-        let coefficient = 1.0 * ((1.0 - rank as f64 / total_keymaps as f64) * 100.0_f64) + 1.0;
+        let coefficient = 1.0 - rank as f64 / total_keymaps as f64;
 
         // シフトの場合でも同じキーへの割当として扱う
         for (c, idx) in self.character_map.iter() {
@@ -95,7 +95,7 @@ impl FrequencyTable {
                 .enumerate()
                 .find(|(_, k)| k.unshift() == Some(*c))
             {
-                self.frequency[key_idx][*idx] += coefficient as u64;
+                self.frequency[key_idx][*idx] += coefficient;
             }
 
             if let Some((key_idx, _)) = keymap
@@ -103,7 +103,7 @@ impl FrequencyTable {
                 .enumerate()
                 .find(|(_, k)| k.shifted() == Some(*c))
             {
-                self.frequency[key_idx][*idx] += coefficient as u64;
+                self.frequency[key_idx][*idx] += coefficient;
             }
         }
     }

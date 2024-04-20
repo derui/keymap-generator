@@ -735,16 +735,22 @@ impl Keymap {
     /// # Return
     /// 交換されたkeymap
     fn flip_key(&mut self, rng: &mut StdRng) {
-        let idx = rng.gen_range(0..self.layout.len());
-        let key = &self.layout[idx];
+        loop {
+            let idx = rng.gen_range(0..self.layout.len());
+            if idx == LINEAR_L_SHIFT_INDEX || idx == LINEAR_R_SHIFT_INDEX {
+                continue;
+            }
+            let key = &self.layout[idx];
 
-        self.layout[idx] = key.flip();
+            self.layout[idx] = key.flip();
 
-        // シフトキーの場合は、対応するキーも一緒にflipする
-        if idx == LINEAR_L_SHIFT_INDEX {
-            self.layout[LINEAR_R_SHIFT_INDEX] = self.layout[LINEAR_R_SHIFT_INDEX].flip();
-        } else if idx == LINEAR_R_SHIFT_INDEX {
-            self.layout[LINEAR_L_SHIFT_INDEX] = self.layout[LINEAR_L_SHIFT_INDEX].flip();
+            // シフトキーの場合は、対応するキーも一緒にflipする
+            if idx == LINEAR_L_SHIFT_INDEX {
+                self.layout[LINEAR_R_SHIFT_INDEX] = self.layout[LINEAR_R_SHIFT_INDEX].flip();
+            } else if idx == LINEAR_R_SHIFT_INDEX {
+                self.layout[LINEAR_L_SHIFT_INDEX] = self.layout[LINEAR_L_SHIFT_INDEX].flip();
+            }
+            break;
         }
     }
 

@@ -1,4 +1,4 @@
-use std::{env::args, fs::File, path::Path, sync::Arc};
+use std::{env::args, fs::File, path::Path, sync::Arc, time::SystemTime};
 
 use keymap::Keymap;
 use rand::{random, rngs::StdRng, SeedableRng};
@@ -54,10 +54,11 @@ fn main() -> anyhow::Result<()> {
     let mut playground = Playground::new(84, &mut rng);
     let mut best_score = u64::MAX;
     let mut best_keymap: Option<Keymap> = None;
+    let mut last_updated_best = SystemTime::now();
     let conjunctions = read_4gram(Path::new(&path))?;
     let scores = Arc::new(Box::new(ConnectionScore::new()));
 
-    while playground.generation() < 5000 {
+    while last_updated_best.elapsed().unwrap().as_secs() < 60 {
         let ret = playground.advance(&mut rng, &conjunctions, scores.clone());
 
         if best_score > ret.0 {
@@ -67,9 +68,11 @@ fn main() -> anyhow::Result<()> {
                 ret.0,
                 ret.1
             );
+
+            last_updated_best = SystemTime::now();
+            best_score = ret.0;
+            best_keymap = Some(ret.1);
         }
-        best_score = ret.0;
-        best_keymap = Some(ret.1);
     }
 
     println!(
