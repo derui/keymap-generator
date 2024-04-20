@@ -19,7 +19,7 @@ impl KeyDef {
     /// 無シフトに対して[def]を設定した[KeyDef]を返す
     pub fn unshift_from(def: &CharDef) -> Self {
         KeyDef {
-            unshift: Some(def.normal()),
+            unshift: Some(def.clone()),
             shifted: None,
         }
     }
@@ -28,7 +28,7 @@ impl KeyDef {
     pub fn shifted_from(def: &CharDef) -> Self {
         KeyDef {
             unshift: None,
-            shifted: Some(def.normal()),
+            shifted: Some(def.clone()),
         }
     }
 
@@ -51,7 +51,7 @@ impl KeyDef {
                 } else {
                     Some(KeyDef {
                         unshift: Some(unshifted),
-                        shifted: Some(def),
+                        shifted: Some(def.clone()),
                     })
                 }
             }
@@ -60,7 +60,7 @@ impl KeyDef {
                     None
                 } else {
                     Some(KeyDef {
-                        unshift: Some(def),
+                        unshift: Some(def.clone()),
                         shifted: Some(shifted),
                     })
                 }
@@ -71,12 +71,12 @@ impl KeyDef {
 
     /// 無シフト面の文字があれば返す
     pub fn unshift(&self) -> Option<char> {
-        self.unshift.map(|c| c.normal())
+        self.unshift.map(|c| c.unshift())
     }
 
     /// シフト面の文字があれば返す
     pub fn shifted(&self) -> Option<char> {
-        self.shifted.map(|c| c.normal())
+        self.shifted.map(|c| c.unshift())
     }
 
     /// 濁点シフト面の文字があれば返す
@@ -103,5 +103,77 @@ impl KeyDef {
             (None, Some(shifted)) => Some(shifted),
             _ => None,
         }
+    }
+
+    /// キーから入力可能なすべての文字を返す
+    pub fn chars(&self) -> Vec<char> {
+        let mut vec = Vec::with_capacity(4);
+
+        if let Some(c) = self.unshift() {
+            vec.push(c);
+        }
+
+        if let Some(c) = self.shifted() {
+            vec.push(c);
+        }
+
+        if let Some(c) = self.turbid() {
+            vec.push(c);
+        }
+
+        if let Some(c) = self.semiturbid() {
+            vec.push(c);
+        }
+
+        vec
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::char_def;
+
+    use super::*;
+
+    #[test]
+    fn should_be_mergeable_with_turbid_and_cleartone() {
+        // arrange
+        let key = KeyDef::unshift_from(&char_def::find('ま').unwrap());
+
+        // act
+        let ret = key.merge(&char_def::find('か').unwrap()).unwrap();
+
+        // assert
+        assert_eq!(ret.unshift(), Some('ま'));
+        assert_eq!(ret.shifted(), Some('か'));
+        assert_eq!(ret.turbid(), Some('が'));
+        assert_eq!(ret.semiturbid(), None);
+    }
+
+    #[test]
+    fn should_be_mergeable_with_turbid_and_semiturbid() {
+        // arrange
+        let key = KeyDef::unshift_from(&char_def::find('あ').unwrap());
+
+        // act
+        let ret = key.merge(&char_def::find('か').unwrap()).unwrap();
+
+        // assert
+        assert_eq!(ret.unshift(), Some('あ'));
+        assert_eq!(ret.shifted(), Some('か'));
+        assert_eq!(ret.turbid(), Some('が'));
+        assert_eq!(ret.semiturbid(), Some('ぁ'));
+    }
+
+    #[test]
+    fn can_not_merge_turbids() {
+        // arrange
+        let key = KeyDef::unshift_from(&char_def::find('か').unwrap());
+
+        // act
+        let ret = key.merge(&char_def::find('さ').unwrap());
+
+        // assert
+        assert_eq!(ret, None);
     }
 }

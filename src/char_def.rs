@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub struct CharDef {
     normal: char,
@@ -8,11 +6,6 @@ pub struct CharDef {
 }
 
 impl CharDef {
-    /// 文字種の定義一覧を返す
-    pub fn definitions() -> Vec<CharDef> {
-        CHARS.to_vec()
-    }
-
     /// 文字の定義上、同一キーに割り当てることができるかどうかを返す
     pub fn conflicts(&self, other: &Self) -> bool {
         match (self.turbid, other.turbid, self.semiturbid, other.semiturbid) {
@@ -41,6 +34,35 @@ impl CharDef {
     pub fn semiturbid(&self) -> Option<char> {
         self.semiturbid
     }
+
+    pub fn chars(&self) -> Vec<char> {
+        let mut vec = Vec::with_capacity(3);
+        vec.push(self.normal);
+
+        if let Some(c) = self.turbid {
+            vec.push(c);
+        }
+
+        if let Some(c) = self.semiturbid {
+            vec.push(c)
+        }
+        vec
+    }
+}
+
+/// 文字種の定義一覧を返す
+pub fn definitions() -> Vec<CharDef> {
+    CHARS.to_vec()
+}
+
+/// 指定したひらがなの定義を返す
+pub fn find(char: char) -> Option<CharDef> {
+    CHARS.iter().find(|v| v.normal == char).cloned()
+}
+
+/// すべての文字を返す
+pub fn all_chars() -> Vec<char> {
+    CHARS.to_vec().iter().map(|c| c.chars()).flatten().collect()
 }
 
 /// ひらがなの一覧。評価で利用する
@@ -304,11 +326,11 @@ mod tests {
     #[test]
     fn no_conflict_between_no_turbid() {
         // arrange
-        let def1 = CharDef::definitions()
+        let def1 = super::definitions()
             .into_iter()
             .find(|i| i.unshift() == 'ま')
             .unwrap();
-        let def2 = CharDef::definitions()
+        let def2 = super::definitions()
             .into_iter()
             .find(|i| i.unshift() == 'み')
             .unwrap();
@@ -323,11 +345,11 @@ mod tests {
     #[test]
     fn conflict_between_turbid() {
         // arrange
-        let def1 = CharDef::definitions()
+        let def1 = super::definitions()
             .into_iter()
             .find(|i| i.unshift() == 'か')
             .unwrap();
-        let def2 = CharDef::definitions()
+        let def2 = super::definitions()
             .into_iter()
             .find(|i| i.unshift() == 'し')
             .unwrap();

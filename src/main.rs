@@ -9,7 +9,10 @@ use crate::{connection_score::ConnectionScore, playground::Playground};
 mod char_def;
 mod connection_score;
 mod key;
+mod key_def;
 mod keymap;
+mod layout;
+mod new_keymap;
 mod playground;
 mod score;
 
@@ -55,7 +58,7 @@ fn main() -> anyhow::Result<()> {
     let conjunctions = read_4gram(Path::new(&path))?;
     let scores = Arc::new(Box::new(ConnectionScore::new()));
 
-    while playground.generation() < 2000 {
+    while playground.generation() < 1000 {
         let ret = playground.advance(&mut rng, &conjunctions, scores.clone());
 
         if best_score > ret.0 {
