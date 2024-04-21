@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use rand::{rngs::StdRng, Rng};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     char_def::{self},
@@ -8,12 +9,12 @@ use crate::{
 };
 
 /// キーの出現回数を記録するテーブル
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct FrequencyTable {
     // 各キーごとに、どの文字がどれだけ出現したかを記録する
     //
     // キーの数として、シフトへの割当も１キーとしてカウントしている。シフト自体は +26 のオフセットとしている
-    frequency: [[f64; 50]; 26],
+    frequency: Vec<Vec<f64>>,
 
     // 文字と頻度表におけるindexのマッピング
     character_map: HashMap<char, usize>,
@@ -28,7 +29,7 @@ impl FrequencyTable {
     /// 確率が0にならないように、初期値は1としている
     pub fn new() -> Self {
         FrequencyTable {
-            frequency: [[1.0; 50]; 26],
+            frequency: vec![vec![0.5; 50]; 26],
             character_map: char_def::definitions()
                 .into_iter()
                 .enumerate()
@@ -54,32 +55,18 @@ impl FrequencyTable {
         &self,
         chars: &[Option<T>],
         key_idx: usize,
-        probability: f64,
+        rng: &mut StdRng,
     ) -> (usize, char)
     where
         for<'a> char: From<&'a T>,
     {
-        let target_row = self.frequency[key_idx];
-
-        let total_availability = chars.iter().fold(0.0, |acc, c| {
-            if let Some(c) = c {
-                let key: char = c.into();
-                acc + target_row[self.character_map[&key]]
-            } else {
-                acc
-            }
-        });
-
-        let mut past_freq = 0.0;
         for (idx, target) in chars.iter().enumerate() {
             if target.is_some() {
                 let freq = &self.frequency[key_idx][idx];
-                let prob = (past_freq + *freq) / total_availability;
 
-                if prob >= probability {
+                if *freq >= rng.gen() {
                     return (idx, self.character_index_map[idx]);
                 }
-                past_freq += *freq;
             }
         }
 
@@ -115,7 +102,7 @@ impl FrequencyTable {
                     continue;
                 }
 
-                self.frequency[key_idx][idx] *= 1.0 - learning_rate
+                self.frequency[key_idx][idx] *= 1.0 - (learning_rate + 0.075)
             }
         }
     }
@@ -128,7 +115,7 @@ impl FrequencyTable {
             for freq in row.iter_mut() {
                 if rng.gen::<f64>() < *mutate_prob {
                     let current = *freq;
-                    let shift = if rng.gen() { current } else { 0.0 };
+                    let shift = if rng.gen() { 1.0 } else { 0.0 };
 
                     *freq = current * (1.0 - *mutate_shift) + (shift * *mutate_shift);
                 }

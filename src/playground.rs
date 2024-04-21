@@ -28,12 +28,11 @@ const MUTATE_SHIFT: f64 = 0.05;
 const LEARNING_RATE: f64 = 0.1;
 
 impl Playground {
-    pub fn new(gen_count: u8, rng: &mut StdRng) -> Self {
+    pub fn new(gen_count: u8, rng: &mut StdRng, frequency_table: FrequencyTable) -> Self {
         assert!(gen_count > 0, "gen_count must be greater than 0");
 
         // まずは必要な数だけ生成しておく
         let mut keymaps = Vec::new();
-        let frequency_table = FrequencyTable::new();
         while keymaps.len() < gen_count as usize {
             let keymap = Keymap::generate(rng, &frequency_table);
 
@@ -53,6 +52,10 @@ impl Playground {
 
     pub fn generation(&self) -> u64 {
         self.generation
+    }
+
+    pub fn frequency_table(&self) -> FrequencyTable {
+        self.frequency_table.clone()
     }
 
     /// 世代を一つ進める。結果として、現世代でベストだったkeymapを返す
@@ -82,7 +85,7 @@ impl Playground {
             }
         }
 
-        // 各keymapを遺伝子として見立て、頻度表を更新する
+        // 最良のkeymapを遺伝子として見立て、頻度表を更新する
         for (_, idx) in rank.iter().take(1) {
             self.frequency_table
                 .update(&self.keymaps[*idx], LEARNING_RATE);

@@ -2,13 +2,20 @@ use std::{
     cmp::Reverse,
     collections::{BinaryHeap, HashMap},
     env::args,
-    fs::File,
+    fs::{self, File},
+    io::{Read, Write},
     path::Path,
-    sync::Arc,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc::channel,
+        Arc,
+    },
     time::SystemTime,
 };
 
+use frequency_table::FrequencyTable;
 use keymap::Keymap;
+use postcard::{from_bytes, to_allocvec};
 use rand::{random, rngs::StdRng, SeedableRng};
 use score::Conjunction;
 
@@ -54,6 +61,21 @@ fn read_4gram(path: &Path) -> anyhow::Result<Vec<Conjunction>> {
     }
 
     Ok(conjunctions)
+}
+
+fn save_frequency(table: &FrequencyTable) {
+    let mut output = File::create("./frequency_table.bin").unwrap();
+    let bin = to_allocvec(&table).unwrap();
+    output.write_all(&bin).unwrap();
+}
+
+fn read_frequency(path: &Path) -> anyhow::Result<FrequencyTable> {
+    let mut input = File::open(fs::canonicalize(path)?)?;
+    let mut buf = Vec::new();
+    input.read_to_end(&mut buf)?;
+    let data = from_bytes::<FrequencyTable>(&buf)?;
+    log::info!("frequency loaded");
+    Ok(data)
 }
 
 const QWERTY: [[char; 10]; 3] = [
@@ -102,21 +124,28 @@ fn main() -> anyhow::Result<()> {
     env_logger::init();
 
     let path = args().nth(1).expect("missing path");
-    let seed = args()
+    let frequency = args()
         .nth(2)
-        .unwrap_or_else(|| random::<u64>().to_string())
-        .parse::<u64>()?;
-    let mut rng = StdRng::seed_from_u64(seed);
+        .map(|v| read_frequency(Path::new(&v)).unwrap())
+        .unwrap_or(FrequencyTable::new());
+    let mut rng = StdRng::seed_from_u64(random());
 
     let mut bench = Bench::new();
-    let mut playground = Playground::new(50, &mut rng);
+    let mut playground = Playground::new(50, &mut rng, frequency);
     let mut best_score = u64::MAX;
     let mut best_keymap: Option<Keymap> = None;
     let mut top_scores: BinaryHeap<Reverse<u64>> = BinaryHeap::new();
     let conjunctions = read_4gram(Path::new(&path))?;
     let scores = Arc::new(ConnectionScore::new());
+    let running = Arc::new(AtomicBool::new(true));
+    let r = running.clone();
 
-    while !is_exit_score(&mut top_scores) {
+    ctrlc::set_handler(move || {
+        r.store(false, Ordering::SeqCst);
+    })
+    .expect("error setting handler");
+
+    while !is_exit_score(&mut top_scores) && running.load(Ordering::SeqCst) {
         let ret = playground.advance(&mut rng, &conjunctions, scores.clone());
 
         if best_score > ret.0 {
@@ -137,12 +166,13 @@ fn main() -> anyhow::Result<()> {
     }
 
     println!(
-        "Score: {}, Seed: {}, Best keymap: {} for evaluation:\n{:?}",
+        "Score: {}, Best keymap: {} for evaluation:\n{:?}",
         best_score,
-        seed,
         best_keymap.clone().unwrap(),
         best_keymap.unwrap().key_combinations(&QWERTY)
     );
+
+    save_frequency(&playground.frequency_table());
 
     Ok(())
 }

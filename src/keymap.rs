@@ -394,7 +394,7 @@ where
         .cloned()
         .map(|v| v.filter(|v| f(v)))
         .collect::<Vec<_>>();
-    let (idx, char) = freq_table.get_char(&chars, key_idx, rng.gen::<f64>());
+    let (idx, char) = freq_table.get_char(&chars, key_idx, rng);
 
     defs[idx] = None;
     (
