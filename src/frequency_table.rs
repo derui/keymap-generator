@@ -97,12 +97,12 @@ impl FrequencyTable {
         let mut freq_accum = 0.0;
         for (idx, target) in chars.iter().enumerate() {
             if target.is_some() {
-                let freq = &self.frequency[usize::from(layer)][key_idx][idx];
+                let freq = &self.frequency[usize::from(layer)][key_idx][idx] / total_availability;
 
-                if (freq_accum + *freq) >= prob {
+                if (freq_accum + freq) >= prob {
                     return (idx, layer, self.character_index_map[idx]);
                 }
-                freq_accum += *freq;
+                freq_accum += freq;
             }
         }
 
