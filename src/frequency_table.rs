@@ -14,7 +14,7 @@ pub struct FrequencyTable {
     character_map: HashMap<char, usize>,
 
     // 文字と頻度表におけるindexのマッピング
-    character_index_map: HashMap<usize, char>,
+    character_index_map: Vec<char>,
 }
 
 impl FrequencyTable {
@@ -31,8 +31,7 @@ impl FrequencyTable {
                 .collect(),
             character_index_map: char_def::definitions()
                 .into_iter()
-                .enumerate()
-                .map(|(i, c)| (i, c.normal()))
+                .map(|c| c.normal())
                 .collect(),
         }
     }
@@ -73,7 +72,7 @@ impl FrequencyTable {
                 let prob = (past_freq + *freq) / total_availability;
 
                 if prob >= probability {
-                    return (idx, self.character_index_map[&idx]);
+                    return (idx, self.character_index_map[idx]);
                 }
                 past_freq += *freq;
             }

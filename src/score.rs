@@ -26,7 +26,9 @@ static HAND_ASSIGNMENT: [[u8; 10]; 3] = [
 #[derive(Debug, Clone)]
 pub struct Conjunction {
     /// 連接のテキスト
-    pub text: String,
+    ///
+    /// 内部の値は、そのままall_charsの順序である
+    pub text: Vec<usize>,
     /// 連接の出現回数
     pub appearances: u32,
 }
@@ -47,22 +49,18 @@ pub fn evaluate(
     let mut score = 0;
     let linear_layout = layout::linear::linear_layout();
 
-    let mut pos_cache: HashMap<u32, (KeyKind, Point), BuildNoHashHasher<u32>> =
-        HashMap::with_capacity_and_hasher(
-            char_def::all_chars().len(),
-            nohash_hasher::BuildNoHashHasher::default(),
-        );
+    let mut pos_cache: Vec<(KeyKind, Point)> = Vec::with_capacity(char_def::all_chars().len());
 
     for c in char_def::all_chars().iter() {
         if let Some(v) = keymap.get(*c) {
-            pos_cache.insert((*c).into(), v);
+            pos_cache.push(v);
         }
     }
 
     let mut key_sequence: Vec<(Pos, Option<Pos>)> = Vec::with_capacity(4);
     for conjunction in conjunctions {
-        for c in conjunction.text.chars() {
-            if let Some((k, point)) = pos_cache.get(&(c.into())) {
+        for c in conjunction.text.iter() {
+            if let Some((k, point)) = pos_cache.get(*c) {
                 let (r, c): (usize, usize) = point.into();
 
                 // 対象の文字がshift/濁音/半濁音の場合は、それに対応するキーも評価に加える
