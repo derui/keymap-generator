@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use rand::{rngs::StdRng, Rng};
+
 use crate::{char_def, keymap::Keymap};
 
 /// キーの出現回数を記録するテーブル
@@ -23,7 +25,7 @@ impl FrequencyTable {
     /// 確率が0にならないように、初期値は1としている
     pub fn new() -> Self {
         FrequencyTable {
-            frequency: [[1.0; 50]; 26],
+            frequency: [[1.0 / 50.0; 50]; 26],
             character_map: char_def::definitions()
                 .into_iter()
                 .enumerate()
@@ -83,11 +85,11 @@ impl FrequencyTable {
 
     /// `keymap` にある文字から、頻度表を更新する
     ///
-    /// このとき、全体のrankに対する順位を考慮する。1 - rank/total_keymaps が回数に加算される
+    /// このとき、全体のrankに対する順位を考慮する。1.0 / rank  が回数に加算される
     pub fn update(&mut self, keymap: &Keymap, rank: usize) {
-        let coefficient = 1.0 / (1.0 + rank as f64);
+        let coefficient = 1.0 / (1.0 + rank as f64) * 10.0;
 
-        // シフトの場合でも同じキーへの割当として扱う
+        // シフトの場合でも同じキーへの割当として扱う。このため、若干歪な頻度になる。
         for (c, idx) in self.character_map.iter() {
             if let Some((key_idx, _)) = keymap
                 .iter()
@@ -103,6 +105,22 @@ impl FrequencyTable {
                 .find(|(_, k)| k.shifted() == Some(*c))
             {
                 self.frequency[key_idx][*idx] += coefficient;
+            }
+        }
+    }
+
+    /// 指定した確率で、頻度に対して突然変異を実施する
+    ///
+    /// ここでの突然変異は、それぞれの回数に対して特定の割合をランダムに加減するものである
+    pub fn mutate(&mut self, rng: &mut StdRng, mutate_shift: &f64, mutate_prob: &f64) {
+        for row in self.frequency.iter_mut() {
+            for freq in row.iter_mut() {
+                if rng.gen::<f64>() < *mutate_prob {
+                    let current = *freq;
+                    let shift = if rng.gen() { current } else { 0.0 };
+
+                    *freq = current * (1.0 - *mutate_shift) + (shift * *mutate_shift);
+                }
             }
         }
     }

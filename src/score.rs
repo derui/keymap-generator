@@ -1,7 +1,3 @@
-use std::collections::HashMap;
-
-use nohash_hasher::BuildNoHashHasher;
-
 use crate::{
     char_def,
     connection_score::{ConnectionScore, Pos},

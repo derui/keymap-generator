@@ -318,7 +318,6 @@ const CHARS: [CharDef; 50] = [
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn all_chars_always_same_order() {

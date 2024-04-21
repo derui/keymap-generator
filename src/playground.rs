@@ -1,6 +1,6 @@
 use std::sync::{mpsc::channel, Arc};
 
-use rand::{rngs::StdRng, Rng};
+use rand::rngs::StdRng;
 
 use crate::{
     connection_score::ConnectionScore,
@@ -22,9 +22,9 @@ pub struct Playground {
     frequency_table: FrequencyTable,
 }
 
-const MUTATION_PROPABILITY: f64 = 0.01;
-const CROSS_PROPABILITY: f64 = 0.95;
 const WORKERS: u8 = 20;
+const MUTATE_RATE: f64 = 0.02;
+const MUTATE_SHIFT: f64 = 0.05;
 
 impl Playground {
     pub fn new(gen_count: u8, rng: &mut StdRng) -> Self {
@@ -56,7 +56,8 @@ impl Playground {
 
     /// 世代を一つ進める。結果として、現世代でベストだったkeymapを返す
     ///
-    /// 結果として、bestなscoreとkeymapを返す
+    /// 内部実装としては、分布表の更新と生成が主になるので、PBILと同類の動きである
+    /// 結果として、今回の中でbestなscoreとkeymapを返す
     pub fn advance(
         &mut self,
         rng: &mut StdRng,
@@ -67,92 +68,32 @@ impl Playground {
 
         let mut new_keymaps = Vec::new();
         let rank = self.rank(conjunctions, pre_scores.clone()).to_vec();
-        let probabilities = self.make_probabilities(&rank);
 
         // new_keymapsがgen_countになるまで繰り返す
         while new_keymaps.len() < self.gen_count as usize {
-            let prob = rng.gen::<f64>();
+            loop {
+                let new_keymap = Keymap::generate(rng, &self.frequency_table);
 
-            if prob < CROSS_PROPABILITY {
-                // 交叉
-                loop {
-                    let new_keymap = Keymap::generate(rng, &self.frequency_table);
-
-                    if new_keymap.meet_requirements() {
-                        new_keymaps.push(new_keymap);
-                        break;
-                    }
+                if new_keymap.meet_requirements() {
+                    new_keymaps.push(new_keymap);
+                    break;
                 }
-            } else if prob < MUTATION_PROPABILITY + CROSS_PROPABILITY {
-                // 突然変異
-                let keymap = self.select(rng, &rank, &probabilities);
-                loop {
-                    let new_keymap = keymap.mutate(rng);
-
-                    if new_keymap.meet_requirements() {
-                        new_keymaps.push(new_keymap);
-                        break;
-                    }
-                }
-            } else {
-                // 複製
-                let keymap = self.select(rng, &rank, &probabilities);
-                new_keymaps.push(keymap);
             }
         }
 
-        // 頻度表を更新する
-        for (rank, (_, idx)) in rank.iter().enumerate() {
+        // 各keymapを遺伝子として見立て、頻度表を更新する
+        for (rank, (_, idx)) in rank.iter().enumerate().take(1) {
             self.frequency_table.update(&self.keymaps[*idx], rank);
         }
+
+        // 突然変異を起こす
+        self.frequency_table
+            .mutate(rng, &MUTATE_RATE, &MUTATE_SHIFT);
 
         let best_keymap = self.keymaps[rank[0].1].clone();
         self.keymaps = new_keymaps;
 
         (rank[0].0, best_keymap.clone())
-    }
-
-    /// rankから、それぞれが選択される確率を返す。サイズは常にrankと同じサイズである。
-    ///
-    /// rankは、scoreが低い順であるため、全体を逆に扱っている。
-    fn make_probabilities(&self, rank: &[(u64, usize)]) -> Vec<f64> {
-        let mut probs = vec![0.0; rank.len()];
-        let total_score = rank.iter().map(|(score, _)| *score).sum::<u64>();
-
-        for (idx, (score, _)) in rank.iter().enumerate() {
-            probs[idx] = 1.0 - *score as f64 / total_score as f64;
-        }
-
-        probs.reverse();
-        probs
-    }
-
-    /// 確率から選択されたkeymapを返す
-    ///
-    /// rankは、scoreが低い順であるため、全体を逆に扱っている。
-    ///
-    /// # Arguments
-    /// * `rank` - rank
-    /// * `probs` - 選択確率
-    /// * `rng` - 乱数生成器
-    ///
-    /// # Returns
-    /// 選択されたkeymap
-    fn select(&self, rng: &mut StdRng, rank: &[(u64, usize)], probs: &[f64]) -> Keymap {
-        let prob = rng.gen::<f64>();
-
-        let mut idx = None;
-        let mut prob_accum = 0.0;
-
-        for (prob_idx, v) in probs.iter().enumerate() {
-            prob_accum += *v;
-            if prob_accum >= prob {
-                idx = Some(prob_idx);
-                break;
-            }
-        }
-
-        self.keymaps[rank[idx.expect("should be found")].1].clone()
     }
 
     /// scoreに基づいてkeymapをランク付けする。
