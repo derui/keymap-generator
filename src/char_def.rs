@@ -315,3 +315,24 @@ const CHARS: [CharDef; 50] = [
         semiturbid: None,
     },
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn all_chars_always_same_order() {
+        // arrange
+        let order1 = super::all_chars();
+        let order2 = super::all_chars();
+
+        // act
+
+        // assert
+        assert_eq!(order1.len(), order2.len());
+        assert!(
+            order1.iter().zip(&order2).all(|(v1, v2)| { v1 == v2 }),
+            "all eleemnts should be same"
+        )
+    }
+}
