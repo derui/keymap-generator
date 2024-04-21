@@ -510,7 +510,11 @@ impl Keymap {
                 }
                 let (_, def) = pick_def(chars, rng, idx, freq_table, |c| *c == ch);
 
-                layout[idx] = KeyAssignment::A(KeyDef::unshift_from(&def));
+                if rng.gen() {
+                    layout[idx] = KeyAssignment::A(KeyDef::unshift_from(&def));
+                } else {
+                    layout[idx] = KeyAssignment::A(KeyDef::shifted_from(&def));
+                }
                 break;
             }
         }
@@ -558,7 +562,11 @@ impl Keymap {
                         assigned_to_turbid = true;
                     }
 
-                    layout[idx] = KeyAssignment::A(KeyDef::unshift_from(&def));
+                    if rng.gen() {
+                        layout[idx] = KeyAssignment::A(KeyDef::unshift_from(&def));
+                    } else {
+                        layout[idx] = KeyAssignment::A(KeyDef::shifted_from(&def));
+                    }
                     break;
                 }
 
@@ -591,7 +599,11 @@ impl Keymap {
                         break;
                     }
                 } else {
-                    layout[idx] = KeyAssignment::A(KeyDef::unshift_from(&def));
+                    if rng.gen() {
+                        layout[idx] = KeyAssignment::A(KeyDef::unshift_from(&def));
+                    } else {
+                        layout[idx] = KeyAssignment::A(KeyDef::shifted_from(&def));
+                    }
                     break;
                 }
 

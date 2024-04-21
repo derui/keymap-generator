@@ -75,27 +75,22 @@ impl Bench {
         }
     }
 
-    fn update(
-        &mut self,
-        total_generations_count: u64,
-        scores: &BinaryHeap<Reverse<u64>>,
-        keymap: &Keymap,
-    ) {
+    fn update(&mut self, total_generations_count: u64, scores: &BinaryHeap<Reverse<u64>>) {
         self.generations_count += 1;
         let now = SystemTime::now();
         let elapsed = now.duration_since(self.last_time).unwrap();
         if elapsed.as_secs() > 60 {
             let generation_per_sec = self.generations_count as f64 / elapsed.as_secs_f64();
-            let average_score = scores.iter().take(10).map(|v| v.0).sum::<u64>() / 10;
+            let scores = scores.iter().take(10).cloned().map(|v| v.0);
+            let score_len = scores.len();
+            let average_score = scores.sum::<u64>() / score_len as u64;
 
             log::info!(
-                "total {}, {} generations in 60 seconds, {} generation/sec, highest average score {}, best before generation: {}{:?}",
+                "total {}, {} generations in 60 seconds, {} generation/sec, highest average score {}",
                 total_generations_count,
                 self.generations_count,
                 generation_per_sec,
                 average_score,
-                keymap,
-                keymap.key_combinations(&QWERTY)
             );
             self.last_time = now;
             self.generations_count = 0;
@@ -138,7 +133,7 @@ fn main() -> anyhow::Result<()> {
         }
 
         top_scores.push(Reverse(ret.0));
-        bench.update(playground.generation(), &top_scores, &ret.1);
+        bench.update(playground.generation(), &top_scores);
     }
 
     println!(
@@ -163,5 +158,6 @@ fn is_exit_score(score: &mut BinaryHeap<Reverse<u64>>) -> bool {
     let base_score = iter.first().unwrap();
 
     let ret = iter.iter().all(|v| v == base_score);
+    score.clear();
     ret
 }

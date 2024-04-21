@@ -90,21 +90,13 @@ impl FrequencyTable {
         let coefficient = 1.0 / (1.0 + rank as f64) * 10.0;
 
         // シフトの場合でも同じキーへの割当として扱う。このため、若干歪な頻度になる。
-        for (c, idx) in self.character_map.iter() {
-            if let Some((key_idx, _)) = keymap
-                .iter()
-                .enumerate()
-                .find(|(_, k)| k.unshift() == Some(*c))
-            {
-                self.frequency[key_idx][*idx] += coefficient;
+        for (key_idx, def) in keymap.iter().enumerate() {
+            if let Some((c_idx)) = def.unshift().and_then(|v| self.character_map.get(&v)) {
+                self.frequency[key_idx][*c_idx] += coefficient;
             }
 
-            if let Some((key_idx, _)) = keymap
-                .iter()
-                .enumerate()
-                .find(|(_, k)| k.shifted() == Some(*c))
-            {
-                self.frequency[key_idx][*idx] += coefficient;
+            if let Some((c_idx)) = def.shifted().and_then(|v| self.character_map.get(&v)) {
+                self.frequency[key_idx][*c_idx] += coefficient;
             }
         }
     }
