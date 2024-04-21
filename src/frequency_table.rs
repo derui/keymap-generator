@@ -2,7 +2,10 @@ use std::collections::HashMap;
 
 use rand::{rngs::StdRng, Rng};
 
-use crate::{char_def, keymap::Keymap};
+use crate::{
+    char_def::{self},
+    keymap::Keymap,
+};
 
 /// キーの出現回数を記録するテーブル
 #[derive(Debug)]
@@ -25,7 +28,7 @@ impl FrequencyTable {
     /// 確率が0にならないように、初期値は1としている
     pub fn new() -> Self {
         FrequencyTable {
-            frequency: [[1.0 / 50.0; 50]; 26],
+            frequency: [[1.0; 50]; 26],
             character_map: char_def::definitions()
                 .into_iter()
                 .enumerate()
@@ -80,23 +83,39 @@ impl FrequencyTable {
             }
         }
 
-        unreachable!("should return some character before comes here")
+        // 一応最後のキーだけ取得する
+        let idx = chars.iter().rposition(|v| v.is_some()).unwrap();
+        (idx, self.character_index_map[idx])
     }
 
     /// `keymap` にある文字から、頻度表を更新する
     ///
-    /// このとき、全体のrankに対する順位を考慮する。1.0 / rank  が回数に加算される
-    pub fn update(&mut self, keymap: &Keymap, rank: usize) {
-        let coefficient = 1.0 / (1.0 + rank as f64) * 10.0;
-
+    /// bestのみを考慮するのだが、ここでは確率のみを更新する。あるキーで選択された文字については、0.5として計算する
+    pub fn update(&mut self, keymap: &Keymap, learning_rate: f64) {
         // シフトの場合でも同じキーへの割当として扱う。このため、若干歪な頻度になる。
         for (key_idx, def) in keymap.iter().enumerate() {
-            if let Some((c_idx)) = def.unshift().and_then(|v| self.character_map.get(&v)) {
-                self.frequency[key_idx][*c_idx] += coefficient;
+            let mut updated = Vec::new();
+            if let Some(c_idx) = def.unshift().and_then(|v| self.character_map.get(&v)) {
+                let freq = self.frequency[key_idx][*c_idx];
+                self.frequency[key_idx][*c_idx] =
+                    freq * (1.0 - learning_rate) + 0.5 * learning_rate;
+                updated.push(*c_idx);
             }
 
-            if let Some((c_idx)) = def.shifted().and_then(|v| self.character_map.get(&v)) {
-                self.frequency[key_idx][*c_idx] += coefficient;
+            if let Some(c_idx) = def.shifted().and_then(|v| self.character_map.get(&v)) {
+                let freq = self.frequency[key_idx][*c_idx];
+                self.frequency[key_idx][*c_idx] =
+                    freq * (1.0 - learning_rate) + 0.5 * learning_rate;
+                updated.push(*c_idx);
+            }
+
+            // この2つのキー以外については、rateが0であるとして更新する
+            for (idx, _) in self.frequency[key_idx].clone().iter().enumerate() {
+                if updated.contains(&idx) {
+                    continue;
+                }
+
+                self.frequency[key_idx][idx] *= 1.0 - learning_rate
             }
         }
     }

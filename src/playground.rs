@@ -25,6 +25,7 @@ pub struct Playground {
 const WORKERS: u8 = 20;
 const MUTATE_RATE: f64 = 0.02;
 const MUTATE_SHIFT: f64 = 0.05;
+const LEARNING_RATE: f64 = 0.1;
 
 impl Playground {
     pub fn new(gen_count: u8, rng: &mut StdRng) -> Self {
@@ -82,8 +83,9 @@ impl Playground {
         }
 
         // 各keymapを遺伝子として見立て、頻度表を更新する
-        for (rank, (_, idx)) in rank.iter().enumerate().take(1) {
-            self.frequency_table.update(&self.keymaps[*idx], rank);
+        for (_, idx) in rank.iter().take(1) {
+            self.frequency_table
+                .update(&self.keymaps[*idx], LEARNING_RATE);
         }
 
         // 突然変異を起こす
@@ -108,26 +110,21 @@ impl Playground {
 
         let conjunctions = Arc::new(conjunctions.to_vec());
 
-        let mut scores = Vec::new();
         let keymaps = self.keymaps.clone();
         let (tx, tr) = channel();
 
-        keymaps.iter().enumerate().for_each(|(idx, k)| {
+        keymaps.into_iter().enumerate().for_each(|(idx, k)| {
             let tx = tx.clone();
-            let keymap = k.clone();
             let conjunctions = conjunctions.clone();
             let pre_scores = pre_scores.clone();
 
             pool.execute(move || {
-                let score = score::evaluate(&conjunctions, &pre_scores, &keymap);
+                let score = score::evaluate(&conjunctions, &pre_scores, &k);
                 tx.send((score, idx)).expect("should be success")
             })
         });
 
-        for (score, idx) in tr.iter().take(self.keymaps.len()) {
-            scores.push((score, idx));
-        }
-
+        let mut scores: Vec<(u64, usize)> = tr.iter().take(self.keymaps.len()).collect();
         scores.sort_by(|a, b| a.0.cmp(&b.0));
         scores
     }
