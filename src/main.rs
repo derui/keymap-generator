@@ -126,12 +126,12 @@ fn main() -> anyhow::Result<()> {
     let path = args().nth(1).expect("missing path");
     let frequency = args()
         .nth(2)
-        .map(|v| read_frequency(Path::new(&v)).unwrap())
+        .and_then(|v| read_frequency(Path::new(&v)).ok())
         .unwrap_or(FrequencyTable::new());
     let mut rng = StdRng::seed_from_u64(random());
 
     let mut bench = Bench::new();
-    let mut playground = Playground::new(50, &mut rng, frequency);
+    let mut playground = Playground::new(100, &mut rng, frequency);
     let mut best_score = u64::MAX;
     let mut best_keymap: Option<Keymap> = None;
     let mut top_scores: BinaryHeap<Reverse<u64>> = BinaryHeap::new();

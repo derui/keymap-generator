@@ -4,7 +4,7 @@ use rand::{rngs::StdRng, Rng};
 
 use crate::{
     char_def::{self, CharDef},
-    frequency_table::FrequencyTable,
+    frequency_table::{FrequencyTable, Layer},
     key_def::KeyDef,
     layout::{
         linear::{
@@ -385,7 +385,7 @@ fn pick_def<F>(
     key_idx: usize,
     freq_table: &FrequencyTable,
     f: F,
-) -> (usize, CharDef)
+) -> (usize, Layer, CharDef)
 where
     F: Fn(&CharDef) -> bool,
 {
@@ -394,11 +394,12 @@ where
         .cloned()
         .map(|v| v.filter(|v| f(v)))
         .collect::<Vec<_>>();
-    let (idx, char) = freq_table.get_char(&chars, key_idx, rng);
+    let (idx, layer, char) = freq_table.get_char(&chars, key_idx, rng);
 
     defs[idx] = None;
     (
         idx,
+        layer,
         char_def::find(char).expect("can not found char: {char}"),
     )
 }
@@ -416,7 +417,7 @@ impl Keymap {
             .collect::<Vec<_>>();
 
         // まずシフトキーのシフト面に対して割り当てる。ここでは清音しか割り当てられない。
-        let (_, def) = pick_def(&mut chars, rng, LINEAR_L_SHIFT_INDEX, freq_table, |c| {
+        let (_, _, def) = pick_def(&mut chars, rng, LINEAR_L_SHIFT_INDEX, freq_table, |c| {
             c.is_cleartone()
         });
         layout[LINEAR_L_SHIFT_INDEX] = KeyAssignment::A(KeyDef::shifted_from(&def));
@@ -474,11 +475,15 @@ impl Keymap {
                     continue;
                 }
 
-                let (_, def) = pick_def(chars, rng, idx, freq_table, |c| {
+                let (_, layer, def) = pick_def(chars, rng, idx, freq_table, |c| {
                     c.normal() == ha_col.normal()
                 });
 
-                layout[idx] = KeyAssignment::A(KeyDef::unshift_from(&def));
+                if layer == Layer::Unshift {
+                    layout[idx] = KeyAssignment::A(KeyDef::unshift_from(&def));
+                } else {
+                    layout[idx] = KeyAssignment::A(KeyDef::shifted_from(&def));
+                }
                 break;
             }
         }
@@ -508,9 +513,9 @@ impl Keymap {
                 if special_keys.contains(&idx) || layout[idx] != KeyAssignment::U {
                     continue;
                 }
-                let (_, def) = pick_def(chars, rng, idx, freq_table, |c| *c == ch);
+                let (_, layer, def) = pick_def(chars, rng, idx, freq_table, |c| *c == ch);
 
-                if rng.gen() {
+                if layer == Layer::Unshift {
                     layout[idx] = KeyAssignment::A(KeyDef::unshift_from(&def));
                 } else {
                     layout[idx] = KeyAssignment::A(KeyDef::shifted_from(&def));
@@ -547,7 +552,7 @@ impl Keymap {
                     continue;
                 }
 
-                let (def_idx, def) = pick_def(char_defs, rng, idx, freq_table, |c| *c == ch);
+                let (def_idx, layer, def) = pick_def(char_defs, rng, idx, freq_table, |c| *c == ch);
 
                 if let KeyAssignment::A(k) = &layout[idx] {
                     if let Some(k) = k.merge(&def) {
@@ -562,7 +567,7 @@ impl Keymap {
                         assigned_to_turbid = true;
                     }
 
-                    if rng.gen() {
+                    if layer == Layer::Unshift {
                         layout[idx] = KeyAssignment::A(KeyDef::unshift_from(&def));
                     } else {
                         layout[idx] = KeyAssignment::A(KeyDef::shifted_from(&def));
@@ -590,7 +595,7 @@ impl Keymap {
             // 入る場所を探す
             loop {
                 let idx = rng.gen_range(0..layout.len());
-                let (def_idx, def) = pick_def(chars, rng, idx, freq_table, |_| true);
+                let (def_idx, layer, def) = pick_def(chars, rng, idx, freq_table, |_| true);
 
                 if let KeyAssignment::A(k) = &layout[idx] {
                     // この場合は、対象の場所に対してmerge出来るかどうかを確認する
@@ -599,7 +604,7 @@ impl Keymap {
                         break;
                     }
                 } else {
-                    if rng.gen() {
+                    if layer == Layer::Unshift {
                         layout[idx] = KeyAssignment::A(KeyDef::unshift_from(&def));
                     } else {
                         layout[idx] = KeyAssignment::A(KeyDef::shifted_from(&def));

@@ -209,13 +209,12 @@ impl ConnectionScore {
         j: &(usize, usize),
         k: &(usize, usize),
     ) -> u32 {
-        let mut score = 0;
         let i: Pos = Pos::from(*i);
         let j: Pos = Pos::from(*j);
         let k: Pos = Pos::from(*k);
 
         // 2連接の評価
-        score += i.two_conjunction_scores(&j);
+        let mut score = i.two_conjunction_scores(&j);
         score += j.two_conjunction_scores(&k);
 
         score
@@ -240,12 +239,11 @@ impl ConnectionScore {
     /// # Returns
     /// 評価値
     fn evaluate_two_connection(&self, i: &(usize, usize), j: &(usize, usize)) -> u32 {
-        let mut score = 0;
         let i: Pos = Pos::from(*i);
         let j: Pos = Pos::from(*j);
 
         // 2連接の評価
-        score += i.two_conjunction_scores(&j);
+        let score = i.two_conjunction_scores(&j);
 
         score + FINGER_WEIGHTS[i.0][i.1] as u32 + FINGER_WEIGHTS[j.0][j.1] as u32
     }

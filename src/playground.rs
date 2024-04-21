@@ -88,7 +88,7 @@ impl Playground {
         // 最良のkeymapを遺伝子として見立て、頻度表を更新する
         for (_, idx) in rank.iter().take(1) {
             self.frequency_table
-                .update(&self.keymaps[*idx], LEARNING_RATE);
+                .update(rng, &self.keymaps[*idx], LEARNING_RATE);
         }
 
         // 突然変異を起こす
