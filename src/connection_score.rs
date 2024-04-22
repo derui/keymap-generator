@@ -392,7 +392,7 @@ impl Pos {
         let rules = [
             |first: &Pos, second: &Pos| {
                 // 同じ指で同じキーを連続して押下している場合はペナルティを与える
-                if first == second {
+                if *first == *second {
                     150
                 } else {
                     0

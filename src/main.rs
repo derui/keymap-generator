@@ -103,7 +103,7 @@ impl Bench {
         let elapsed = now.duration_since(self.last_time).unwrap();
         if elapsed.as_secs() > 60 {
             let generation_per_sec = self.generations_count as f64 / elapsed.as_secs_f64();
-            let scores = scores.iter().take(10).cloned().map(|v| v.0);
+            let scores = scores.iter().cloned().map(|v| v.0);
             let score_len = scores.len();
             let average_score = scores.sum::<u64>() / score_len as u64;
 
@@ -131,7 +131,7 @@ fn main() -> anyhow::Result<()> {
     let mut rng = StdRng::seed_from_u64(random());
 
     let mut bench = Bench::new();
-    let mut playground = Playground::new(100, &mut rng, frequency);
+    let mut playground = Playground::new(50, &mut rng, frequency);
     let mut best_score = u64::MAX;
     let mut best_keymap: Option<Keymap> = None;
     let mut top_scores: BinaryHeap<Reverse<u64>> = BinaryHeap::new();
@@ -188,6 +188,9 @@ fn is_exit_score(score: &mut BinaryHeap<Reverse<u64>>) -> bool {
     let base_score = iter.first().unwrap();
 
     let ret = iter.iter().all(|v| v == base_score);
-    score.clear();
+
+    if score.len() > 10000 {
+        score.clear();
+    }
     ret
 }

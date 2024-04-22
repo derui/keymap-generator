@@ -45,11 +45,11 @@ const SHIFT_LAYER: usize = 1;
 impl FrequencyTable {
     /// 頻度表を新規に作成する。
     ///
-    /// 確率が0にならないように、初期値は0.5としている
+    /// 一様な変更として認識するため、0.5で初期化している
     pub fn new() -> Self {
         FrequencyTable {
             // シフト面と無シフト面でそれぞれ別にする
-            frequency: vec![vec![vec![1.0; 50]; 26]; 2],
+            frequency: vec![vec![vec![0.5; 50]; 26]; 2],
             character_map: char_def::definitions()
                 .into_iter()
                 .enumerate()
@@ -112,51 +112,45 @@ impl FrequencyTable {
     }
 
     /// `keymap` にある文字から、頻度表を更新する
-    ///
-    /// bestのみを考慮するのだが、ここでは確率のみを更新する。あるキーで選択された文字については、0.5として計算する
-    pub fn update(&mut self, rng: &mut StdRng, keymap: &Keymap, learning_rate: f64) {
-        // シフトの場合でも同じキーへの割当として扱う。このため、若干歪な頻度になる。
-        for (key_idx, def) in keymap.iter().enumerate() {
-            let mut unshift_updated = None;
-            let mut shift_updated = None;
+    pub fn update(&mut self, best_keymap: &Keymap, worst_keymap: &Keymap, learning_rate: f64) {
+        let mut best_keymap_map = vec![vec![vec![false; 50]; 26]; 2];
+        let mut worst_keymap_map = vec![vec![vec![false; 50]; 26]; 2];
 
+        for (key_idx, def) in best_keymap.iter().enumerate() {
             if let Some(c_idx) = def.unshift().and_then(|v| self.character_map.get(&v)) {
-                let freq = self.frequency[UNSHIFT_LAYER][key_idx][*c_idx];
-                self.frequency[UNSHIFT_LAYER][key_idx][*c_idx] = freq + (1.0 + learning_rate);
-                unshift_updated = Some(*c_idx);
+                best_keymap_map[UNSHIFT_LAYER][key_idx][*c_idx] = true;
             }
 
             if let Some(c_idx) = def.shifted().and_then(|v| self.character_map.get(&v)) {
-                let freq = self.frequency[SHIFT_LAYER][key_idx][*c_idx];
-                self.frequency[SHIFT_LAYER][key_idx][*c_idx] = freq + (1.0 + learning_rate);
-                shift_updated = Some(*c_idx);
+                best_keymap_map[SHIFT_LAYER][key_idx][*c_idx] = true;
+            }
+        }
+
+        for (key_idx, def) in worst_keymap.iter().enumerate() {
+            if let Some(c_idx) = def.unshift().and_then(|v| self.character_map.get(&v)) {
+                worst_keymap_map[UNSHIFT_LAYER][key_idx][*c_idx] = true;
             }
 
-            // この2つのキー以外については、rateが0であるとして更新する
-            for (idx, freq) in self.frequency[UNSHIFT_LAYER][key_idx]
-                .clone()
-                .iter()
-                .enumerate()
-            {
-                if unshift_updated == Some(idx) {
-                    continue;
-                }
-
-                self.frequency[UNSHIFT_LAYER][key_idx][idx] =
-                    self.frequency[UNSHIFT_LAYER][key_idx][idx] * (1.0 - (learning_rate + 0.075));
+            if let Some(c_idx) = def.shifted().and_then(|v| self.character_map.get(&v)) {
+                worst_keymap_map[SHIFT_LAYER][key_idx][*c_idx] = true;
             }
+        }
 
-            for (idx, freq) in self.frequency[SHIFT_LAYER][key_idx]
-                .clone()
-                .iter()
-                .enumerate()
-            {
-                if shift_updated == Some(idx) {
-                    continue;
+        // worstなキーについては、
+        for (idx, layer) in best_keymap_map.iter().enumerate() {
+            for (idx2, key) in layer.iter().enumerate() {
+                for (idx3, ch) in key.iter().enumerate() {
+                    if *ch == worst_keymap_map[idx][idx2][idx3] {
+                        continue;
+                    }
+
+                    let freq = self.frequency[idx][idx2][idx3];
+                    if *ch {
+                        self.frequency[idx][idx2][idx3] = freq + 1.0;
+                    } else {
+                        self.frequency[idx][idx2][idx3] = freq - 0.5;
+                    }
                 }
-
-                self.frequency[SHIFT_LAYER][key_idx][idx] =
-                    self.frequency[SHIFT_LAYER][key_idx][idx] * (1.0 - (learning_rate + 0.075));
             }
         }
     }

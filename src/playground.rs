@@ -20,6 +20,7 @@ pub struct Playground {
     keymaps: Vec<Keymap>,
 
     frequency_table: FrequencyTable,
+    pool: threadpool::ThreadPool,
 }
 
 const WORKERS: u8 = 20;
@@ -42,6 +43,7 @@ impl Playground {
         }
 
         Playground {
+            pool: threadpool::ThreadPool::new(WORKERS as usize),
             generation: 1,
             gen_count,
             keymaps,
@@ -74,7 +76,7 @@ impl Playground {
         let rank = self.rank(conjunctions, pre_scores.clone()).to_vec();
 
         // new_keymapsがgen_countになるまで繰り返す
-        while new_keymaps.len() < self.gen_count as usize {
+        while new_keymaps.len() < 2 {
             loop {
                 let new_keymap = Keymap::generate(rng, &self.frequency_table);
 
@@ -86,14 +88,17 @@ impl Playground {
         }
 
         // 最良のkeymapを遺伝子として見立て、頻度表を更新する
-        for (_, idx) in rank.iter().take(1) {
-            self.frequency_table
-                .update(rng, &self.keymaps[*idx], LEARNING_RATE);
-        }
+        let (_, best_idx) = rank.first().expect("should be success");
+        let (_, worst_idx) = rank.iter().last().expect("should be success");
+        self.frequency_table.update(
+            &self.keymaps[*best_idx],
+            &self.keymaps[*worst_idx],
+            1.0 / self.gen_count as f64,
+        );
 
         // 突然変異を起こす
-        self.frequency_table
-            .mutate(rng, &MUTATE_RATE, &MUTATE_SHIFT);
+        // self.frequency_table
+        //     .mutate(rng, &MUTATE_RATE, &MUTATE_SHIFT);
 
         let best_keymap = self.keymaps[rank[0].1].clone();
         self.keymaps = new_keymaps;
@@ -109,8 +114,6 @@ impl Playground {
         conjunctions: &[Conjunction],
         pre_scores: Arc<ConnectionScore>,
     ) -> Vec<(u64, usize)> {
-        let pool = threadpool::ThreadPool::new(self.workers);
-
         let conjunctions = Arc::new(conjunctions.to_vec());
 
         let keymaps = self.keymaps.clone();
@@ -121,7 +124,7 @@ impl Playground {
             let conjunctions = conjunctions.clone();
             let pre_scores = pre_scores.clone();
 
-            pool.execute(move || {
+            self.pool.execute(move || {
                 let score = score::evaluate(&conjunctions, &pre_scores, &k);
                 tx.send((score, idx)).expect("should be success")
             })
