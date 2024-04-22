@@ -1,4 +1,6 @@
-#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Hash, Serialize, Deserialize)]
 pub struct CharDef {
     normal: char,
     turbid: Option<char>,
