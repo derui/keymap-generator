@@ -405,7 +405,8 @@ impl Keymap {
     /// ここでの配置は、すでに制約の多い部分は事前に設定してある状態なので、そのまま入れられるところに入れていけばよい
     fn assign_keys(layout: &mut [KeyAssignment], rng: &mut StdRng, assigner: &mut KeyAssigner) {
         // 各文字を設定していく。
-        for (idx, assignment) in layout.iter_mut().enumerate() {
+        for idx in assigner.ordered_key_indices() {
+            let assignment = &mut layout[idx];
             if idx == LINEAR_L_SHIFT_INDEX || idx == LINEAR_R_SHIFT_INDEX {
                 continue;
             }

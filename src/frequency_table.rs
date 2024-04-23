@@ -143,6 +143,29 @@ impl KeyAssigner {
         }
     }
 
+    /// 有効なキーが少ない順に並べられたkeyのindexを返す
+    pub fn ordered_key_indices(&self) -> Vec<usize> {
+        let mut vec = self.combinations.iter().enumerate().collect::<Vec<_>>();
+
+        vec.sort_by(|(_, (_, comb1)), (_, (_, comb2))| {
+            let number_of_none1 = comb1
+                .combinations
+                .iter()
+                .flatten()
+                .filter(|v| v.is_none())
+                .count();
+            let number_of_none2 = comb2
+                .combinations
+                .iter()
+                .flatten()
+                .filter(|v| v.is_none())
+                .count();
+
+            number_of_none1.cmp(&number_of_none2)
+        });
+        vec.into_iter().map(|(v, _)| v).collect()
+    }
+
     /// 指定された `key_idx` において、選択確率に応じた [CharCombination] を返す
     ///
     /// 選択されたキーに含まれている文字は、無シフト面の両方から使用できなくなる
@@ -384,7 +407,7 @@ impl FrequencyTable {
             let freq = &mut self.frequency[key_idx].frequency_at(def.unshift(), def.shifted());
             if let Some(v) = freq {
                 checked_in_best[key_idx][unshift_idx][shift_idx] = true;
-                *v += 1.0;
+                *v += 1.0 + _learning_rate
             }
         }
 
@@ -398,8 +421,7 @@ impl FrequencyTable {
 
             let freq = &mut self.frequency[key_idx].frequency_at(def.unshift(), def.shifted());
             if let Some(v) = freq {
-                checked_in_best[key_idx][unshift_idx][shift_idx] = true;
-                *v *= 0.95;
+                *v += _learning_rate;
             }
         }
     }

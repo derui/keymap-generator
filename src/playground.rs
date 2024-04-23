@@ -91,10 +91,6 @@ impl Playground {
             1.0 / self.gen_count as f64,
         );
 
-        // 突然変異を起こす
-        // self.frequency_table
-        //     .mutate(rng, &MUTATE_RATE, &MUTATE_SHIFT);
-
         let best_keymap = self.keymaps[rank[0].1].clone();
         self.keymaps = new_keymaps;
 
