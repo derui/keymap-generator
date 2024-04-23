@@ -108,6 +108,22 @@ mod constraints {
         }
     }
 
+    /// 左右の濁音シフト間では、いずれかのキーにしか濁音が設定されていないかどうかを確認する
+    pub(super) fn should_only_one_semiturbid(layout: &[KeyAssignment]) -> bool {
+        let l = &layout[LINEAR_L_SEMITURBID_INDEX];
+        let r = &layout[LINEAR_R_SEMITURBID_INDEX];
+
+        match (l, r) {
+            (KeyAssignment::A(l), KeyAssignment::A(r)) => {
+                let l = l.semiturbid();
+                let r = r.semiturbid();
+
+                matches!((l, r), (Some(_), None) | (None, Some(_)))
+            }
+            _ => true,
+        }
+    }
+
     /// 左右の濁音・半濁音の間では、いずれかのキーにしか濁音と半濁音が設定されていないかどうかを確認する
     ///
     /// このキーが同時に押下されたとき、矛盾なく入力できるのは、
@@ -434,6 +450,7 @@ impl Keymap {
             constraints::should_be_explicit_between_left_turbid_and_right_semiturbit,
             constraints::should_only_one_turbid,
             constraints::should_be_explicit_between_right_turbid_and_left_semiturbit,
+            constraints::should_only_one_semiturbid,
             constraints::should_be_able_to_all_input,
         ];
 

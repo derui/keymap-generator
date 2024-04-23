@@ -6,7 +6,10 @@ use serde::{Deserialize, Serialize};
 use crate::{
     char_def::{self, definitions, CharDef},
     keymap::Keymap,
-    layout::linear::{LINEAR_L_SHIFT_INDEX, LINEAR_R_SHIFT_INDEX},
+    layout::linear::{
+        LINEAR_L_SEMITURBID_INDEX, LINEAR_L_SHIFT_INDEX, LINEAR_R_SEMITURBID_INDEX,
+        LINEAR_R_SHIFT_INDEX,
+    },
 };
 
 /// 存在する文字のシフト面と無シフト面に対する組み合わせにおける頻度を表す
@@ -359,30 +362,6 @@ impl FrequencyTable {
         combinations[LINEAR_L_SHIFT_INDEX] = CombinationFrequency::new(|_, ch2| ch2.is_cleartone());
         combinations[LINEAR_R_SHIFT_INDEX] = CombinationFrequency::new(|_, ch2| ch2.is_cleartone());
 
-        // 半濁音キー自体には、半濁音および濁音を持つ文字を割り当てない。
-        // combinations[LINEAR_L_SEMITURBID_INDEX] = CombinationFrequency::new(|ch1, ch2| {
-        //     !(matches!(
-        //         (
-        //             ch1.semiturbid(),
-        //             ch2.semiturbid(),
-        //             ch1.turbid(),
-        //             ch2.turbid()
-        //         ),
-        //         (Some(_), _, _, _) | (_, Some(_), _, _) | (_, _, Some(_), _) | (_, _, _, Some(_))
-        //     ))
-        // });
-        // combinations[LINEAR_R_SEMITURBID_INDEX] = CombinationFrequency::new(|ch1, ch2| {
-        //     !(matches!(
-        //         (
-        //             ch1.semiturbid(),
-        //             ch2.semiturbid(),
-        //             ch1.turbid(),
-        //             ch2.turbid()
-        //         ),
-        //         (Some(_), _, _, _) | (_, Some(_), _, _) | (_, _, Some(_), _) | (_, _, _, Some(_))
-        //     ))
-        // });
-
         FrequencyTable {
             frequency: combinations,
             character_map: char_def::definitions()
@@ -407,7 +386,7 @@ impl FrequencyTable {
             let freq = &mut self.frequency[key_idx].frequency_at(def.unshift(), def.shifted());
             if let Some(v) = freq {
                 checked_in_best[key_idx][unshift_idx][shift_idx] = true;
-                *v += 1.0 + _learning_rate
+                *v += 10.0 + _learning_rate
             }
         }
 
