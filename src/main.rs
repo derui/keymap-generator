@@ -7,7 +7,6 @@ use std::{
     path::Path,
     sync::{
         atomic::{AtomicBool, Ordering},
-        mpsc::channel,
         Arc,
     },
     time::SystemTime,

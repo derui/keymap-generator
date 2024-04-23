@@ -4,7 +4,7 @@ use rand::rngs::StdRng;
 
 use crate::{
     connection_score::ConnectionScore,
-    frequency_table::FrequencyTable,
+    frequency_table::{FrequencyTable, KeyAssigner},
     keymap::Keymap,
     score::{self, Conjunction},
 };
@@ -35,9 +35,8 @@ impl Playground {
         // まずは必要な数だけ生成しておく
         let mut keymaps = Vec::new();
         while keymaps.len() < gen_count as usize {
-            let keymap = Keymap::generate(rng, &frequency_table);
-
-            if keymap.meet_requirements() {
+            let mut assigner = KeyAssigner::from_freq(&frequency_table);
+            if let Some(keymap) = Keymap::generate(rng, &mut assigner) {
                 keymaps.push(keymap);
             }
         }
@@ -77,13 +76,9 @@ impl Playground {
 
         // new_keymapsがgen_countになるまで繰り返す
         while new_keymaps.len() < 2 {
-            loop {
-                let new_keymap = Keymap::generate(rng, &self.frequency_table);
-
-                if new_keymap.meet_requirements() {
-                    new_keymaps.push(new_keymap);
-                    break;
-                }
+            let mut assigner = KeyAssigner::from_freq(&self.frequency_table);
+            if let Some(new_keymap) = Keymap::generate(rng, &mut assigner) {
+                new_keymaps.push(new_keymap);
             }
         }
 

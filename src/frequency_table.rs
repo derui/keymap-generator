@@ -12,22 +12,6 @@ use crate::{
     },
 };
 
-/// 頻度表テーブルにおけるレイヤーを示す
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Layer {
-    Unshift,
-    Shift,
-}
-
-impl From<Layer> for usize {
-    fn from(value: Layer) -> Self {
-        match value {
-            Layer::Unshift => UNSHIFT_LAYER,
-            Layer::Shift => SHIFT_LAYER,
-        }
-    }
-}
-
 /// 存在する文字のシフト面と無シフト面に対する組み合わせにおける頻度を表す
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 struct CombinationFrequency {
@@ -45,8 +29,14 @@ impl CombinationFrequency {
     /// # Returns
     /// 対象の文字の組み合わせに対する頻度
     pub fn frequency_at(&self, first: char, second: char) -> Option<f64> {
-        let first_idx = all_chars().iter().position(|v| *v == first).unwrap();
-        let second_idx = all_chars().iter().position(|v| *v == second).unwrap();
+        let first_idx = definitions()
+            .iter()
+            .position(|v| v.normal() == first)
+            .unwrap();
+        let second_idx = definitions()
+            .iter()
+            .position(|v| v.normal() == second)
+            .unwrap();
         self.combinations[first_idx][second_idx]
     }
 
@@ -63,7 +53,7 @@ impl CombinationFrequency {
         let ch_idx = character_map[&ch];
 
         // 2次元配列自体は、unshift -> shiftで構成している
-        for (idx, v) in self.combinations[ch_idx].iter_mut().enumerate() {
+        for v in self.combinations[ch_idx].iter_mut() {
             *v = None;
         }
 
@@ -83,7 +73,7 @@ impl CombinationFrequency {
     where
         F: Fn(&CharDef, &CharDef) -> bool,
     {
-        let mut vec = vec![vec![None; 51]; 51];
+        let mut vec = vec![vec![None; definitions().len()]; definitions().len()];
 
         for (fst_idx, fst) in definitions().iter().enumerate() {
             for (snd_idx, snd) in definitions().iter().enumerate() {
@@ -93,7 +83,12 @@ impl CombinationFrequency {
                 }
 
                 // 全体の前提として、清濁同置であるので、それを満たさない場合は無効とする
-                if !fst.is_cleartone() && !snd.is_cleartone() {
+                if matches!((fst.turbid(), snd.turbid()), (Some(_), Some(_))) {
+                    continue;
+                }
+
+                // 半濁音同士も配置できない
+                if matches!((fst.semiturbid(), snd.semiturbid()), (Some(_), Some(_))) {
                     continue;
                 }
 
@@ -107,9 +102,14 @@ impl CombinationFrequency {
     }
 }
 
+#[derive(Debug)]
 pub struct CharCombination(CharDef, CharDef);
 
 impl CharCombination {
+    pub fn new(unshift: &CharDef, shifted: &CharDef) -> Self {
+        Self(unshift.clone(), shifted.clone())
+    }
+
     pub fn unshift(&self) -> CharDef {
         self.0
     }
@@ -121,6 +121,7 @@ impl CharCombination {
 
 /// キーの配置についての基本制約を頻度で表現し、それに追従するキーを返す構造体
 /// この構造体は、FrequencyTable自体から作成される。
+#[derive(Debug)]
 pub struct KeyAssigner {
     /// 組み合わせの頻度。内容はCombinationFrequencyと同一である
     combinations: Vec<(f64, CombinationFrequency)>,
@@ -132,7 +133,7 @@ pub struct KeyAssigner {
 
 impl KeyAssigner {
     /// `freq_table` から[KeyAssigner]を生成する
-    fn from_freq(freq_table: &FrequencyTable) -> Self {
+    pub fn from_freq(freq_table: &FrequencyTable) -> Self {
         Self {
             combinations: freq_table
                 .frequency
@@ -148,8 +149,8 @@ impl KeyAssigner {
     /// 指定された `key_idx` において、選択確率に応じた [CharCombination] を返す
     ///
     /// 選択されたキーに含まれている文字は、無シフト面の両方から使用できなくなる
-    pub fn pick_key(&self, rng: &mut StdRng, key_idx: usize) -> CharCombination {
-        let (total, freq) = self.combinations[key_idx];
+    pub fn pick_key(&mut self, rng: &mut StdRng, key_idx: usize) -> Option<CharCombination> {
+        let (total, freq) = &self.combinations[key_idx];
 
         let prob = rng.gen::<f64>();
         let mut accum = 0.0;
@@ -157,7 +158,7 @@ impl KeyAssigner {
             for (second_idx, second) in first.iter().enumerate() {
                 let Some(second) = second else { continue };
 
-                if accum + (*second as f64 / total as f64) >= accum {
+                if accum + (*second as f64 / *total as f64) >= prob {
                     for (total, freq) in self.combinations.iter_mut() {
                         freq.disable(
                             &self.character_map,
@@ -171,37 +172,37 @@ impl KeyAssigner {
                         *total = freq.total_count();
                     }
 
-                    return CharCombination(
+                    return Some(CharCombination(
                         self.character_index_map[first_idx],
                         self.character_index_map[second_idx],
-                    );
+                    ));
                 }
-                accum += *second as f64 / total as f64;
+                accum += *second as f64 / *total as f64;
             }
         }
 
-        unreachable!("do not come here");
+        None
     }
 
     /// 左シフトキーに対する組み合わせを返す。
     ///
     /// この関数は、right_shift_keyとセットで利用することを前提としている。
     pub fn left_shift_key(&self, rng: &mut StdRng) -> CharCombination {
-        let (total, freq) = self.combinations[LINEAR_L_SHIFT_INDEX];
+        let (total, freq) = &self.combinations[LINEAR_L_SHIFT_INDEX];
 
-        let prob = rng.gen::<f64>();
+        let _prob = rng.gen::<f64>();
         let mut accum = 0.0;
         for (first_idx, first) in freq.combinations.iter().enumerate() {
             for (second_idx, second) in first.iter().enumerate() {
                 let Some(second) = second else { continue };
 
-                if accum + (*second as f64 / total as f64) >= accum {
+                if accum + (*second as f64 / *total as f64) >= accum {
                     return CharCombination(
                         self.character_index_map[first_idx],
                         self.character_index_map[second_idx],
                     );
                 }
-                accum += *second as f64 / total as f64;
+                accum += *second as f64 / *total as f64;
             }
         }
 
@@ -217,57 +218,49 @@ impl KeyAssigner {
         left_combination: &CharCombination,
     ) -> CharCombination {
         // シフトキーは、シフト面が同一であることが要件になる。
-        let unshift_idx = self.character_map[&left_combination.unshift().normal()];
         let shift_idx = self.character_map[&left_combination.shifted().normal()];
 
-        // まずshift面で同じ文字を選択できないようにする
+        // まず無シフト面で同じ文字を選択できないようにする
         for (total, freq) in self.combinations.iter_mut() {
             freq.disable(&self.character_map, left_combination.unshift().normal());
 
             *total = freq.total_count();
         }
 
-        let (_, freq) = self.combinations[LINEAR_R_SHIFT_INDEX];
+        let (_, freq) = &self.combinations[LINEAR_R_SHIFT_INDEX];
 
         // シフト面が同一のキーだけに絞る
         let mut total = 0.0;
         for row in freq.combinations.iter() {
-            for (idx, col) in row.iter().enumerate() {
-                if idx != shift_idx {
-                    continue;
-                }
-                total += col.unwrap_or(0.0);
-            }
+            total += row[shift_idx].unwrap_or(0.0);
         }
 
         let prob = rng.gen::<f64>();
         let mut accum = 0.0;
         for (first_idx, first) in freq.combinations.iter().enumerate() {
-            for (second_idx, second) in first.iter().enumerate() {
-                if second_idx != shift_idx {
-                    continue;
-                };
-                let Some(second) = second else { continue };
+            let Some(second) = first[shift_idx] else {
+                continue;
+            };
 
-                if accum + (*second as f64 / total as f64) >= accum {
-                    // 選択できたら、対象の場所を全体からdisableする
-                    for (total, freq) in self.combinations.iter_mut() {
-                        freq.disable(
-                            &self.character_map,
-                            self.character_index_map[first_idx].normal(),
-                        );
-                        freq.disable(&self.character_map, left_combination.shifted().normal());
-
-                        *total = freq.total_count();
-                    }
-
-                    return CharCombination(
-                        self.character_index_map[first_idx],
-                        self.character_index_map[second_idx],
+            if accum + (second as f64 / total as f64) >= prob {
+                // 選択できたら、対象の場所を全体からdisableする
+                for (total, freq) in self.combinations.iter_mut() {
+                    freq.disable(
+                        &self.character_map,
+                        self.character_index_map[first_idx].normal(),
                     );
+                    freq.disable(&self.character_map, left_combination.shifted().normal());
+
+                    *total = freq.total_count();
                 }
-                accum += *second as f64 / total as f64;
+                // println!("first {:?}", &self.combinations[0]);
+
+                return CharCombination::new(
+                    &self.character_index_map[first_idx],
+                    &self.character_index_map[shift_idx],
+                );
             }
+            accum += second as f64 / total as f64;
         }
 
         unreachable!("do not come here");
@@ -296,9 +289,9 @@ mod tests {
         let orders = super::CombinationFrequency::new(|_, _| true);
 
         // act
-        let ret = all_chars()
+        let ret = definitions()
             .iter()
-            .all(|c| orders.frequency_at(*c, *c).is_none());
+            .all(|c| orders.frequency_at(c.normal(), c.normal()).is_none());
 
         // assert
         assert!(ret, "all same-char combinations are disabled")
@@ -334,9 +327,6 @@ pub struct FrequencyTable {
     character_index_map: Vec<CharDef>,
 }
 
-const UNSHIFT_LAYER: usize = 0;
-const SHIFT_LAYER: usize = 1;
-
 impl FrequencyTable {
     /// 頻度表を新規に作成する。
     ///
@@ -350,31 +340,30 @@ impl FrequencyTable {
         combinations[LINEAR_R_SHIFT_INDEX] = CombinationFrequency::new(|_, ch2| ch2.is_cleartone());
 
         // 半濁音キー自体には、半濁音および濁音を持つ文字を割り当てない。
-        combinations[LINEAR_L_SEMITURBID_INDEX] = CombinationFrequency::new(|ch1, ch2| {
-            !(matches!(
-                (
-                    ch1.semiturbid(),
-                    ch2.semiturbid(),
-                    ch1.turbid(),
-                    ch2.turbid()
-                ),
-                (Some(_), _, _, _) | (_, Some(_), _, _) | (_, _, Some(_), _) | (_, _, _, Some(_))
-            ))
-        });
-        combinations[LINEAR_R_SEMITURBID_INDEX] = CombinationFrequency::new(|ch1, ch2| {
-            !(matches!(
-                (
-                    ch1.semiturbid(),
-                    ch2.semiturbid(),
-                    ch1.turbid(),
-                    ch2.turbid()
-                ),
-                (Some(_), _, _, _) | (_, Some(_), _, _) | (_, _, Some(_), _) | (_, _, _, Some(_))
-            ))
-        });
+        // combinations[LINEAR_L_SEMITURBID_INDEX] = CombinationFrequency::new(|ch1, ch2| {
+        //     !(matches!(
+        //         (
+        //             ch1.semiturbid(),
+        //             ch2.semiturbid(),
+        //             ch1.turbid(),
+        //             ch2.turbid()
+        //         ),
+        //         (Some(_), _, _, _) | (_, Some(_), _, _) | (_, _, Some(_), _) | (_, _, _, Some(_))
+        //     ))
+        // });
+        // combinations[LINEAR_R_SEMITURBID_INDEX] = CombinationFrequency::new(|ch1, ch2| {
+        //     !(matches!(
+        //         (
+        //             ch1.semiturbid(),
+        //             ch2.semiturbid(),
+        //             ch1.turbid(),
+        //             ch2.turbid()
+        //         ),
+        //         (Some(_), _, _, _) | (_, Some(_), _, _) | (_, _, Some(_), _) | (_, _, _, Some(_))
+        //     ))
+        // });
 
         FrequencyTable {
-            // シフト面と無シフト面でそれぞれ別にする
             frequency: combinations,
             character_map: char_def::definitions()
                 .into_iter()
@@ -386,15 +375,16 @@ impl FrequencyTable {
     }
 
     /// `keymap` にある文字から、頻度表を更新する
-    pub fn update(&mut self, best_keymap: &Keymap, worst_keymap: &Keymap, learning_rate: f64) {
-        let mut checked_in_best = vec![vec![vec![false; all_chars().len()]; all_chars().len()]; 26];
+    pub fn update(&mut self, best_keymap: &Keymap, worst_keymap: &Keymap, _learning_rate: f64) {
+        let mut checked_in_best =
+            vec![vec![vec![false; definitions().len()]; definitions().len()]; 26];
 
         // 構成上、すべてのキーがshift/unshiftを持っている
         for (key_idx, def) in best_keymap.iter().enumerate() {
             let unshift_idx = self.character_map[&def.unshift()];
             let shift_idx = self.character_map[&def.shifted()];
 
-            let freq = &mut self.frequency[key_idx].combinations[unshift_idx][shift_idx];
+            let freq = &mut self.frequency[key_idx].frequency_at(def.unshift(), def.shifted());
             if let Some(v) = freq {
                 checked_in_best[key_idx][unshift_idx][shift_idx] = true;
                 *v += 1.0;
@@ -409,7 +399,7 @@ impl FrequencyTable {
                 continue;
             }
 
-            let freq = &mut self.frequency[key_idx].combinations[unshift_idx][shift_idx];
+            let freq = &mut self.frequency[key_idx].frequency_at(def.unshift(), def.shifted());
             if let Some(v) = freq {
                 checked_in_best[key_idx][unshift_idx][shift_idx] = true;
                 *v -= 0.5;

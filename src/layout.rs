@@ -79,26 +79,4 @@ pub mod linear {
     pub fn linear_layout() -> &'static [Point] {
         &LINEAR_LAYOUT
     }
-
-    /// linear layoutにおける、特殊キーのindex
-    pub fn indices_of_special_keys() -> Vec<usize> {
-        vec![
-            LINEAR_L_SHIFT_INDEX,
-            LINEAR_R_SHIFT_INDEX,
-            LINEAR_L_TURBID_INDEX,
-            LINEAR_R_TURBID_INDEX,
-            LINEAR_L_SEMITURBID_INDEX,
-            LINEAR_R_SEMITURBID_INDEX,
-        ]
-    }
-
-    /// linear layoutにおける、濁音と半濁音に関連するキーのindex
-    pub fn indices_of_turbid_related_keys() -> Vec<usize> {
-        vec![
-            LINEAR_L_TURBID_INDEX,
-            LINEAR_R_TURBID_INDEX,
-            LINEAR_L_SEMITURBID_INDEX,
-            LINEAR_R_SEMITURBID_INDEX,
-        ]
-    }
 }
