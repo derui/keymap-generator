@@ -4,12 +4,9 @@ use rand::{rngs::StdRng, Rng};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    char_def::{self, all_chars, definitions, CharDef},
+    char_def::{self, definitions, CharDef},
     keymap::Keymap,
-    layout::linear::{
-        LINEAR_L_SEMITURBID_INDEX, LINEAR_L_SHIFT_INDEX, LINEAR_R_SEMITURBID_INDEX,
-        LINEAR_R_SHIFT_INDEX,
-    },
+    layout::linear::{LINEAR_L_SHIFT_INDEX, LINEAR_R_SHIFT_INDEX},
 };
 
 /// 存在する文字のシフト面と無シフト面に対する組み合わせにおける頻度を表す
@@ -107,7 +104,7 @@ pub struct CharCombination(CharDef, CharDef);
 
 impl CharCombination {
     pub fn new(unshift: &CharDef, shifted: &CharDef) -> Self {
-        Self(unshift.clone(), shifted.clone())
+        Self(*unshift, *shifted)
     }
 
     pub fn unshift(&self) -> CharDef {
@@ -158,7 +155,7 @@ impl KeyAssigner {
             for (second_idx, second) in first.iter().enumerate() {
                 let Some(second) = second else { continue };
 
-                if accum + (*second as f64 / *total as f64) >= prob {
+                if accum + (*second / *total) >= prob {
                     for (total, freq) in self.combinations.iter_mut() {
                         freq.disable(
                             &self.character_map,
@@ -177,7 +174,7 @@ impl KeyAssigner {
                         self.character_index_map[second_idx],
                     ));
                 }
-                accum += *second as f64 / *total as f64;
+                accum += *second / *total;
             }
         }
 
@@ -196,13 +193,13 @@ impl KeyAssigner {
             for (second_idx, second) in first.iter().enumerate() {
                 let Some(second) = second else { continue };
 
-                if accum + (*second as f64 / *total as f64) >= accum {
+                if accum + (*second / *total) >= accum {
                     return CharCombination(
                         self.character_index_map[first_idx],
                         self.character_index_map[second_idx],
                     );
                 }
-                accum += *second as f64 / *total as f64;
+                accum += *second / *total;
             }
         }
 
@@ -242,7 +239,7 @@ impl KeyAssigner {
                 continue;
             };
 
-            if accum + (second as f64 / total as f64) >= prob {
+            if accum + (second / total) >= prob {
                 // 選択できたら、対象の場所を全体からdisableする
                 for (total, freq) in self.combinations.iter_mut() {
                     freq.disable(
@@ -260,7 +257,7 @@ impl KeyAssigner {
                     &self.character_index_map[shift_idx],
                 );
             }
-            accum += second as f64 / total as f64;
+            accum += second / total;
         }
 
         unreachable!("do not come here");
@@ -402,7 +399,7 @@ impl FrequencyTable {
             let freq = &mut self.frequency[key_idx].frequency_at(def.unshift(), def.shifted());
             if let Some(v) = freq {
                 checked_in_best[key_idx][unshift_idx][shift_idx] = true;
-                *v -= 0.5;
+                *v *= 0.95;
             }
         }
     }

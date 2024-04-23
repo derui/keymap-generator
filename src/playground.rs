@@ -34,7 +34,7 @@ impl Playground {
 
         // まずは必要な数だけ生成しておく
         let mut keymaps = Vec::new();
-        while keymaps.len() < gen_count as usize {
+        while keymaps.len() < 2 {
             let mut assigner = KeyAssigner::from_freq(&frequency_table);
             if let Some(keymap) = Keymap::generate(rng, &mut assigner) {
                 keymaps.push(keymap);
