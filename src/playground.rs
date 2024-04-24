@@ -84,9 +84,11 @@ impl Playground {
 
         // 最良のkeymapを遺伝子として見立て、頻度表を更新する
         let (_, best_idx) = rank.first().expect("should be success");
+        let best_keymap =
+            self.re_rank_neighbor(conjunctions, pre_scores.clone(), &self.keymaps[*best_idx]);
         let (_, worst_idx) = rank.iter().last().expect("should be success");
         self.frequency_table.update(
-            &self.keymaps[*best_idx],
+            &best_keymap,
             &self.keymaps[*worst_idx],
             1.0 / self.gen_count as f64,
         );
@@ -95,6 +97,46 @@ impl Playground {
         self.keymaps = new_keymaps;
 
         (rank[0].0, best_keymap.clone())
+    }
+
+    /// 最近傍探索をして、類似keymapのなかでbestなものを探す
+    fn re_rank_neighbor(
+        &self,
+        conjunctions: &[Conjunction],
+        pre_scores: Arc<ConnectionScore>,
+        keymap: &Keymap,
+    ) -> Keymap {
+        let conjunctions = Arc::new(conjunctions.to_vec());
+
+        let (tx, tr) = channel();
+        let mut keymaps: Vec<Keymap> = Vec::new();
+
+        for (i, _) in keymap.iter().enumerate() {
+            for (j, _) in keymap.iter().enumerate() {
+                if i >= j {
+                    continue;
+                }
+
+                let swaps = keymap.swap_keys(i, j);
+                keymaps.extend_from_slice(&swaps);
+            }
+        }
+
+        keymaps.iter().enumerate().for_each(|(idx, k)| {
+            let k = k.clone();
+            let tx = tx.clone();
+            let conjunctions = conjunctions.clone();
+            let pre_scores = pre_scores.clone();
+
+            self.pool.execute(move || {
+                let score = score::evaluate(&conjunctions, &pre_scores, &k);
+                tx.send((score, idx)).expect("should be success")
+            })
+        });
+
+        let mut scores: Vec<(u64, usize)> = tr.iter().take(keymaps.len()).collect();
+        scores.sort_by(|a, b| a.0.cmp(&b.0));
+        keymaps[scores[0].1].clone()
     }
 
     /// scoreに基づいてkeymapをランク付けする。
