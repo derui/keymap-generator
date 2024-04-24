@@ -48,6 +48,29 @@ impl CombinationFrequency {
             .sum::<f64>()
     }
 
+    /// 指定された 組み合わせに対する確率を更新する
+    fn update_frequency(&mut self, comb: (usize, usize)) {
+        let (first_idx, second_idx) = comb;
+
+        // 2次元配列自体は、unshift -> shiftで構成している
+        let count = self
+            .combinations
+            .iter()
+            .map(|v| v.iter().map(|v| v.map_or(0.0, |_| 1.0)).sum::<f64>())
+            .sum::<f64>();
+
+        for (ri, row) in self.combinations.iter_mut().enumerate() {
+            for (ci, col) in row.iter_mut().enumerate() {
+                let Some(v) = col else { continue };
+                if ri == first_idx && ci == second_idx {
+                    *v = (*v + 1.0).min(count - 1.0)
+                } else {
+                    *v = (*v * (1.0 - 1.0 / count)).max(0.0000001);
+                }
+            }
+        }
+    }
+
     /// 指定された `ch` を含む組み合わせを無効にする
     fn disable(&mut self, character_map: &HashMap<char, usize>, ch: char) {
         let ch_idx = character_map[&ch];
@@ -374,34 +397,27 @@ impl FrequencyTable {
     }
 
     /// `keymap` にある文字から、頻度表を更新する
-    pub fn update(&mut self, best_keymap: &Keymap, worst_keymap: &Keymap, _learning_rate: f64) {
-        let mut checked_in_best =
+    pub fn update(&mut self, best_keymap: &Keymap, worst_keymap: &Keymap, learning_rate: f64) {
+        let mut checked_in_worst =
             vec![vec![vec![false; definitions().len()]; definitions().len()]; 26];
 
         // 構成上、すべてのキーがshift/unshiftを持っている
-        for (key_idx, def) in best_keymap.iter().enumerate() {
-            let unshift_idx = self.character_map[&def.unshift()];
-            let shift_idx = self.character_map[&def.shifted()];
-
-            let freq = &mut self.frequency[key_idx].frequency_at(def.unshift(), def.shifted());
-            if let Some(v) = freq {
-                checked_in_best[key_idx][unshift_idx][shift_idx] = true;
-                *v += 10.0 + _learning_rate
-            }
-        }
-
         for (key_idx, def) in worst_keymap.iter().enumerate() {
             let unshift_idx = self.character_map[&def.unshift()];
             let shift_idx = self.character_map[&def.shifted()];
 
-            if checked_in_best[key_idx][unshift_idx][shift_idx] {
+            checked_in_worst[key_idx][unshift_idx][shift_idx] = true;
+        }
+
+        for (key_idx, def) in best_keymap.iter().enumerate() {
+            let unshift_idx = self.character_map[&def.unshift()];
+            let shift_idx = self.character_map[&def.shifted()];
+
+            if checked_in_worst[key_idx][unshift_idx][shift_idx] {
                 continue;
             }
 
-            let freq = &mut self.frequency[key_idx].frequency_at(def.unshift(), def.shifted());
-            if let Some(v) = freq {
-                *v += _learning_rate;
-            }
+            self.frequency[key_idx].update_frequency((unshift_idx, shift_idx))
         }
     }
 }
