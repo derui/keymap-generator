@@ -89,7 +89,7 @@ pub fn evaluate(
             key_sequence.push(((r, c).into(), additional_finger));
         }
 
-        score += pre_scores.evaluate(&key_sequence) * conjunction.appearances as u64;
+        score += pre_scores.evaluate(&key_sequence);
         key_sequence.clear()
     }
     score

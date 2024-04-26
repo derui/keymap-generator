@@ -62,6 +62,45 @@ fn read_4gram(path: &Path) -> anyhow::Result<Vec<Conjunction>> {
     Ok(conjunctions)
 }
 
+fn read_2gram(path: &Path) -> anyhow::Result<Vec<Conjunction>> {
+    let mut conjunctions = Vec::new();
+    let file = File::open(path).unwrap();
+
+    let mut rdr = csv::ReaderBuilder::new()
+        .delimiter(b'\t')
+        .from_reader(&file);
+
+    let char_position_map: HashMap<char, usize> = char_def::all_chars()
+        .into_iter()
+        .enumerate()
+        .map(|(idx, v)| (v, idx))
+        .collect();
+
+    for result in rdr.records() {
+        // The iterator yields Result<StringRecord, Error>, so we check the
+        // error here.
+        let record = result?;
+        let Some(text) = record
+            .get(2)
+            .filter(|v| !v.is_empty())
+            .map(|v| v.to_string())
+        else {
+            break;
+        };
+        let appearances: u32 = record.get(3).unwrap().parse()?;
+        conjunctions.push(Conjunction {
+            text: text
+                .chars()
+                .filter_map(|v| char_position_map.get(&v))
+                .cloned()
+                .collect(),
+            appearances,
+        });
+    }
+
+    Ok(conjunctions)
+}
+
 fn save_frequency(table: &FrequencyTable) {
     let mut output = File::create("./frequency_table.bin").unwrap();
     let bin = to_allocvec(&table).unwrap();
@@ -123,8 +162,9 @@ fn main() -> anyhow::Result<()> {
     env_logger::init();
 
     let path = args().nth(1).expect("missing path");
+    let path_2gram = args().nth(2).expect("missing path");
     let frequency = args()
-        .nth(2)
+        .nth(3)
         .and_then(|v| read_frequency(Path::new(&v)).ok())
         .unwrap_or(FrequencyTable::new());
     let mut rng = StdRng::seed_from_u64(random());
@@ -135,6 +175,7 @@ fn main() -> anyhow::Result<()> {
     let mut best_keymap: Option<Keymap> = None;
     let mut top_scores: BinaryHeap<Reverse<u64>> = BinaryHeap::new();
     let conjunctions = read_4gram(Path::new(&path))?;
+    let conjunctions_2gram = read_2gram(Path::new(&path_2gram))?;
     let scores = Arc::new(ConnectionScore::new());
     let running = Arc::new(AtomicBool::new(true));
     let r = running.clone();
@@ -145,7 +186,7 @@ fn main() -> anyhow::Result<()> {
     .expect("error setting handler");
 
     while !is_exit_score(&mut top_scores) && running.load(Ordering::SeqCst) {
-        let ret = playground.advance(&mut rng, &conjunctions, scores.clone());
+        let ret = playground.advance(&mut rng, &conjunctions, scores.clone(), &conjunctions_2gram);
 
         if best_score > ret.0 {
             log::info!(

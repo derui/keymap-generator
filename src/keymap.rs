@@ -471,12 +471,20 @@ impl Keymap {
     /// 入れ替え後のキーマップ。制約を満たさない場合はNoneを返す
     pub fn swap_keys(&self, idx1: usize, idx2: usize) -> Vec<Self> {
         let mut new = self.clone();
-
-        new.layout.swap(idx1, idx2);
-
         let mut vec = Vec::new();
 
-        // 最大4つまで生成される可能性がある
+        new.layout[idx1].swap();
+        if new.meet_requirements() {
+            vec.push(new.clone());
+            new.layout[idx1].swap();
+        }
+        new.layout[idx2].swap();
+        if new.meet_requirements() {
+            vec.push(new.clone());
+            new.layout[idx2].swap();
+        }
+
+        new.layout.swap(idx1, idx2);
         if new.meet_requirements() {
             vec.push(new.clone());
         }

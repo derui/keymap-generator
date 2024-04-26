@@ -68,6 +68,7 @@ impl Playground {
         rng: &mut StdRng,
         conjunctions: &[Conjunction],
         pre_scores: Arc<ConnectionScore>,
+        conjunctions_2gram: &[Conjunction],
     ) -> (u64, Keymap) {
         self.generation += 1;
 
@@ -84,8 +85,12 @@ impl Playground {
 
         // 最良のkeymapを遺伝子として見立て、頻度表を更新する
         let (_, best_idx) = rank.first().expect("should be success");
-        let best_keymap =
-            self.re_rank_neighbor(conjunctions, pre_scores.clone(), &self.keymaps[*best_idx]);
+        // 最近傍でベストなものを改めて探す
+        let best_keymap = self.re_rank_neighbor(
+            conjunctions_2gram,
+            pre_scores.clone(),
+            &self.keymaps[*best_idx],
+        );
         let (_, worst_idx) = rank.iter().last().expect("should be success");
         self.frequency_table.update(
             &best_keymap,

@@ -63,9 +63,9 @@ impl CombinationFrequency {
             for (ci, col) in row.iter_mut().enumerate() {
                 let Some(v) = col else { continue };
                 if ri == first_idx && ci == second_idx {
-                    *v = (*v + 2.0).min(count - 1.0)
+                    *v = (*v + 1.5).min(count - 1.0)
                 } else {
-                    *v = (*v * (1.0 - 2.0 / count)).max(0.0000001);
+                    *v = (*v * (1.0 - 1.5 / count)).max(0.0000001);
                 }
             }
         }
