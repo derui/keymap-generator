@@ -1,4 +1,6 @@
-use crate::layout::{linear::linear_layout, Point};
+use std::{collections::HashMap, fs::File, path::Path};
+
+use crate::{char_def, layout::{linear::linear_layout, Point}};
 
 /// 各指が担当するキーに対する重み。
 /// http://61degc.seesaa.net/article/284288569.html
@@ -74,6 +76,60 @@ pub struct ConnectionScore {
     scores: Vec<u32>,
 }
 
+#[derive(Debug, Clone)]
+pub struct CharFrequency {
+    frequency: Vec<u64>,
+}
+
+impl CharFrequency {
+
+    pub fn read(path: &Path) -> anyhow::Result<CharFrequency> {
+        let mut frequency = vec![0;char_def::all_chars().len()];
+    let file = File::open(path).unwrap();
+
+    let mut rdr = csv::ReaderBuilder::new()
+        .delimiter(b'\t')
+        .from_reader(&file);
+
+    let char_position_map: HashMap<char, usize> = char_def::all_chars()
+        .into_iter()
+        .enumerate()
+        .map(|(idx, v)| (v, idx))
+        .collect();
+
+    for result in rdr.records() {
+        // The iterator yields Result<StringRecord, Error>, so we check the
+        // error here.
+        let record = result?;
+        let Some(text) = record
+            .get(4)
+            .filter(|v| !v.is_empty())
+            .map(|v| v.to_string())
+        else {
+            break;
+        };
+        let appearances: u32 = record.get(5).unwrap().parse()?;
+        if let Some(v) = char_position_map.get(&text.chars().next().unwrap()) {
+            frequency[*v] = appearances as u64;
+        }
+    }
+
+        Ok(CharFrequency {frequency})
+}
+
+
+    pub fn get_weight(&self, index: usize) -> u64 {
+        self.frequency[index]
+    }
+    
+}
+
+// struct for evaluation
+pub struct Evaluation {
+    pub key_weight: u64,
+    pub positions: (Pos, Option<Pos>)
+}
+
 impl ConnectionScore {
     pub fn new() -> Self {
         let indices = linear_layout();
@@ -118,25 +174,48 @@ impl ConnectionScore {
     /// キーから、評価の結果を返す
     ///
     /// ここでの結果は、4連接自体と、シフトに対する評価の両方の合算値である。
-    pub fn evaluate(&self, sequence: &[(Pos, Option<Pos>)]) -> u64 {
+    pub fn evaluate(&self, sequence: &[Evaluation]) -> u64 {
+        let _weights = sequence.iter().map(|v| (v.key_weight)).collect::<Vec<_>>();
+        let positions = sequence.iter().map(|v| (v.positions)).collect::<Vec<_>>();
         let mut score = 0;
 
-        let first: Option<(usize, usize)> = sequence.first().map(|(p, _)| p.into());
-        let second: Option<(usize, usize)> = sequence.get(1).map(|(p, _)| p.into());
-        let third: Option<(usize, usize)> = sequence.get(2).map(|(p, _)| p.into());
-        let fourth: Option<(usize, usize)> = sequence.get(3).map(|(p, _)| p.into());
+        let first: Option<(usize, usize)> = positions.first().map(|(p, _)| p.into());
+        let second: Option<(usize, usize)> = positions.get(1).map(|(p, _)| p.into());
+        let third: Option<(usize, usize)> = positions.get(2).map(|(p, _)| p.into());
+        let fourth: Option<(usize, usize)> = positions.get(3).map(|(p, _)| p.into());
 
         score += self.scores[self.get_index(&first, &second, &third, &fourth)] as u64;
 
-        let first: Option<(usize, usize)> = sequence.first().and_then(|(_, v)| *v).map(Into::into);
-        let second: Option<(usize, usize)> = sequence.get(1).and_then(|(_, v)| *v).map(Into::into);
-        let third: Option<(usize, usize)> = sequence.get(2).and_then(|(_, v)| *v).map(Into::into);
-        let fourth: Option<(usize, usize)> = sequence.get(3).and_then(|(_, v)| *v).map(Into::into);
+        let first: Option<(usize, usize)> = positions.first().and_then(|(_, v)| *v).map(Into::into);
+        let second: Option<(usize, usize)> = positions.get(1).and_then(|(_, v)| *v).map(Into::into);
+        let third: Option<(usize, usize)> = positions.get(2).and_then(|(_, v)| *v).map(Into::into);
+        let fourth: Option<(usize, usize)> = positions.get(3).and_then(|(_, v)| *v).map(Into::into);
 
         score +=
             (self.scores[self.get_index(&first, &second, &third, &fourth)] as f64 * 1.3) as u64;
 
-        score
+        score + self.get_weight_score(sequence)
+    }
+
+    fn get_weight_score(&self, sequence: &[Evaluation]) -> u64 {
+        let base = sequence.iter().map(|v|{
+            let w = v.key_weight;
+            let p = v.positions.0;
+
+            FINGER_WEIGHTS[p.0][p.1] as u64 * w
+        }).sum::<u64>();
+
+        let shift = sequence.iter().map(|v|{
+            let w = v.key_weight;
+
+            if let Some(p) = v.positions.1 {
+                FINGER_WEIGHTS[p.0][p.1] as u64 * w
+            } else {
+                0
+            }
+        }).sum::<u64>();
+
+        base + shift
     }
 
     /// 4連接の評価を行う

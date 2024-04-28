@@ -1,6 +1,6 @@
 use crate::{
     char_def,
-    connection_score::{ConnectionScore, Pos},
+    connection_score::{CharFrequency, ConnectionScore, Evaluation, Pos},
     keymap::{KeyKind, Keymap},
     layout::{
         self,
@@ -41,6 +41,7 @@ pub fn evaluate(
     conjunctions: &[Conjunction],
     pre_scores: &ConnectionScore,
     keymap: &Keymap,
+    char_frequency: &CharFrequency
 ) -> u64 {
     let mut score = 0;
     let linear_layout = layout::linear::linear_layout();
@@ -53,10 +54,10 @@ pub fn evaluate(
         }
     }
 
-    let mut key_sequence: Vec<(Pos, Option<Pos>)> = Vec::with_capacity(4);
+    let mut key_sequence: Vec<Evaluation> = Vec::with_capacity(4);
     for conjunction in conjunctions {
-        for c in conjunction.text.iter() {
-            let (k, point) = pos_cache[*c];
+        for ch in conjunction.text.iter() {
+            let (k, point) = pos_cache[*ch];
             let (r, c): (usize, usize) = point.into();
 
             // 対象の文字がshift/濁音/半濁音の場合は、それに対応するキーも評価に加える
@@ -86,7 +87,11 @@ pub fn evaluate(
                 }
             };
 
-            key_sequence.push(((r, c).into(), additional_finger));
+            let v = Evaluation {
+                positions: ((r, c).into(), additional_finger),
+                key_weight: char_frequency.get_weight(*ch)
+            };
+            key_sequence.push(v);
         }
 
         score += pre_scores.evaluate(&key_sequence);

@@ -7,7 +7,7 @@ use crate::{
     char_def::{self, definitions, CharDef},
     keymap::Keymap,
     layout::linear::{
-        LINEAR_L_SEMITURBID_INDEX, LINEAR_L_SHIFT_INDEX, LINEAR_R_SEMITURBID_INDEX,
+        LINEAR_L_SHIFT_INDEX,
         LINEAR_R_SHIFT_INDEX,
     },
 };
@@ -20,25 +20,6 @@ struct CombinationFrequency {
 }
 
 impl CombinationFrequency {
-    /// 対象の文字の組み合わせに対する頻度を返す
-    ///
-    /// # Arguments
-    /// * `first` - 最初の文字
-    /// * `second` - 2番目の文字
-    ///
-    /// # Returns
-    /// 対象の文字の組み合わせに対する頻度
-    pub fn frequency_at(&self, first: char, second: char) -> Option<f64> {
-        let first_idx = definitions()
-            .iter()
-            .position(|v| v.normal() == first)
-            .unwrap();
-        let second_idx = definitions()
-            .iter()
-            .position(|v| v.normal() == second)
-            .unwrap();
-        self.combinations[first_idx][second_idx]
-    }
 
     /// 全体の頻度を返す
     pub fn total_count(&self) -> f64 {
@@ -63,9 +44,9 @@ impl CombinationFrequency {
             for (ci, col) in row.iter_mut().enumerate() {
                 let Some(v) = col else { continue };
                 if ri == first_idx && ci == second_idx {
-                    *v = (*v + 1.5).min(count - 1.0)
+                    *v = (*v + 5.0).min(count - 1.0)
                 } else {
-                    *v = (*v * (1.0 - 1.5 / count)).max(0.0000001);
+                    *v = (*v * (1.0 - 5.0 / count)).max(0.0000001);
                 }
             }
         }
@@ -315,7 +296,6 @@ impl KeyAssigner {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn all_char_combinations_always_same_order() {
@@ -327,32 +307,6 @@ mod tests {
 
         // assert
         assert!(order1 == order2, "all eleemnts should be same")
-    }
-
-    #[test]
-    fn same_key_combination_is_all_disabled() {
-        // arrange
-        let orders = super::CombinationFrequency::new(|_, _| true);
-
-        // act
-        let ret = definitions()
-            .iter()
-            .all(|c| orders.frequency_at(c.normal(), c.normal()).is_none());
-
-        // assert
-        assert!(ret, "all same-char combinations are disabled")
-    }
-
-    #[test]
-    fn turbid_combination_is_disabled() {
-        // arrange
-        let orders = super::CombinationFrequency::new(|_, _| true);
-
-        // act
-        let ret = orders.frequency_at('か', 'し').is_none();
-
-        // assert
-        assert!(ret, "all same-char combinations are disabled")
     }
 }
 
@@ -397,7 +351,7 @@ impl FrequencyTable {
     }
 
     /// `keymap` にある文字から、頻度表を更新する
-    pub fn update(&mut self, best_keymap: &Keymap, worst_keymap: &Keymap, learning_rate: f64) {
+    pub fn update(&mut self, best_keymap: &Keymap, worst_keymap: &Keymap) {
         let mut checked_in_worst =
             vec![vec![vec![false; definitions().len()]; definitions().len()]; 26];
 

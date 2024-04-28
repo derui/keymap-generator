@@ -3,7 +3,7 @@ use std::sync::{mpsc::channel, Arc};
 use rand::rngs::StdRng;
 
 use crate::{
-    connection_score::ConnectionScore,
+    connection_score::{CharFrequency, ConnectionScore},
     frequency_table::{FrequencyTable, KeyAssigner},
     keymap::Keymap,
     score::{self, Conjunction},
@@ -69,11 +69,12 @@ impl Playground {
         conjunctions: &[Conjunction],
         pre_scores: Arc<ConnectionScore>,
         conjunctions_2gram: &[Conjunction],
+        char_frequency: &CharFrequency
     ) -> (u64, Keymap) {
         self.generation += 1;
 
         let mut new_keymaps = Vec::new();
-        let rank = self.rank(conjunctions, pre_scores.clone()).to_vec();
+        let rank = self.rank(conjunctions, pre_scores.clone(), char_frequency).to_vec();
 
         // new_keymapsがgen_countになるまで繰り返す
         while new_keymaps.len() < 2 {
@@ -90,12 +91,12 @@ impl Playground {
             conjunctions_2gram,
             pre_scores.clone(),
             &self.keymaps[*best_idx],
+            char_frequency
         );
         let (_, worst_idx) = rank.iter().last().expect("should be success");
         self.frequency_table.update(
             &best_keymap,
-            &self.keymaps[*worst_idx],
-            1.0 / self.gen_count as f64,
+            &self.keymaps[*worst_idx]
         );
 
         let best_keymap = self.keymaps[rank[0].1].clone();
@@ -110,8 +111,10 @@ impl Playground {
         conjunctions: &[Conjunction],
         pre_scores: Arc<ConnectionScore>,
         keymap: &Keymap,
+        char_frequency: &CharFrequency
     ) -> Keymap {
         let conjunctions = Arc::new(conjunctions.to_vec());
+        let char_frequency = Arc::new(char_frequency.clone());
 
         let (tx, tr) = channel();
         let mut keymaps: Vec<Keymap> = Vec::new();
@@ -132,9 +135,10 @@ impl Playground {
             let tx = tx.clone();
             let conjunctions = conjunctions.clone();
             let pre_scores = pre_scores.clone();
+            let char_frequency = char_frequency.clone();
 
             self.pool.execute(move || {
-                let score = score::evaluate(&conjunctions, &pre_scores, &k);
+                let score = score::evaluate(&conjunctions, &pre_scores, &k, &char_frequency);
                 tx.send((score, idx)).expect("should be success")
             })
         });
@@ -151,8 +155,10 @@ impl Playground {
         &self,
         conjunctions: &[Conjunction],
         pre_scores: Arc<ConnectionScore>,
+        char_frequency: &CharFrequency
     ) -> Vec<(u64, usize)> {
         let conjunctions = Arc::new(conjunctions.to_vec());
+        let char_frequency = Arc::new(char_frequency.clone());
 
         let keymaps = self.keymaps.clone();
         let (tx, tr) = channel();
@@ -161,9 +167,10 @@ impl Playground {
             let tx = tx.clone();
             let conjunctions = conjunctions.clone();
             let pre_scores = pre_scores.clone();
+            let char_frequency = char_frequency.clone();
 
             self.pool.execute(move || {
-                let score = score::evaluate(&conjunctions, &pre_scores, &k);
+                let score = score::evaluate(&conjunctions, &pre_scores, &k, &char_frequency);
                 tx.send((score, idx)).expect("should be success")
             })
         });
