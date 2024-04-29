@@ -114,7 +114,11 @@ impl CharFrequency {
         }
     }
 
-        Ok(CharFrequency {frequency})
+        let ave = frequency.iter().sum::<u64>() / frequency.len() as u64;
+
+        Ok(CharFrequency {frequency: frequency.iter().map(|v|{
+            (*v * 100 / ave).max(1)
+        }).collect()})
 }
 
 
@@ -125,6 +129,7 @@ impl CharFrequency {
 }
 
 // struct for evaluation
+#[derive(Debug)]
 pub struct Evaluation {
     pub key_weight: u64,
     pub positions: (Pos, Option<Pos>)
@@ -209,7 +214,7 @@ impl ConnectionScore {
             let w = v.key_weight;
 
             if let Some(p) = v.positions.1 {
-                FINGER_WEIGHTS[p.0][p.1] as u64 * w
+                (FINGER_WEIGHTS[p.0][p.1] as f64 * 1.3 * w as f64) as u64
             } else {
                 0
             }
