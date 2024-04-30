@@ -1,6 +1,9 @@
-use std::sync::{mpsc::channel, Arc};
+use std::{
+    borrow::BorrowMut,
+    sync::{mpsc::channel, Arc},
+};
 
-use rand::rngs::StdRng;
+use rand::{rngs::StdRng, Rng};
 
 use crate::{
     connection_score::ConnectionScore,
@@ -19,13 +22,11 @@ pub struct Playground {
     pool: threadpool::ThreadPool,
 }
 
-const GEN_COUNT: usize = 10;
-const TOURNAMENT_SIZE: usize = 3;
-const KEYMAP_SIZE: usize = 100;
-const WORKERS: u8 = 20;
-const MUTATE_RATE: f64 = 0.02;
-const MUTATE_SHIFT: f64 = 0.05;
-const LEARNING_RATE: f64 = 0.1;
+const TOURNAMENT_SIZE: usize = 10;
+const KEYMAP_SIZE: usize = 30;
+const WORKERS: u8 = 12;
+const MUTATION_PROB: f64 = 0.02;
+const MUTATION_RATE: f64 = 0.05;
 
 impl Playground {
     pub fn new(gen_count: u8, rng: &mut StdRng, frequency_table: FrequencyTable) -> Self {
@@ -70,36 +71,37 @@ impl Playground {
         self.generation += 1;
 
         let rank = self.rank(conjunctions, connection_score.clone()).to_vec();
-        // 最良のkeymapを遺伝子として見立て、頻度表を更新する
-        for (_, idx) in rank.iter().take(TOURNAMENT_SIZE) {
+        let mut picked_keymaps = Vec::new();
+        // self.keymapsを個体と見立てて、確率分布を更新する
+        for (_, idx) in self.take_ranks(rng, &rank, TOURNAMENT_SIZE).iter() {
             self.frequency_table
                 .update(&self.keymaps[*idx], 1.0 / (*idx + 1) as f64);
+            picked_keymaps.push(self.keymaps[*idx].clone());
         }
+        self.frequency_table
+            .mutate(rng, MUTATION_PROB, MUTATION_RATE);
 
-        // new_keymapsがgen_countになるまで繰り返す
-        let mut new_keymaps: Vec<Keymap> = Vec::new();
-        while new_keymaps.len() < 2 {
-            let mut assigner = KeyAssigner::from_freq(&self.frequency_table);
-            if let Some(new_keymap) = Keymap::generate(rng, &mut assigner) {
-                new_keymaps.push(new_keymap);
-            }
-        }
+        // 確率分布から生成する
+        let (tx, tr) = channel();
 
+        (0..KEYMAP_SIZE).for_each(|_| {
+            let tx = tx.clone();
+            let frequency_table = self.frequency_table.clone();
+            let mut rng = rng.clone();
+
+            self.pool.execute(move || loop {
+                let mut assigner = KeyAssigner::from_freq(&frequency_table);
+                if let Some(new_keymap) = Keymap::generate(&mut rng, &mut assigner) {
+                    tx.send(new_keymap).unwrap();
+                    break;
+                }
+            })
+        });
+
+        let new_keymaps: Vec<Keymap> = tr.iter().take(KEYMAP_SIZE).collect();
         let best_keymap = self.keymaps[rank[0].1].clone();
-
-        if self.keymaps.len() + new_keymaps.len() > KEYMAP_SIZE {
-            let mut deletable_ranks = rank
-                .iter()
-                .skip((self.keymaps.len() + new_keymaps.len()) - KEYMAP_SIZE)
-                .collect::<Vec<_>>();
-            deletable_ranks.sort_by(|(_, v1), (_, v2)| v1.cmp(&v2));
-            deletable_ranks.reverse();
-
-            for (_, idx) in deletable_ranks.iter() {
-                self.keymaps.remove(*idx);
-            }
-        }
-        self.keymaps.extend_from_slice(&new_keymaps);
+        self.keymaps = new_keymaps;
+        self.keymaps.extend_from_slice(&picked_keymaps);
 
         (rank[0].0, best_keymap)
     }
@@ -142,6 +144,33 @@ impl Playground {
         let mut scores: Vec<(u64, usize)> = tr.iter().take(keymaps.len()).collect();
         scores.sort_by(|a, b| a.0.cmp(&b.0));
         keymaps[scores[0].1].to_owned()
+    }
+
+    fn take_ranks(
+        &self,
+        rng: &mut StdRng,
+        rank: &[(u64, usize)],
+        count: usize,
+    ) -> Vec<(u64, usize)> {
+        let mut rank = Vec::from_iter(rank.iter().cloned());
+        let mut ret = vec![];
+        let mut rest = count;
+
+        while rest > 0 && !rank.is_empty() {
+            let mut accum = 0.0;
+            let prob = rng.gen::<f64>();
+
+            for idx in (0..rank.len()) {
+                if accum + (0.5 / (idx + 1) as f64) >= prob {
+                    ret.push(rank.remove(idx));
+                    rest -= 1;
+                    break;
+                }
+                accum += (0.5 / (idx + 1) as f64)
+            }
+        }
+
+        ret
     }
 
     /// scoreに基づいてkeymapをランク付けする。

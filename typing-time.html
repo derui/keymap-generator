@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="ja"><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+<meta charset="UTF-8">
+<link rel="license" href="http://www.apache.org/licenses/LICENSE-2.0">
+<link rel="author" href="http://www.esrille.com/">
+<title>打鍵時間の測定</title>
+<style>
+body {
+  margin: 4px;
+  font-family: sans-serif;
+  font-size: 14px;
+}
+h1 {
+  font-size: 1.6em;
+  width: 720px;
+  text-align: center;
+}
+.center {
+  width: 720px;
+  text-align: center;
+}
+
+.kbd {
+  position: relative;
+  width: 760px;
+  height: 260px;
+  white-space: nowrap;
+  font-family: sans-serif;
+  font-size: 14px;
+}
+.layer {
+  position: absolute;
+}
+.layer>div {
+  display: inline-block;
+  padding: 1px;
+  width: 45px;
+  height: 45px;
+  margin: 1px;
+  vertical-align: bottom;
+}
+.layer>.k125 {
+  width: 57px;
+}
+.layer>.k150 {
+  width: 69px;
+}
+.layer>.k175 {
+  width: 82px;
+}
+.layer>.k200 {
+  width: 93px;
+}
+.layer>.k225 {
+  width: 105px;
+}
+.layer>.k275 {
+  width: 131px;
+}
+.layer>.k625 {
+  width: 303px;
+}
+.small {
+  display: inline-block;
+  border: 1px solid #ccc;
+  width: 13px;
+  text-align: center;
+  line-height: 13px;
+  font-size: 13px;
+}
+.kana {
+  color: #1c9;
+  font-size: 13px;
+}
+.kana-border {
+  border: 1px solid #3c6;
+}
+
+.a {
+  color: #f30
+}
+.k {
+  color: #f40
+}
+.s {
+  color: #f83
+}
+.t {
+  color: #0c6
+}
+.n {
+  color: #099
+}
+.h {
+  color: #09f
+}
+.m {
+  color: #39f
+}
+.y {
+  color: #86f
+}
+.r {
+  color: #b6f
+}
+.w {
+  color: #c3c
+}
+.x {
+  color: #f3c
+}
+
+.L0 {
+  top: 2px;
+  left: 12px;
+}
+.L0>div {
+  padding: 0;
+  border: solid 1px black;
+  border-radius: 4px;
+  text-align: center;
+  line-height: 45px;
+}
+.L1 {
+  top: 2px;
+  left: 14px;
+  line-height: 45px;
+}
+.L2 {
+  top: 2px;
+  left: 12px;
+  text-align: center;
+}
+.L3 {
+  top: 15px;
+  left: 12px;
+  text-align: center;
+  line-height: 45px;
+  color: #666;
+}
+.L4 {
+  top: 4px;
+  left: 42px;
+  line-height: 45px;
+  color: #666;
+}
+
+.key {
+  display: inline-block;
+  padding: 2px;
+  border: 1px solid #888;
+  border-radius: 4px;
+  line-height: 14px;
+  font-size: 14px;
+  height: 16px;
+}
+
+#result_box {
+  border: 2px solid black;
+  border-radius: 8px;
+  padding: 4px;
+  margin: 4px;
+  width: 40em;
+  height: 2em;
+  overflow: hidden;
+}
+
+#matrix {
+  border-collapse: collapse;
+  font-family: monospace;
+}
+#matrix td {
+  border: 1px silver solid;
+  width: 1.5em;
+}
+
+</style>
+</head>
+<body>
+<h1>打鍵時間の測定</h1>
+
+<div class="kbd">
+<div class="layer L0">
+<div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div class="k200">Backspace</div>
+<br>
+<div class="k150">Tab</div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div class="k150"></div>
+<br>
+<div class="k175">Caps</div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div class="k225">Enter</div>
+<br>
+<div class="k225">Shift</div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div class="k275">Shift</div>
+<br>
+<div class="k125">Ctrl</div><div class="k125">❖</div><div class="k125">Alt</div><div class="k625"></div><div class="k125">Alt</div><div class="k125">❖</div><div class="k125">☰</div><div class="k125">Ctrl</div>
+</div>
+
+<div class="layer L1">
+<div>`</div><div>1</div><div>2</div><div>3</div><div>4</div><div>5</div><div>6</div><div>7</div><div>8</div><div>9</div><div>0</div><div>-</div><div>=</div><div class="k200"></div>
+<br>
+<div class="k150"></div><div>Q</div><div>W</div><div>E</div><div>R</div><div>T</div><div>Y</div><div>U</div><div>I</div><div>O</div><div>P</div><div>[</div><div>]</div><div class="k150">\</div>
+<br>
+<div class="k175"></div><div>A</div><div>S</div><div>D</div><div>F</div><div>G</div><div>H</div><div>J</div><div>K</div><div>L</div><div>;</div><div>'</div><div class="k225"></div>
+<br>
+<div class="k225"></div><div>Z</div><div>X</div><div>C</div><div>V</div><div>B</div><div>N</div><div>M</div><div>,</div><div>.</div><div>/</div><div class="k275"></div>
+<br>
+<div class="k125"></div><div class="k125"></div><div class="k125"></div><div class="k625"></div><div class="k125"></div><div class="k125"></div><div class="k125"></div><div class="k125"></div>
+</div>
+
+<div class="layer L2">
+<div>~</div><div>!</div><div>@</div><div>#</div><div>$</div><div>%</div><div>^</div><div>&amp;</div><div>*</div><div>(</div><div>)</div><div>_</div><div>+</div><div class="k200"></div>
+<br>
+<div class="k150"></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div>{</div><div>}</div><div class="k150">|</div>
+<br>
+<div class="k175"></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div>:</div><div>"</div><div class="k225"></div>
+<br>
+<div class="k225"></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div>&lt;</div><div>&gt;</div><div>?</div><div class="k275"></div>
+<br>
+<div class="k125"></div><div class="k125"></div><div class="k125"></div><div class="k625"></div><div class="k125"></div><div class="k125"></div><div class="k125"></div><div class="k125"></div>
+</div>
+
+</div>
+
+<pre>下の表の緑色で選択されている２つのキー組を３回ずつ連打してください(例: ab ab ab)。Escをおすと、やりなおせます。
+Enterをおすと、１回たとえばabと打鍵するのに要した最短の時間を表内に記入します。
+２つのキー組は、カーソルキーでうごかしたり、マウスで選択できます。
+Lはひだり手でスペースキーをおします。Rはみぎ手でスペースキーをおします。
+※ 保存するときは、このページごと保存してください。
+</pre>
+
+<table id="matrix"><tbody>
+<tr><td></td><td>a</td><td>b</td><td>c</td><td>d</td><td>e</td><td>f</td><td>g</td><td>h</td><td>i</td><td>j</td><td>k</td><td>l</td><td>m</td><td>n</td><td>o</td><td>p</td><td>q</td><td>r</td><td>s</td><td>t</td><td>u</td><td>v</td><td>w</td><td>x</td><td>y</td><td>z</td><td>;</td><td>,</td><td>.</td><td>/</td><td>[</td><td>'</td><td>L</td><td>R</td></tr>
+<tr><td>a</td><td style="">179</td><td style="">148</td><td style="">148</td><td style="">138</td><td style="">130</td><td style="">91</td><td style="">153</td><td style="">126</td><td style="">127</td><td style="">110</td><td style="">111</td><td style="">128</td><td style="">132</td><td style="">131</td><td style="">124</td><td style="">169</td><td style="">231</td><td style="">166</td><td style="">210</td><td style="">187</td><td style="">132</td><td style="">175</td><td style="">185</td><td style="">210</td><td style="">143</td><td style="">183</td><td style="">115</td><td style="">125</td><td style="">134</td><td style="">139</td><td style="">0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>b</td><td style="">79</td><td style="">163</td><td style="">180</td><td style="">214</td><td style="">190</td><td style="">217</td><td style="">198</td><td style="">171</td><td style="">108</td><td style="">130</td><td style="">112</td><td style="">119</td><td style="">134</td><td style="">145</td><td style="">118</td><td style="">219</td><td style="">236</td><td style="">224</td><td style="">197</td><td style="">233</td><td style="">111</td><td style="">196</td><td style="">190</td><td style="">205</td><td style="">175</td><td style="">190</td><td style="">128</td><td style="">89</td><td style="">131</td><td style="">109</td><td style="">0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>c</td><td style="">88</td><td style="">173</td><td style="">177</td><td style="">173</td><td style="">203</td><td style="">187</td><td style="">206</td><td style="">148</td><td style="">127</td><td style="">129</td><td style="">114</td><td style="">151</td><td style="">180</td><td style="">132</td><td style="">143</td><td style="">1000</td><td style="">1000</td><td style="">197</td><td style="">130</td><td style="">1000</td><td style="">114</td><td style="">144</td><td style="">195</td><td style="">193</td><td style="">131</td><td style="">133</td><td style="">124</td><td style="">122</td><td style="">157</td><td style="">141</td><td style="">0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>d</td><td style="">97</td><td style="">188</td><td style="">175</td><td style="">169</td><td style="">165</td><td style="">156</td><td style="">189</td><td style="">176</td><td style="">127</td><td style="">134</td><td style="">126</td><td style="">134</td><td style="">140</td><td style="">290</td><td style="">134</td><td style="">1000</td><td style="">1000</td><td style="">199</td><td style="">159</td><td style="">1000</td><td style="">149</td><td style="">212</td><td style="">187</td><td style="">191</td><td style="">124</td><td style="">183</td><td style="">98</td><td style="">147</td><td style="">130</td><td style="">145</td><td style="">0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>e</td><td style="">92</td><td style="">208</td><td style="">217</td><td style="">214</td><td style="">183</td><td style="">169</td><td style="">207</td><td style="">123</td><td style="">106</td><td style="">101</td><td style="">103</td><td style="">110</td><td style="">114</td><td style="">127</td><td style="">91</td><td style="">1000</td><td style="">1000</td><td style="">146</td><td style="">176</td><td style="">1000</td><td style="">113</td><td style="">251</td><td style="">161</td><td style="">221</td><td style="">1000</td><td style="">270</td><td style="">113</td><td style="">172</td><td style="">138</td><td style="">159</td><td style="">0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>f</td><td style="">98</td><td style="">210</td><td style="">269</td><td style="">152</td><td style="">97</td><td style="">154</td><td style="">205</td><td style="">141</td><td style="">100</td><td style="">86</td><td style="">86</td><td style="">96</td><td style="">126</td><td style="">135</td><td style="">88</td><td style="">1000</td><td style="">1000</td><td style="">191</td><td style="">168</td><td style="">1000</td><td style="">289</td><td style="">222</td><td style="">160</td><td style="">187</td><td style="">1000</td><td style="">197</td><td style="">91</td><td style="">116</td><td style="">167</td><td style="">143</td><td style="">0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>g</td><td style="">84</td><td style="">221</td><td style="">222</td><td style="">191</td><td style="">193</td><td style="">184</td><td style="">173</td><td style="">118</td><td style="">117</td><td style="">100</td><td style="">88</td><td style="">126</td><td style="">197</td><td style="">125</td><td style="">106</td><td style="">1000</td><td style="">1000</td><td style="">200</td><td style="">151</td><td style="">1000</td><td style="">160</td><td style="">254</td><td style="">186</td><td style="">187</td><td style="">1000</td><td style="">177</td><td style="">117</td><td style="">173</td><td style="">134</td><td style="">124</td><td style="">0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>h</td><td style="">85</td><td style="">144</td><td style="">126</td><td style="">123</td><td style="">160</td><td style="">122</td><td style="">145</td><td style="">147</td><td style="">159</td><td style="">187</td><td style="">171</td><td style="">193</td><td style="">198</td><td style="">187</td><td style="">187</td><td style="">1000</td><td style="">1000</td><td style="">131</td><td style="">146</td><td style="">1000</td><td style="">235</td><td style="">150</td><td style="">143</td><td style="">166</td><td style="">1000</td><td style="">156</td><td style="">151</td><td style="">213</td><td style="">205</td><td style="">224</td><td style="">0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>i</td><td style="">97</td><td style="">236</td><td style="">160</td><td style="">120</td><td style="">142</td><td style="">93</td><td style="">164</td><td style="">195</td><td style="">180</td><td style="">170</td><td style="">187</td><td style="">187</td><td style="">205</td><td style="">211</td><td style="">156</td><td style="">1000</td><td style="">1000</td><td style="">116</td><td style="">159</td><td style="">1000</td><td style="">199</td><td style="">149</td><td style="">124</td><td style="">165</td><td style="">1000</td><td style="">170</td><td style="">159</td><td style="">245</td><td style="">234</td><td style="">220</td><td style="">0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>j</td><td style="">129</td><td style="">204</td><td style="">238</td><td style="">140</td><td style="">250</td><td style="">136</td><td style="">146</td><td style="">205</td><td style="">182</td><td style="">170</td><td style="">130</td><td style="">171</td><td style="">213</td><td style="">239</td><td style="">162</td><td style="">1000</td><td style="">1000</td><td style="">134</td><td style="">148</td><td style="">149</td><td style="">195</td><td style="">201</td><td style="">209</td><td style="">226</td><td style="">1000</td><td style="">270</td><td style="">158</td><td style="">221</td><td style="">274</td><td style="">212</td><td style="">0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>k</td><td style="">130</td><td style="">174</td><td style="">99</td><td style="">112</td><td style="">123</td><td style="">126</td><td style="">114</td><td style="">183</td><td style="">178</td><td style="">172</td><td style="">179</td><td style="">172</td><td style="">184</td><td style="">213</td><td style="">202</td><td style="">1000</td><td style="">1000</td><td style="">109</td><td style="">132</td><td style="">1000</td><td style="">209</td><td style="">167</td><td style="">167</td><td style="">222</td><td style="">1000</td><td style="">229</td><td style="">163</td><td style="">184</td><td style="">214</td><td style="">201</td><td style="">0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>l</td><td style="">129</td><td style="">170</td><td style="">154</td><td style="">130</td><td style="">141</td><td style="">116</td><td style="">157</td><td style="">198</td><td style="">178</td><td style="">160</td><td style="">177</td><td style="">158</td><td style="">186</td><td style="">217</td><td style="">172</td><td style="">1000</td><td style="">1000</td><td style="">137</td><td style="">158</td><td style="">1000</td><td style="">184</td><td style="">177</td><td style="">192</td><td style="">240</td><td style="">1000</td><td style="">145</td><td style="">137</td><td style="">203</td><td style="">195</td><td style="">209</td><td style="">0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>m</td><td style="">113</td><td style="">182</td><td style="">133</td><td style="">120</td><td style="">109</td><td style="">117</td><td style="">118</td><td style="">192</td><td style="">167</td><td style="">177</td><td style="">157</td><td style="">161</td><td style="">165</td><td style="">246</td><td style="">160</td><td style="">1000</td><td style="">1000</td><td style="">93</td><td style="">128</td><td style="">1000</td><td style="">226</td><td style="">133</td><td style="">96</td><td style="">164</td><td style="">1000</td><td style="">129</td><td style="">142</td><td style="">184</td><td style="">168</td><td style="">162</td><td style="">0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>n</td><td style="">104</td><td style="">96</td><td style="">120</td><td style="">106</td><td style="">92</td><td style="">91</td><td style="">118</td><td style="">194</td><td style="">223</td><td style="">239</td><td style="">201</td><td style="">215</td><td style="">197</td><td style="">164</td><td style="">201</td><td style="">1000</td><td style="">1000</td><td style="">113</td><td style="">110</td><td style="">1000</td><td style="">219</td><td style="">105</td><td style="">82</td><td style="">112</td><td style="">1000</td><td style="">140</td><td style="">181</td><td style="">192</td><td style="">203</td><td style="">181</td><td style="">0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>o</td><td style="">104</td><td style="">161</td><td style="">158</td><td style="">118</td><td style="">121</td><td style="">123</td><td style="">139</td><td style="">214</td><td style="">176</td><td style="">162</td><td style="">165</td><td style="">272</td><td style="">223</td><td style="">232</td><td style="">180</td><td style="">1000</td><td style="">1000</td><td style="">115</td><td style="">116</td><td style="">1000</td><td style="">165</td><td style="">142</td><td style="">103</td><td style="">165</td><td style="">1000</td><td style="">181</td><td style="">144</td><td style="">260</td><td style="">230</td><td style="">235</td><td style="">0</td><td>0</td><td>0</td><td style="">0</td></tr>
+<tr><td>p</td><td style="">0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>q</td><td style="">0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>r</td><td style="">130</td><td style="">257</td><td style="">221</td><td style="">204</td><td style="">158</td><td style="">230</td><td style="">232</td><td style="">85</td><td style="">80</td><td style="">84</td><td style="">99</td><td style="">129</td><td style="">64</td><td style="">118</td><td style="">85</td><td style="">1000</td><td style="">1000</td><td style="">151</td><td style="">225</td><td style="">1000</td><td style="">82</td><td style="">247</td><td style="">91</td><td style="">264</td><td style="">1000</td><td style="">201</td><td style="">107</td><td style="">85</td><td style="">72</td><td style="">93</td><td style="">0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>s</td><td style="">87</td><td style="">245</td><td style="">195</td><td style="">171</td><td style="">154</td><td style="">163</td><td style="">204</td><td style="">93</td><td style="">85</td><td style="">66</td><td style="">94</td><td style="">84</td><td style="">135</td><td style="">87</td><td style="">85</td><td style="">1000</td><td style="">1000</td><td style="">179</td><td style="">162</td><td style="">1000</td><td style="">109</td><td style="">167</td><td style="">173</td><td style="">215</td><td style="">1000</td><td style="">184</td><td style="">98</td><td style="">100</td><td style="">113</td><td style="">112</td><td style="">0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>t</td><td style="">0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>u</td><td style="">86</td><td style="">159</td><td style="">112</td><td style="">151</td><td style="">116</td><td style="">121</td><td style="">133</td><td style="">189</td><td style="">148</td><td style="">190</td><td style="">226</td><td style="">184</td><td style="">257</td><td style="">255</td><td style="">168</td><td style="">1000</td><td style="">1000</td><td style="">99</td><td style="">108</td><td style="">1000</td><td style="">159</td><td style="">137</td><td style="">143</td><td style="">205</td><td style="">1000</td><td style="">185</td><td style="">171</td><td style="">230</td><td style="">229</td><td style="">218</td><td style="">0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>v</td><td style="">63</td><td style="">203</td><td style="">185</td><td style="">196</td><td style="">233</td><td style="">216</td><td style="">225</td><td style="">107</td><td style="">108</td><td style="">96</td><td style="">108</td><td style="">91</td><td style="">114</td><td style="">78</td><td style="">86</td><td style="">1000</td><td style="">1000</td><td style="">267</td><td style="">110</td><td style="">1000</td><td style="">83</td><td style="">151</td><td style="">198</td><td style="">201</td><td style="">1000</td><td style="">161</td><td style="">86</td><td style="">94</td><td style="">106</td><td style="">122</td><td style="">0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>w</td><td style="">85</td><td style="">205</td><td style="">216</td><td style="">214</td><td style="">180</td><td style="">181</td><td style="">196</td><td style="">86</td><td style="">106</td><td style="">79</td><td style="">72</td><td style="">83</td><td style="">148</td><td style="">223</td><td style="">79</td><td style="">1000</td><td style="">1000</td><td style="">162</td><td style="">231</td><td style="">1000</td><td style="">92</td><td style="">233</td><td style="">162</td><td style="">230</td><td style="">1000</td><td style="">235</td><td style="">73</td><td style="">125</td><td style="">115</td><td style="">153</td><td style="">0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>x</td><td style="">188</td><td style="">211</td><td style="">189</td><td style="">180</td><td style="">220</td><td style="">287</td><td style="">205</td><td style="">88</td><td style="">122</td><td style="">87</td><td style="">74</td><td style="">83</td><td style="">134</td><td style="">90</td><td style="">79</td><td style="">1000</td><td style="">1000</td><td style="">211</td><td style="">185</td><td style="">1000</td><td style="">105</td><td style="">217</td><td style="">244</td><td style="">173</td><td style="">1000</td><td style="">201</td><td style="">110</td><td style="">84</td><td style="">98</td><td style="">112</td><td style="">0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>y</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>z</td><td style="">207</td><td style="">183</td><td style="">162</td><td style="">170</td><td style="">200</td><td style="">168</td><td style="">191</td><td style="">94</td><td style="">92</td><td style="">79</td><td style="">68</td><td style="">92</td><td style="">214</td><td style="">95</td><td style="">89</td><td style="">1000</td><td style="">1000</td><td style="">193</td><td style="">187</td><td style="">1000</td><td style="">119</td><td style="">154</td><td style="">239</td><td style="">174</td><td style="">1000</td><td style="">160</td><td style="">115</td><td style="">252</td><td style="">161</td><td style="">85</td><td style="">0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>;</td><td style="">68</td><td style="">146</td><td style="">111</td><td style="">100</td><td style="">149</td><td style="">165</td><td style="">107</td><td style="">193</td><td style="">195</td><td style="">174</td><td style="">194</td><td style="">196</td><td style="">252</td><td style="">209</td><td style="">202</td><td style="">1000</td><td style="">1000</td><td style="">126</td><td style="">101</td><td style="">1000</td><td style="">201</td><td style="">134</td><td style="">108</td><td style="">184</td><td style="">1000</td><td style="">121</td><td style="">170</td><td style="">198</td><td style="">237</td><td style="">207</td><td style="">0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>,</td><td style="">95</td><td style="">128</td><td style="">111</td><td style="">87</td><td style="">136</td><td style="">108</td><td style="">139</td><td style="">190</td><td style="">178</td><td style="">201</td><td style="">164</td><td style="">164</td><td style="">183</td><td style="">214</td><td style="">188</td><td style="">1000</td><td style="">1000</td><td style="">113</td><td style="">110</td><td style="">1000</td><td style="">210</td><td style="">132</td><td style="">130</td><td style="">119</td><td style="">1000</td><td style="">137</td><td style="">178</td><td style="">160</td><td style="">173</td><td style="">186</td><td style="">0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>.</td><td style="">78</td><td style="">144</td><td style="">141</td><td style="">96</td><td style="">129</td><td style="">96</td><td style="">129</td><td style="">200</td><td style="">186</td><td style="">165</td><td style="">150</td><td style="">168</td><td style="">165</td><td style="">204</td><td style="">199</td><td style="">1000</td><td style="">1000</td><td style="">112</td><td style="">150</td><td style="">1000</td><td style="">210</td><td style="">137</td><td style="">128</td><td style="">135</td><td style="">1000</td><td style="">123</td><td style="">183</td><td style="">172</td><td style="">157</td><td style="">158</td><td style="">0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>/</td><td style="">77</td><td style="">171</td><td style="">113</td><td style="">90</td><td style="">118</td><td style="">109</td><td style="">124</td><td style="">204</td><td style="">182</td><td style="">178</td><td style="">188</td><td style="">196</td><td style="">201</td><td style="">209</td><td style="">204</td><td style="">1000</td><td style="">1000</td><td style="">113</td><td style="">133</td><td style="">1000</td><td style="">192</td><td style="">136</td><td style="">124</td><td style="">126</td><td style="">1000</td><td style="">138</td><td style="">220</td><td style="">178</td><td style="">202</td><td style="">173</td><td style="background-color: lime;">0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>[</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>'</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>L</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>R</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+</tbody></table>
+
+<div id="result_box"><span id="result">/[: </span></div>
+
+参考: <a href="http://www.geocities.jp/rage2050a/GeneKana/_ReadMe.html#KeyTime">打鍵時間の測定/○配列</a>
+
+<script>
+'use strict';
+
+const characters = "abcdefghijklmnopqrstuvwxyz;,./['  "
+const charactersVisible = "abcdefghijklmnopqrstuvwxyz;,./['LR"
+
+var data = {}
+
+data.t0 = 0
+data.t1 = 0
+data.count = 0
+data.col = 1
+data.row = 1
+data.key1 = 'a'
+data.key2 = 'a'
+data.time = 0
+data.min = 1000
+
+var matrix = document.getElementById('matrix');
+var result = document.getElementById('result')
+
+function reset(r, c)
+{
+    matrix.rows[data.row].cells[data.col].style.removeProperty('background-color')
+    data.row = r
+    data.col = c
+    matrix.rows[data.row].cells[data.col].style.backgroundColor = 'lime'
+    data.key1 = characters[r - 1]
+    data.key2 = characters[c - 1]
+    data.count = 0
+    data.t1 = 0
+    data.min = 1000
+    result.firstChild.data = charactersVisible[r - 1] + charactersVisible[c - 1] + ': '
+}
+
+window.addEventListener('load', (event) => {
+    for (let i = 1; i <= 34; ++i) {
+        for (let j = 1; j <= 34; ++j) {
+            if (matrix.rows[i].cells[j].style.backgroundColor == 'lime') {
+                data.row = i
+                data.col = j
+            }
+            matrix.rows[i].cells[j].addEventListener('click', (event) => {
+                reset(i, j)
+            }, false)
+        }
+    }
+    reset(data.row, data.col)
+}, false)
+
+document.addEventListener('keydown', (event) => {
+    var t = performance.now()
+    var key = event.key
+    if (key == 'Escape') {
+        reset(data.row, data.col)
+        return
+    }
+    if (key == 'Enter') {
+        matrix.rows[data.row].cells[data.col].firstChild.data = data.min
+        key = 'ArrowRight'
+    }
+    if (key.substring(0, 5) == 'Arrow') {
+        matrix.rows[data.row].cells[data.col].style.removeProperty('background-color')
+        if (key == 'ArrowLeft') {
+            if (--data.col < 1) {
+                data.col = 34
+                if (--data.row < 1) {
+                    data.row = 34
+                }
+            }
+        } else if (key == 'ArrowRight') {
+            if (34 < ++data.col) {
+                data.col = 1
+                if (34 < ++data.row) {
+                    data.row = 1
+                }
+            }
+        } else if (key == 'ArrowUp') {
+            if (--data.row < 1) {
+                data.row = 34
+            }
+        } else if (key == 'ArrowDown') {
+            if (34 < ++data.row) {
+                data.row = 1
+            }
+        }
+        reset(data.row, data.col)
+        return
+    }
+    if (key == data.key1 && data.count % 2 == 0) {
+        data.t0 = t
+        ++data.count
+        key = charactersVisible[data.row - 1]
+    } else if (key == data.key2 && data.count % 2 == 1) {
+        data.t1 += t - data.t0
+        ++data.count
+        key = charactersVisible[data.col - 1] + ' '
+    } else {
+        return
+    }
+    result.firstChild.data += key
+    if (data.count == 6) {
+        data.time = Math.round(data.t1 / 3)
+        data.min = Math.min(data.time, data.min)
+        result.firstChild.data += ' ' + data.time + '\n'
+        data.count = 0
+        data.t1 = 0
+    }
+}, false);
+</script>
+
+
+
+</body></html>

@@ -142,7 +142,7 @@ impl Bench {
         self.generations_count += 1;
         let now = SystemTime::now();
         let elapsed = now.duration_since(self.last_time).unwrap();
-        if elapsed.as_secs() > 60 {
+        if elapsed.as_secs() >= 10 {
             let generation_per_sec = self.generations_count as f64 / elapsed.as_secs_f64();
             let scores = scores.iter().cloned().map(|v| v.0);
             let score_len = scores.len();

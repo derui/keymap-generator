@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     char_def::{self, definitions, CharDef},
     keymap::Keymap,
-    layout::linear::{LINEAR_L_SHIFT_INDEX, LINEAR_R_SHIFT_INDEX},
+    layout::linear::{linear_layout, LINEAR_L_SHIFT_INDEX, LINEAR_R_SHIFT_INDEX},
 };
 
 /// 存在する文字のシフト面と無シフト面に対する組み合わせにおける頻度を表す
@@ -24,11 +24,11 @@ impl CombinationFrequency {
     pub fn total_count(&self) -> f64 {
         self.combinations
             .iter()
-            .flat_map(|v| v.iter().map(|v| v.unwrap_or(0.0)))
+            .map(|v| v.iter().filter_map(|v| *v).sum::<f64>())
             .sum::<f64>()
     }
 
-    /// 指定された 組み合わせに対する確率を更新する
+    /// 指定された組み合わせが有効であるとして、対応する文字の組み合わせに対して更新する
     fn update_frequency(&mut self, comb: (usize, usize), learning_rate: f64) {
         let (first_idx, second_idx) = comb;
 
@@ -43,9 +43,32 @@ impl CombinationFrequency {
             for (ci, col) in row.iter_mut().enumerate() {
                 let Some(v) = col else { continue };
                 if ri == first_idx && ci == second_idx {
-                    *v = (*v + learning_rate).min(count - 1.0)
+                    *v = (*v + learning_rate)
                 } else {
-                    *v = (*v * (1.0 - (learning_rate / count))).max(1.0 / count);
+                    *v = (*v * (1.0 - (learning_rate / count)))
+                }
+            }
+        }
+    }
+
+    /// キーの分布に対して突然変異をおこす
+    ///
+    /// 突然変異は、1/2の確率で、 `mutation_rate` 分だけマイナスまたはプラスにシフトする。
+    fn mutate(&mut self, rng: &mut StdRng, mutation_rate: f64) {
+        let count = self
+            .combinations
+            .iter()
+            .map(|v| v.iter().map(|v| v.map_or(0.0, |_| 1.0)).sum::<f64>())
+            .sum::<f64>();
+
+        for row in self.combinations.iter_mut() {
+            for col in row.iter_mut() {
+                let Some(v) = col else { continue };
+
+                if rng.gen::<f64>() < 0.5 {
+                    *v = (*v * (1.0 + mutation_rate))
+                } else {
+                    *v = (*v * (1.0 - mutation_rate))
                 }
             }
         }
@@ -353,6 +376,15 @@ impl FrequencyTable {
             let shift_idx = self.character_map[&def.shifted()];
 
             self.frequency[key_idx].update_frequency((unshift_idx, shift_idx), learning_rate)
+        }
+    }
+
+    /// `mutation_prob` に該当する確率で、各キーにおける分布に `mutation_rate` 分の突然変異を与える
+    pub fn mutate(&mut self, rng: &mut StdRng, mutation_prob: f64, mutation_rate: f64) {
+        for (key_idx, _) in linear_layout().iter().enumerate() {
+            if rng.gen::<f64>() < mutation_prob {
+                self.frequency[key_idx].mutate(rng, mutation_rate)
+            }
         }
     }
 }
