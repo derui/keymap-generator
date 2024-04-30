@@ -407,7 +407,7 @@ impl Keymap {
             .map(Some)
             .collect::<Vec<_>>();
 
-        // まずシフトキーのシフト面に対して割り当てる。ここでは清音しか割り当てられない。
+        // まずシフトキーに対して割り当てる
         let left = assigner.left_shift_key(rng);
         layout[LINEAR_L_SHIFT_INDEX] = KeyAssignment::A(KeyDef::from_combination(&left));
         let right = assigner.right_shift_key(rng, &left);

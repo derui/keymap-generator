@@ -13,10 +13,6 @@ use crate::{
 #[derive(Debug)]
 pub struct Playground {
     generation: u64,
-    // 全体で生成するkeymapの最大数
-    gen_count: u8,
-    // 全体で実行するworkerの最大数
-    workers: usize,
     keymaps: Vec<Keymap>,
 
     frequency_table: FrequencyTable,
@@ -44,9 +40,7 @@ impl Playground {
         Playground {
             pool: threadpool::ThreadPool::new(WORKERS as usize),
             generation: 1,
-            gen_count,
             keymaps,
-            workers: WORKERS as usize,
             frequency_table,
         }
     }
@@ -69,12 +63,14 @@ impl Playground {
         conjunctions: &[Conjunction],
         pre_scores: Arc<ConnectionScore>,
         conjunctions_2gram: &[Conjunction],
-        char_frequency: &CharFrequency
+        char_frequency: &CharFrequency,
     ) -> (u64, Keymap) {
         self.generation += 1;
 
         let mut new_keymaps = Vec::new();
-        let rank = self.rank(conjunctions, pre_scores.clone(), char_frequency).to_vec();
+        let rank = self
+            .rank(conjunctions, pre_scores.clone(), char_frequency)
+            .to_vec();
 
         // new_keymapsがgen_countになるまで繰り返す
         while new_keymaps.len() < 2 {
@@ -91,13 +87,11 @@ impl Playground {
             conjunctions_2gram,
             pre_scores.clone(),
             &self.keymaps[*best_idx],
-            char_frequency
+            char_frequency,
         );
         let (_, worst_idx) = rank.iter().last().expect("should be success");
-        self.frequency_table.update(
-            &best_keymap,
-            &self.keymaps[*worst_idx]
-        );
+        self.frequency_table
+            .update(&best_keymap, &self.keymaps[*worst_idx]);
 
         let best_keymap = self.keymaps[rank[0].1].clone();
         self.keymaps = new_keymaps;
@@ -111,7 +105,7 @@ impl Playground {
         conjunctions: &[Conjunction],
         pre_scores: Arc<ConnectionScore>,
         keymap: &Keymap,
-        char_frequency: &CharFrequency
+        char_frequency: &CharFrequency,
     ) -> Keymap {
         let conjunctions = Arc::new(conjunctions.to_vec());
         let char_frequency = Arc::new(char_frequency.clone());
@@ -145,7 +139,7 @@ impl Playground {
 
         let mut scores: Vec<(u64, usize)> = tr.iter().take(keymaps.len()).collect();
         scores.sort_by(|a, b| a.0.cmp(&b.0));
-        keymaps[scores[0].1].clone()
+        keymaps[scores[0].1].to_owned()
     }
 
     /// scoreに基づいてkeymapをランク付けする。
@@ -155,7 +149,7 @@ impl Playground {
         &self,
         conjunctions: &[Conjunction],
         pre_scores: Arc<ConnectionScore>,
-        char_frequency: &CharFrequency
+        char_frequency: &CharFrequency,
     ) -> Vec<(u64, usize)> {
         let conjunctions = Arc::new(conjunctions.to_vec());
         let char_frequency = Arc::new(char_frequency.clone());

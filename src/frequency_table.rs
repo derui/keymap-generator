@@ -6,10 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     char_def::{self, definitions, CharDef},
     keymap::Keymap,
-    layout::linear::{
-        LINEAR_L_SHIFT_INDEX,
-        LINEAR_R_SHIFT_INDEX,
-    },
+    layout::linear::{LINEAR_L_SHIFT_INDEX, LINEAR_R_SHIFT_INDEX},
 };
 
 /// 存在する文字のシフト面と無シフト面に対する組み合わせにおける頻度を表す
@@ -20,12 +17,12 @@ struct CombinationFrequency {
 }
 
 impl CombinationFrequency {
-
     /// 全体の頻度を返す
     pub fn total_count(&self) -> f64 {
         self.combinations
             .iter()
-            .map(|v| v.iter().map(|v| v.unwrap_or(0.0)).sum::<f64>())
+            .map(|v| v.iter().map(|v| v.unwrap_or(0.0)))
+            .flatten()
             .sum::<f64>()
     }
 
@@ -44,9 +41,9 @@ impl CombinationFrequency {
             for (ci, col) in row.iter_mut().enumerate() {
                 let Some(v) = col else { continue };
                 if ri == first_idx && ci == second_idx {
-                    *v = (*v + 5.0).min(count - 1.0)
+                    *v = (*v + 1.0).min(count - 1.0)
                 } else {
-                    *v = (*v * (1.0 - 5.0 / count)).max(0.0000001);
+                    *v = (*v * (1.0 - 1.0 / count)).max(0.0000001);
                 }
             }
         }
@@ -217,13 +214,13 @@ impl KeyAssigner {
     pub fn left_shift_key(&self, rng: &mut StdRng) -> CharCombination {
         let (total, freq) = &self.combinations[LINEAR_L_SHIFT_INDEX];
 
-        let _prob = rng.gen::<f64>();
+        let prob = rng.gen::<f64>();
         let mut accum = 0.0;
         for (first_idx, first) in freq.combinations.iter().enumerate() {
             for (second_idx, second) in first.iter().enumerate() {
                 let Some(second) = second else { continue };
 
-                if accum + (*second / *total) >= accum {
+                if accum + (*second / *total) >= prob {
                     return CharCombination(
                         self.character_index_map[first_idx],
                         self.character_index_map[second_idx],
@@ -236,9 +233,9 @@ impl KeyAssigner {
         unreachable!("do not come here");
     }
 
-    /// 左シフトキーに対する組み合わせを返す。
+    /// 右シフトキーに対する組み合わせを返す。
     ///
-    /// この関数は、right_shift_keyとセットで利用することを前提としている。
+    /// この関数は、left_shift_keyとセットで利用することを前提としている。
     pub fn right_shift_key(
         &mut self,
         rng: &mut StdRng,
@@ -269,25 +266,26 @@ impl KeyAssigner {
                 continue;
             };
 
-            if accum + (second / total) >= prob {
-                // 選択できたら、対象の場所を全体からdisableする
-                for (total, freq) in self.combinations.iter_mut() {
-                    freq.disable(
-                        &self.character_map,
-                        self.character_index_map[first_idx].normal(),
-                    );
-                    freq.disable(&self.character_map, left_combination.shifted().normal());
-
-                    *total = freq.total_count();
-                }
-                // println!("first {:?}", &self.combinations[0]);
-
-                return CharCombination::new(
-                    &self.character_index_map[first_idx],
-                    &self.character_index_map[shift_idx],
-                );
+            if accum + (second / total) < prob {
+                accum += second / total;
+                continue;
             }
-            accum += second / total;
+
+            // 選択できたら、対象の場所を全体からdisableする
+            for (total, freq) in self.combinations.iter_mut() {
+                freq.disable(
+                    &self.character_map,
+                    self.character_index_map[first_idx].normal(),
+                );
+                freq.disable(&self.character_map, left_combination.shifted().normal());
+
+                *total = freq.total_count();
+            }
+
+            return CharCombination::new(
+                &self.character_index_map[first_idx],
+                &self.character_index_map[shift_idx],
+            );
         }
 
         unreachable!("do not come here");

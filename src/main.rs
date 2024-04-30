@@ -1,8 +1,15 @@
 use std::{
-    cmp::Reverse, collections::{BinaryHeap, HashMap}, env::args, fs::{self, File}, io::{Read, Write}, path::Path, sync::{
+    cmp::Reverse,
+    collections::{BinaryHeap, HashMap},
+    env::args,
+    fs::{self, File},
+    io::{Read, Write},
+    path::Path,
+    sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
-    }, time::SystemTime
+    },
+    time::SystemTime,
 };
 
 use frequency_table::FrequencyTable;
@@ -11,7 +18,10 @@ use postcard::{from_bytes, to_allocvec};
 use rand::{random, rngs::StdRng, SeedableRng};
 use score::Conjunction;
 
-use crate::{connection_score::{CharFrequency, ConnectionScore}, playground::Playground};
+use crate::{
+    connection_score::{CharFrequency, ConnectionScore},
+    playground::Playground,
+};
 
 mod char_def;
 mod connection_score;
@@ -180,7 +190,13 @@ fn main() -> anyhow::Result<()> {
     .expect("error setting handler");
 
     while !is_exit_score(&mut top_scores) && running.load(Ordering::SeqCst) {
-        let ret = playground.advance(&mut rng, &conjunctions, scores.clone(), &conjunctions_2gram, &char_frequency);
+        let ret = playground.advance(
+            &mut rng,
+            &conjunctions,
+            scores.clone(),
+            &conjunctions_2gram,
+            &char_frequency,
+        );
 
         if best_score > ret.0 {
             log::info!(
