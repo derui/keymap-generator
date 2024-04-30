@@ -13,6 +13,9 @@ use crate::{
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 struct CombinationFrequency {
     /// 組み合わせの頻度。Noneの場合は、その組み合わせが存在しないということを表す
+    ///
+    /// 全体としては２次元配列として構成されていて、1次元目が無シフト面、２次元目がシフト面という扱いになっている。
+    /// keyの定義上、必ず１キーには必ず無シフト面とシフト面の両方に文字が割り当てられるようになっている。
     combinations: Vec<Vec<Option<f64>>>,
 }
 
@@ -314,7 +317,7 @@ mod tests {
 pub struct FrequencyTable {
     // 各キーごとに、どの文字がどれだけ出現したかを記録する
     //
-    // キーの数として、シフトへの割当も１キーとしてカウントしている。シフト自体は +26 のオフセットとしている
+    // キーの数として、シフトへの割当も１キーとしてカウントしている。
     frequency: Vec<CombinationFrequency>,
 
     // 文字と頻度表におけるindexのマッピング

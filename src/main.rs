@@ -19,7 +19,7 @@ use rand::{random, rngs::StdRng, SeedableRng};
 use score::Conjunction;
 
 use crate::{
-    connection_score::{CharFrequency, ConnectionScore},
+    connection_score::{CharFrequency, ConnectionScore, TwoKeyTiming},
     playground::Playground,
 };
 
@@ -180,7 +180,8 @@ fn main() -> anyhow::Result<()> {
     let conjunctions = read_4gram(Path::new(&path))?;
     let conjunctions_2gram = read_2gram(Path::new(&path_2gram))?;
     let char_frequency = CharFrequency::read(Path::new(&path_2gram))?;
-    let scores = Arc::new(ConnectionScore::new());
+    let two_key_timing = TwoKeyTiming::load(Path::new("typing-time.html"))?;
+    let scores = Arc::new(ConnectionScore::new(&two_key_timing));
     let running = Arc::new(AtomicBool::new(true));
     let r = running.clone();
 
@@ -200,7 +201,7 @@ fn main() -> anyhow::Result<()> {
 
         if best_score > ret.0 {
             log::info!(
-                "Got new best at {}, score is {}, current best is {} for evaluation:\n{:?}",
+                "Got new best at {}! score: {}, current best: {} for evaluation:\n{:?}",
                 playground.generation(),
                 ret.0,
                 ret.1,

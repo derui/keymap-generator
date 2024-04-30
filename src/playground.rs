@@ -111,7 +111,7 @@ impl Playground {
         let char_frequency = Arc::new(char_frequency.clone());
 
         let (tx, tr) = channel();
-        let mut keymaps: Vec<Keymap> = Vec::new();
+        let mut keymaps: Vec<Keymap> = Vec::with_capacity(5000);
 
         for (i, _) in keymap.iter().enumerate() {
             for (j, _) in keymap.iter().enumerate() {

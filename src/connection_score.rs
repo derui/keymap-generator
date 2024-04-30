@@ -1,8 +1,13 @@
-use std::{collections::HashMap, fs::File, path::Path};
+use std::{collections::HashMap, fs::File, io::Read, path::Path};
+
+use scraper::{Html, Selector};
 
 use crate::{
     char_def,
-    layout::{linear::linear_layout, Point},
+    layout::{
+        linear::{linear_layout, linear_mapping},
+        Point,
+    },
 };
 
 /// 各指が担当するキーに対する重み。
@@ -29,50 +34,63 @@ static FINGER_ASSIGNMENT: [[u8; 10]; 3] = [
     [4, 3, 2, 1, 1, 1, 1, 2, 3, 4],
 ];
 
-/// 2連接に対する重み。順序を持つ。
-static TWO_CONNECTION_WEIGHT: [(Pos, Pos, u16); 20] = [
-    // 人差し指伸ばし→小指下段
-    (Pos(2, 5), Pos(2, 9), 150),
-    // 人差し指伸ばし→小指下段
-    (Pos(1, 5), Pos(2, 9), 150),
-    // 小指下段→人差し指伸ばし
-    (Pos(2, 9), Pos(2, 5), 150),
-    // 小指下段→人差し指伸ばし
-    (Pos(2, 9), Pos(1, 5), 150),
-    // 人差し指伸→小指中段
-    (Pos(2, 5), Pos(1, 9), 150),
-    // 人差し指伸→小指中段
-    (Pos(1, 5), Pos(1, 9), 90),
-    // 小指中段→人差し指伸ばし
-    (Pos(1, 9), Pos(2, 5), 150),
-    // 小指中段→人差し指伸ばし
-    (Pos(1, 9), Pos(1, 5), 90),
-    // 中指中段→人差し上段
-    (Pos(1, 7), Pos(0, 6), 90),
-    // 薬指上段→小指下段
-    (Pos(0, 8), Pos(2, 9), 140),
-    // 左手
-    // 人差し指伸ばし→小指下段
-    (Pos(2, 4), Pos(2, 0), 150),
-    // 人差し指伸ばし→小指下段
-    (Pos(1, 4), Pos(2, 0), 150),
-    // 小指下段→人差し指伸ばし
-    (Pos(2, 0), Pos(2, 4), 150),
-    // 小指下段→人差し指伸ばし
-    (Pos(2, 0), Pos(1, 4), 150),
-    // 人差し指伸→小指中段
-    (Pos(2, 4), Pos(1, 0), 150),
-    // 人差し指伸→小指中段
-    (Pos(1, 4), Pos(1, 0), 90),
-    // 小指中段→人差し指伸ばし
-    (Pos(1, 0), Pos(2, 4), 150),
-    // 小指中段→人差し指伸ばし
-    (Pos(1, 0), Pos(1, 4), 90),
-    // 中指中段→人差し指上段
-    (Pos(1, 2), Pos(0, 3), 90),
-    // 薬指上段→小指下段
-    (Pos(0, 1), Pos(2, 0), 140),
-];
+/// ２キーの連接における所要時間。
+#[derive(Debug, Clone)]
+pub struct TwoKeyTiming {
+    timings: HashMap<(Pos, Pos), u32>,
+}
+
+impl TwoKeyTiming {
+    pub fn load(path: &Path) -> anyhow::Result<TwoKeyTiming> {
+        let mut timings = HashMap::new();
+        let mut file = File::open(path).unwrap();
+        let mut buf = String::new();
+        file.read_to_string(&mut buf)?;
+        let html = Html::parse_document(&buf);
+        let matrix_selector = Selector::parse("#matrix > tbody").unwrap();
+        let tr_selector = Selector::parse("tr").unwrap();
+        let td_selector = Selector::parse("td").unwrap();
+
+        let keys = vec![
+            'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q',
+            'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', ';', ',', '.', '/',
+        ];
+        let mappings = linear_mapping();
+
+        // tr/tdを一個ずつ対応させていく。0または1000の場合は無視する
+        for (ridx, row) in html
+            .select(&matrix_selector)
+            .next()
+            .unwrap()
+            .select(&tr_selector)
+            .skip(1)
+            .enumerate()
+        {
+            for (cidx, col) in row.select(&td_selector).skip(1).enumerate() {
+                let txt = col.text().collect::<String>();
+
+                if txt == "0" || txt == "1000" {
+                    continue;
+                }
+                let timing = txt.parse::<u32>().expect("should be numeric");
+
+                let first = mappings.get(&keys[ridx]);
+                let second = mappings.get(&keys[cidx]);
+                match (first, second) {
+                    (Some(first), Some(second)) => {
+                        let first = first.into();
+                        let second = second.into();
+
+                        timings.insert((first, second), timing);
+                    }
+                    _ => continue,
+                }
+            }
+        }
+
+        Ok(TwoKeyTiming { timings })
+    }
+}
 
 pub struct ConnectionScore {
     /// 4連接までのscore。
@@ -129,8 +147,9 @@ impl CharFrequency {
         })
     }
 
+    #[inline]
     pub fn get_weight(&self, index: usize) -> f64 {
-        self.frequency[index]
+        unsafe { *self.frequency.get_unchecked(index) }
     }
 }
 
@@ -142,7 +161,7 @@ pub struct Evaluation {
 }
 
 impl ConnectionScore {
-    pub fn new() -> Self {
+    pub fn new(timings: &TwoKeyTiming) -> Self {
         let indices = linear_layout();
         let mut this = ConnectionScore {
             scores: vec![0; 32_usize.pow(4)],
@@ -154,19 +173,25 @@ impl ConnectionScore {
             this.scores[index] = score;
 
             for j in indices.iter().cloned() {
-                let score = this.evaluate_two_connection(&i.into(), &j.into());
+                let score = this.evaluate_two_connection(timings, &i.into(), &j.into());
                 let index = this.get_index(&Some(i.into()), &Some(j.into()), &None, &None);
                 this.scores[index] = score;
 
                 for k in indices.iter().cloned() {
-                    let score = this.evaluate_three_connection(&i.into(), &j.into(), &k.into());
+                    let score =
+                        this.evaluate_three_connection(timings, &i.into(), &j.into(), &k.into());
                     let index =
                         this.get_index(&Some(i.into()), &Some(j.into()), &Some(k.into()), &None);
                     this.scores[index] = score;
 
                     for l in indices.iter().cloned() {
-                        let score =
-                            this.evaluate_connection(&i.into(), &j.into(), &k.into(), &l.into());
+                        let score = this.evaluate_connection(
+                            timings,
+                            &i.into(),
+                            &j.into(),
+                            &k.into(),
+                            &l.into(),
+                        );
                         let index = this.get_index(
                             &Some(i.into()),
                             &Some(j.into()),
@@ -186,53 +211,38 @@ impl ConnectionScore {
     ///
     /// ここでの結果は、4連接自体と、シフトに対する評価の両方の合算値である。
     pub fn evaluate(&self, sequence: &[Evaluation]) -> u64 {
-        let _weights = sequence.iter().map(|v| (v.key_weight)).collect::<Vec<_>>();
-        let positions = sequence.iter().map(|v| (v.positions)).collect::<Vec<_>>();
+        let mut positions = sequence.iter().map(|v| v.positions);
         let mut score = 0;
 
-        let first: Option<(usize, usize)> = positions.first().map(|(p, _)| p.into());
-        let second: Option<(usize, usize)> = positions.get(1).map(|(p, _)| p.into());
-        let third: Option<(usize, usize)> = positions.get(2).map(|(p, _)| p.into());
-        let fourth: Option<(usize, usize)> = positions.get(3).map(|(p, _)| p.into());
+        let first: Option<(usize, usize)> = positions.nth(0).map(|(p, _)| p.into());
+        let second: Option<(usize, usize)> = positions.nth(1).map(|(p, _)| p.into());
+        let third: Option<(usize, usize)> = positions.nth(2).map(|(p, _)| p.into());
+        let fourth: Option<(usize, usize)> = positions.nth(3).map(|(p, _)| p.into());
 
-        score += self.scores[self.get_index(&first, &second, &third, &fourth)] as u64;
+        score += unsafe {
+            *self
+                .scores
+                .get_unchecked(self.get_index(&first, &second, &third, &fourth)) as u64
+        };
 
-        let first: Option<(usize, usize)> = positions.first().and_then(|(_, v)| *v).map(Into::into);
-        let second: Option<(usize, usize)> = positions.get(1).and_then(|(_, v)| *v).map(Into::into);
-        let third: Option<(usize, usize)> = positions.get(2).and_then(|(_, v)| *v).map(Into::into);
-        let fourth: Option<(usize, usize)> = positions.get(3).and_then(|(_, v)| *v).map(Into::into);
-
-        score +=
-            (self.scores[self.get_index(&first, &second, &third, &fourth)] as f64 * 1.3) as u64;
-
-        score + self.get_weight_score(sequence)
+        score * self.get_weight_score(sequence)
     }
 
+    /// 各文字の頻度ベースの重みと、シフトキーに対する重みを考慮したweightを返す
     fn get_weight_score(&self, sequence: &[Evaluation]) -> u64 {
-        let base = sequence
-            .iter()
-            .map(|v| {
-                let w = v.key_weight;
-                let p = v.positions.0;
-
-                (FINGER_WEIGHTS[p.0][p.1] as f64 * w) as u64
-            })
-            .sum::<u64>();
-
-        let shift = sequence
+        sequence
             .iter()
             .map(|v| {
                 let w = v.key_weight;
 
-                if let Some(p) = v.positions.1 {
-                    (FINGER_WEIGHTS[p.0][p.1] as f64 * 1.3 * w) as u64
+                let v = w * if let Some(_) = v.positions.1 {
+                    1.3
                 } else {
-                    0
-                }
+                    1.0
+                };
+                v as u64
             })
-            .sum::<u64>();
-
-        base + shift
+            .sum::<u64>()
     }
 
     /// 4連接の評価を行う
@@ -258,6 +268,7 @@ impl ConnectionScore {
     /// 評価値
     fn evaluate_connection(
         &self,
+        timings: &TwoKeyTiming,
         i: &(usize, usize),
         j: &(usize, usize),
         k: &(usize, usize),
@@ -270,17 +281,13 @@ impl ConnectionScore {
         let l: Pos = Pos::from(*l);
 
         // 2連接の評価
-        score += i.two_conjunction_scores(&j);
-        score += j.two_conjunction_scores(&k);
+        score += i.two_conjunction_scores(&j, timings.clone());
+        score += j.two_conjunction_scores(&k, timings.clone());
 
         // 3連接の評価
         score += self.three_conjunction_scores(&i, &j, &k);
 
-        score
-            + FINGER_WEIGHTS[i.0][i.1] as u32
-            + FINGER_WEIGHTS[j.0][j.1] as u32
-            + FINGER_WEIGHTS[k.0][k.1] as u32
-            + FINGER_WEIGHTS[l.0][l.1] as u32
+        score + FINGER_WEIGHTS[l.0][l.1] as u32
     }
 
     /// 3連接の評価を行う
@@ -301,6 +308,7 @@ impl ConnectionScore {
     /// 評価値
     fn evaluate_three_connection(
         &self,
+        timings: &TwoKeyTiming,
         i: &(usize, usize),
         j: &(usize, usize),
         k: &(usize, usize),
@@ -310,13 +318,10 @@ impl ConnectionScore {
         let k: Pos = Pos::from(*k);
 
         // 2連接の評価
-        let mut score = i.two_conjunction_scores(&j);
-        score += j.two_conjunction_scores(&k);
+        let mut score = i.two_conjunction_scores(&j, timings.clone());
+        score += j.two_conjunction_scores(&k, timings.clone());
 
-        score
-            + FINGER_WEIGHTS[i.0][i.1] as u32
-            + FINGER_WEIGHTS[j.0][j.1] as u32
-            + FINGER_WEIGHTS[k.0][k.1] as u32
+        score + FINGER_WEIGHTS[k.0][k.1] as u32
     }
 
     /// 2連接の評価を行う
@@ -334,14 +339,19 @@ impl ConnectionScore {
     ///
     /// # Returns
     /// 評価値
-    fn evaluate_two_connection(&self, i: &(usize, usize), j: &(usize, usize)) -> u32 {
+    fn evaluate_two_connection(
+        &self,
+        timings: &TwoKeyTiming,
+        i: &(usize, usize),
+        j: &(usize, usize),
+    ) -> u32 {
         let i: Pos = Pos::from(*i);
         let j: Pos = Pos::from(*j);
 
         // 2連接の評価
-        let score = i.two_conjunction_scores(&j);
+        let score = i.two_conjunction_scores(&j, timings.clone());
 
-        score + FINGER_WEIGHTS[i.0][i.1] as u32 + FINGER_WEIGHTS[j.0][j.1] as u32
+        score + FINGER_WEIGHTS[i.0][i.1] as u32
     }
     /// 単一キーの評価を行う
     ///
@@ -484,7 +494,7 @@ impl Pos {
     }
 
     /// 2連接に対する評価を実施する
-    fn two_conjunction_scores(&self, other: &Pos) -> u32 {
+    fn two_conjunction_scores(&self, other: &Pos, timings: TwoKeyTiming) -> u32 {
         let rules = [
             |first: &Pos, second: &Pos| {
                 // 同じ指で同じキーを連続して押下している場合はペナルティを与える
@@ -518,22 +528,12 @@ impl Pos {
                     0
                 }
             },
-            |first: &Pos, second: &Pos| {
-                // 2連接のスコアを返す
-                let position = TWO_CONNECTION_WEIGHT
-                    .iter()
-                    .position(|(p1, p2, _)| *p1 == *first && *p2 == *second);
-
-                if let Some(position) = position {
-                    TWO_CONNECTION_WEIGHT[position].2 as u32
-                } else {
-                    0
-                }
-            },
         ];
 
-        rules
+        let special_case_score = rules
             .iter()
-            .fold(0, |score, rule| score + rule(self, other))
+            .fold(0 as u32, |score, rule| score + rule(self, other));
+
+        special_case_score + timings.timings.get(&(*self, *other)).clone().unwrap_or(&0)
     }
 }
