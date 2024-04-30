@@ -19,6 +19,9 @@ pub struct Playground {
     pool: threadpool::ThreadPool,
 }
 
+const GEN_COUNT: usize = 10;
+const TOURNAMENT_SIZE: usize = 3;
+const KEYMAP_SIZE: usize = 100;
 const WORKERS: u8 = 20;
 const MUTATE_RATE: f64 = 0.02;
 const MUTATE_SHIFT: f64 = 0.05;
@@ -61,15 +64,20 @@ impl Playground {
         &mut self,
         rng: &mut StdRng,
         conjunctions: &[Conjunction],
-        pre_scores: Arc<ConnectionScore>,
+        connection_score: Arc<ConnectionScore>,
         conjunctions_2gram: &[Conjunction],
     ) -> (u64, Keymap) {
         self.generation += 1;
 
-        let mut new_keymaps = Vec::new();
-        let rank = self.rank(conjunctions, pre_scores.clone()).to_vec();
+        let rank = self.rank(conjunctions, connection_score.clone()).to_vec();
+        // 最良のkeymapを遺伝子として見立て、頻度表を更新する
+        for (_, idx) in rank.iter().take(TOURNAMENT_SIZE) {
+            self.frequency_table
+                .update(&self.keymaps[*idx], 1.0 / (*idx + 1) as f64);
+        }
 
         // new_keymapsがgen_countになるまで繰り返す
+        let mut new_keymaps: Vec<Keymap> = Vec::new();
         while new_keymaps.len() < 2 {
             let mut assigner = KeyAssigner::from_freq(&self.frequency_table);
             if let Some(new_keymap) = Keymap::generate(rng, &mut assigner) {
@@ -77,29 +85,30 @@ impl Playground {
             }
         }
 
-        // 最良のkeymapを遺伝子として見立て、頻度表を更新する
-        let (_, best_idx) = rank.first().expect("should be success");
-        // 最近傍でベストなものを改めて探す
-        let best_keymap = self.re_rank_neighbor(
-            conjunctions_2gram,
-            pre_scores.clone(),
-            &self.keymaps[*best_idx],
-        );
-        let (_, worst_idx) = rank.iter().last().expect("should be success");
-        self.frequency_table
-            .update(&best_keymap, &self.keymaps[*worst_idx]);
-
         let best_keymap = self.keymaps[rank[0].1].clone();
-        self.keymaps = new_keymaps;
 
-        (rank[0].0, best_keymap.clone())
+        if self.keymaps.len() + new_keymaps.len() > KEYMAP_SIZE {
+            let mut deletable_ranks = rank
+                .iter()
+                .skip((self.keymaps.len() + new_keymaps.len()) - KEYMAP_SIZE)
+                .collect::<Vec<_>>();
+            deletable_ranks.sort_by(|(_, v1), (_, v2)| v1.cmp(&v2));
+            deletable_ranks.reverse();
+
+            for (_, idx) in deletable_ranks.iter() {
+                self.keymaps.remove(*idx);
+            }
+        }
+        self.keymaps.extend_from_slice(&new_keymaps);
+
+        (rank[0].0, best_keymap)
     }
 
     /// 最近傍探索をして、類似keymapのなかでbestなものを探す
     fn re_rank_neighbor(
         &self,
         conjunctions: &[Conjunction],
-        pre_scores: Arc<ConnectionScore>,
+        connection_score: Arc<ConnectionScore>,
         keymap: &Keymap,
     ) -> Keymap {
         let conjunctions = Arc::new(conjunctions.to_vec());
@@ -122,7 +131,7 @@ impl Playground {
             let k = k.clone();
             let tx = tx.clone();
             let conjunctions = conjunctions.clone();
-            let pre_scores = pre_scores.clone();
+            let pre_scores = connection_score.clone();
 
             self.pool.execute(move || {
                 let score = score::evaluate(&conjunctions, &pre_scores, &k);
@@ -141,7 +150,7 @@ impl Playground {
     fn rank(
         &self,
         conjunctions: &[Conjunction],
-        pre_scores: Arc<ConnectionScore>,
+        connection_score: Arc<ConnectionScore>,
     ) -> Vec<(u64, usize)> {
         let conjunctions = Arc::new(conjunctions.to_vec());
 
@@ -151,7 +160,7 @@ impl Playground {
         keymaps.into_iter().enumerate().for_each(|(idx, k)| {
             let tx = tx.clone();
             let conjunctions = conjunctions.clone();
-            let pre_scores = pre_scores.clone();
+            let pre_scores = connection_score.clone();
 
             self.pool.execute(move || {
                 let score = score::evaluate(&conjunctions, &pre_scores, &k);

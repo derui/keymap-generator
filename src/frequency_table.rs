@@ -29,7 +29,7 @@ impl CombinationFrequency {
     }
 
     /// 指定された 組み合わせに対する確率を更新する
-    fn update_frequency(&mut self, comb: (usize, usize)) {
+    fn update_frequency(&mut self, comb: (usize, usize), learning_rate: f64) {
         let (first_idx, second_idx) = comb;
 
         // 2次元配列自体は、unshift -> shiftで構成している
@@ -43,9 +43,9 @@ impl CombinationFrequency {
             for (ci, col) in row.iter_mut().enumerate() {
                 let Some(v) = col else { continue };
                 if ri == first_idx && ci == second_idx {
-                    *v = (*v + 1.0).min(count - 1.0)
+                    *v = (*v + learning_rate).min(count - 1.0)
                 } else {
-                    *v = (*v * (1.0 - 1.0 / count)).max(0.0000001);
+                    *v = (*v * (1.0 - (learning_rate / count))).max(1.0 / count);
                 }
             }
         }
@@ -351,27 +351,12 @@ impl FrequencyTable {
     }
 
     /// `keymap` にある文字から、頻度表を更新する
-    pub fn update(&mut self, best_keymap: &Keymap, worst_keymap: &Keymap) {
-        let mut checked_in_worst =
-            vec![vec![vec![false; definitions().len()]; definitions().len()]; 26];
-
-        // 構成上、すべてのキーがshift/unshiftを持っている
-        for (key_idx, def) in worst_keymap.iter().enumerate() {
-            let unshift_idx = self.character_map[&def.unshift()];
-            let shift_idx = self.character_map[&def.shifted()];
-
-            checked_in_worst[key_idx][unshift_idx][shift_idx] = true;
-        }
-
+    pub fn update(&mut self, best_keymap: &Keymap, learning_rate: f64) {
         for (key_idx, def) in best_keymap.iter().enumerate() {
             let unshift_idx = self.character_map[&def.unshift()];
             let shift_idx = self.character_map[&def.shifted()];
 
-            if checked_in_worst[key_idx][unshift_idx][shift_idx] {
-                continue;
-            }
-
-            self.frequency[key_idx].update_frequency((unshift_idx, shift_idx))
+            self.frequency[key_idx].update_frequency((unshift_idx, shift_idx), learning_rate)
         }
     }
 }

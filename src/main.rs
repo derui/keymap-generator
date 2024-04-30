@@ -236,5 +236,5 @@ fn is_exit_score(score: &mut BinaryHeap<Reverse<u64>>) -> bool {
     if score.len() > 10000 {
         score.clear();
     }
-    ret
+    return false;
 }
