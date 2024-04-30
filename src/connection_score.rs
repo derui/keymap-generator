@@ -123,7 +123,7 @@ impl CharFrequency {
                 .iter()
                 .map(|v| {
                     let prob = (*v as f64) / ave as f64;
-                    ((1.0 - prob) * 100.0)
+                    (1.0 - prob) * 100.0
                 })
                 .collect(),
         })

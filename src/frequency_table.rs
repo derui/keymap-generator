@@ -21,8 +21,7 @@ impl CombinationFrequency {
     pub fn total_count(&self) -> f64 {
         self.combinations
             .iter()
-            .map(|v| v.iter().map(|v| v.unwrap_or(0.0)))
-            .flatten()
+            .flat_map(|v| v.iter().map(|v| v.unwrap_or(0.0)))
             .sum::<f64>()
     }
 
