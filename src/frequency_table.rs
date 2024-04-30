@@ -144,7 +144,7 @@ impl KeyAssigner {
                 .cloned()
                 .map(|v| (v.total_count(), v))
                 .collect(),
-            character_index_map: freq_table.character_index_map.clone(),
+            character_index_map: char_def::definitions().into_iter().collect(),
             character_map: freq_table.character_map.clone(),
         }
     }
@@ -322,9 +322,6 @@ pub struct FrequencyTable {
 
     // 文字と頻度表におけるindexのマッピング
     character_map: HashMap<char, usize>,
-
-    // 文字と頻度表におけるindexのマッピング
-    character_index_map: Vec<CharDef>,
 }
 
 impl FrequencyTable {
@@ -346,7 +343,6 @@ impl FrequencyTable {
                 .enumerate()
                 .map(|(i, c)| (c.normal(), i))
                 .collect(),
-            character_index_map: char_def::definitions().into_iter().collect(),
         }
     }
 

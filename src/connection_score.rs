@@ -166,6 +166,21 @@ impl ConnectionScore {
                 .get_unchecked(self.get_index(&first, &second, &third, &fourth)) as u64
         };
 
+        let first: Option<(usize, usize)> = positions.nth(0).and_then(|(_, p)| p.map(|v| v.into()));
+        let second: Option<(usize, usize)> =
+            positions.nth(1).and_then(|(_, p)| p.map(|v| v.into()));
+        let third: Option<(usize, usize)> = positions.nth(2).and_then(|(_, p)| p.map(|v| v.into()));
+        let fourth: Option<(usize, usize)> =
+            positions.nth(3).and_then(|(_, p)| p.map(|v| v.into()));
+
+        score += unsafe {
+            let v = *self
+                .scores
+                .get_unchecked(self.get_index(&first, &second, &third, &fourth))
+                as f64;
+            (v * 1.3) as u64
+        };
+
         score
     }
 
