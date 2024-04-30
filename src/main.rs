@@ -19,7 +19,7 @@ use rand::{random, rngs::StdRng, SeedableRng};
 use score::Conjunction;
 
 use crate::{
-    connection_score::{CharFrequency, ConnectionScore, TwoKeyTiming},
+    connection_score::{ConnectionScore, TwoKeyTiming},
     playground::Playground,
 };
 
@@ -179,7 +179,6 @@ fn main() -> anyhow::Result<()> {
     let mut top_scores: BinaryHeap<Reverse<u64>> = BinaryHeap::new();
     let conjunctions = read_4gram(Path::new(&path))?;
     let conjunctions_2gram = read_2gram(Path::new(&path_2gram))?;
-    let char_frequency = CharFrequency::read(Path::new(&path_2gram))?;
     let two_key_timing = TwoKeyTiming::load(Path::new("typing-time.html"))?;
     let scores = Arc::new(ConnectionScore::new(&two_key_timing));
     let running = Arc::new(AtomicBool::new(true));
@@ -191,13 +190,7 @@ fn main() -> anyhow::Result<()> {
     .expect("error setting handler");
 
     while !is_exit_score(&mut top_scores) && running.load(Ordering::SeqCst) {
-        let ret = playground.advance(
-            &mut rng,
-            &conjunctions,
-            scores.clone(),
-            &conjunctions_2gram,
-            &char_frequency,
-        );
+        let ret = playground.advance(&mut rng, &conjunctions, scores.clone(), &conjunctions_2gram);
 
         if best_score > ret.0 {
             log::info!(

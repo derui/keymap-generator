@@ -1,6 +1,6 @@
 use crate::{
     char_def,
-    connection_score::{CharFrequency, ConnectionScore, Evaluation, Pos},
+    connection_score::{ConnectionScore, Evaluation, Pos},
     keymap::{KeyKind, Keymap},
     layout::{
         self,
@@ -41,7 +41,6 @@ pub fn evaluate(
     conjunctions: &[Conjunction],
     pre_scores: &ConnectionScore,
     keymap: &Keymap,
-    char_frequency: &CharFrequency,
 ) -> u64 {
     let mut score = 0;
     let linear_layout = layout::linear::linear_layout();
@@ -89,7 +88,6 @@ pub fn evaluate(
 
             let v = Evaluation {
                 positions: ((r, c).into(), additional_finger),
-                key_weight: char_frequency.get_weight(*ch),
             };
             key_sequence.push(v);
         }

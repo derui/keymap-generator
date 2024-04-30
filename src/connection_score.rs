@@ -2,12 +2,9 @@ use std::{collections::HashMap, fs::File, io::Read, path::Path};
 
 use scraper::{Html, Selector};
 
-use crate::{
-    char_def,
-    layout::{
-        linear::{linear_layout, linear_mapping},
-        Point,
-    },
+use crate::layout::{
+    linear::{linear_layout, linear_mapping},
+    Point,
 };
 
 /// 各指が担当するキーに対する重み。
@@ -58,6 +55,7 @@ impl TwoKeyTiming {
         let mappings = linear_mapping();
 
         // tr/tdを一個ずつ対応させていく。0または1000の場合は無視する
+        // tr/tdのそれぞれ１行目は、header行なので無視する
         for (ridx, row) in html
             .select(&matrix_selector)
             .next()
@@ -97,66 +95,9 @@ pub struct ConnectionScore {
     scores: Vec<u32>,
 }
 
-#[derive(Debug, Clone)]
-pub struct CharFrequency {
-    frequency: Vec<f64>,
-}
-
-impl CharFrequency {
-    pub fn read(path: &Path) -> anyhow::Result<CharFrequency> {
-        let mut frequency = vec![0; char_def::all_chars().len()];
-        let file = File::open(path).unwrap();
-
-        let mut rdr = csv::ReaderBuilder::new()
-            .delimiter(b'\t')
-            .from_reader(&file);
-
-        let char_position_map: HashMap<char, usize> = char_def::all_chars()
-            .into_iter()
-            .enumerate()
-            .map(|(idx, v)| (v, idx))
-            .collect();
-
-        for result in rdr.records() {
-            // The iterator yields Result<StringRecord, Error>, so we check the
-            // error here.
-            let record = result?;
-            let Some(text) = record
-                .get(4)
-                .filter(|v| !v.is_empty())
-                .map(|v| v.to_string())
-            else {
-                break;
-            };
-            let appearances: u32 = record.get(5).unwrap().parse()?;
-            if let Some(v) = char_position_map.get(&text.chars().next().unwrap()) {
-                frequency[*v] = appearances as u64;
-            }
-        }
-
-        let ave = frequency.iter().sum::<u64>() / frequency.len() as u64;
-
-        Ok(CharFrequency {
-            frequency: frequency
-                .iter()
-                .map(|v| {
-                    let prob = (*v as f64) / ave as f64;
-                    (1.0 - prob) * 100.0
-                })
-                .collect(),
-        })
-    }
-
-    #[inline]
-    pub fn get_weight(&self, index: usize) -> f64 {
-        unsafe { *self.frequency.get_unchecked(index) }
-    }
-}
-
 // struct for evaluation
 #[derive(Debug)]
 pub struct Evaluation {
-    pub key_weight: f64,
     pub positions: (Pos, Option<Pos>),
 }
 
@@ -225,24 +166,7 @@ impl ConnectionScore {
                 .get_unchecked(self.get_index(&first, &second, &third, &fourth)) as u64
         };
 
-        score * self.get_weight_score(sequence)
-    }
-
-    /// 各文字の頻度ベースの重みと、シフトキーに対する重みを考慮したweightを返す
-    fn get_weight_score(&self, sequence: &[Evaluation]) -> u64 {
-        sequence
-            .iter()
-            .map(|v| {
-                let w = v.key_weight;
-
-                let v = w * if let Some(_) = v.positions.1 {
-                    1.3
-                } else {
-                    1.0
-                };
-                v as u64
-            })
-            .sum::<u64>()
+        score
     }
 
     /// 4連接の評価を行う
