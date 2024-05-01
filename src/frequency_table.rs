@@ -55,12 +55,6 @@ impl CombinationFrequency {
     ///
     /// 突然変異は、1/2の確率で、 `mutation_rate` 分だけマイナスまたはプラスにシフトする。
     fn mutate(&mut self, rng: &mut StdRng, mutation_rate: f64) {
-        let _count = self
-            .combinations
-            .iter()
-            .map(|v| v.iter().map(|v| v.map_or(0.0, |_| 1.0)).sum::<f64>())
-            .sum::<f64>();
-
         for row in self.combinations.iter_mut() {
             for col in row.iter_mut() {
                 let Some(v) = col else { continue };
