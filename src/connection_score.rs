@@ -48,7 +48,7 @@ impl TwoKeyTiming {
         let tr_selector = Selector::parse("tr").unwrap();
         let td_selector = Selector::parse("td").unwrap();
 
-        let keys = vec![
+        let keys = [
             'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q',
             'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', ';', ',', '.', '/',
         ];
@@ -471,8 +471,8 @@ impl Pos {
 
         let special_case_score = rules
             .iter()
-            .fold(0 as u32, |score, rule| score + rule(self, other));
+            .fold(0_u32, |score, rule| score + rule(self, other));
 
-        special_case_score + timings.timings.get(&(*self, *other)).clone().unwrap_or(&0)
+        special_case_score + timings.timings.get(&(*self, *other)).unwrap_or(&0)
     }
 }

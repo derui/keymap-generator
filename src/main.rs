@@ -231,10 +231,10 @@ fn is_exit_score(score: &mut BinaryHeap<Reverse<u64>>) -> bool {
 
     let base_score = iter.first().unwrap();
 
-    let ret = iter.iter().all(|v| v == base_score);
+    let _ret = iter.iter().all(|v| v == base_score);
 
     if score.len() > 10000 {
         score.clear();
     }
-    return false;
+    false
 }

@@ -1,9 +1,6 @@
-use std::{
-    borrow::BorrowMut,
-    sync::{mpsc::channel, Arc},
-};
+use std::sync::{mpsc::channel, Arc};
 
-use rand::{rngs::StdRng, Rng};
+use rand::{rngs::StdRng, Rng, SeedableRng};
 
 use crate::{
     connection_score::ConnectionScore,
@@ -66,7 +63,7 @@ impl Playground {
         rng: &mut StdRng,
         conjunctions: &[Conjunction],
         connection_score: Arc<ConnectionScore>,
-        conjunctions_2gram: &[Conjunction],
+        _conjunctions_2gram: &[Conjunction],
     ) -> (u64, Keymap) {
         self.generation += 1;
 
@@ -87,7 +84,7 @@ impl Playground {
         (0..KEYMAP_SIZE).for_each(|_| {
             let tx = tx.clone();
             let frequency_table = self.frequency_table.clone();
-            let mut rng = rng.clone();
+            let mut rng = StdRng::seed_from_u64(rng.gen());
 
             self.pool.execute(move || loop {
                 let mut assigner = KeyAssigner::from_freq(&frequency_table);
@@ -160,13 +157,13 @@ impl Playground {
             let mut accum = 0.0;
             let prob = rng.gen::<f64>();
 
-            for idx in (0..rank.len()) {
+            for idx in 0..rank.len() {
                 if accum + (0.5 / (idx + 1) as f64) >= prob {
                     ret.push(rank.remove(idx));
                     rest -= 1;
                     break;
                 }
-                accum += (0.5 / (idx + 1) as f64)
+                accum += 0.5 / (idx + 1) as f64
             }
         }
 

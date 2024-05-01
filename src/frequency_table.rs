@@ -43,9 +43,9 @@ impl CombinationFrequency {
             for (ci, col) in row.iter_mut().enumerate() {
                 let Some(v) = col else { continue };
                 if ri == first_idx && ci == second_idx {
-                    *v = (*v + learning_rate)
+                    *v = (*v + learning_rate).min(2500.0)
                 } else {
-                    *v = (*v * (1.0 - (learning_rate / count)))
+                    *v = (*v * (1.0 - (learning_rate / count))).max(0.01)
                 }
             }
         }
@@ -55,7 +55,7 @@ impl CombinationFrequency {
     ///
     /// 突然変異は、1/2の確率で、 `mutation_rate` 分だけマイナスまたはプラスにシフトする。
     fn mutate(&mut self, rng: &mut StdRng, mutation_rate: f64) {
-        let count = self
+        let _count = self
             .combinations
             .iter()
             .map(|v| v.iter().map(|v| v.map_or(0.0, |_| 1.0)).sum::<f64>())
@@ -66,9 +66,9 @@ impl CombinationFrequency {
                 let Some(v) = col else { continue };
 
                 if rng.gen::<f64>() < 0.5 {
-                    *v = (*v * (1.0 + mutation_rate))
+                    *v *= 1.0 + mutation_rate
                 } else {
-                    *v = (*v * (1.0 - mutation_rate))
+                    *v *= 1.0 - mutation_rate
                 }
             }
         }
