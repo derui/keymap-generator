@@ -149,7 +149,7 @@ impl Bench {
             let average_score = scores.sum::<u64>() / score_len as u64;
 
             log::info!(
-                "total {}, {} generations in 60 seconds, {:.5} generation/sec, highest average score {}",
+                "total {}, {} generations in 10 seconds, {:.5} generation/sec, highest average score {}",
                 total_generations_count,
                 self.generations_count,
                 generation_per_sec,
@@ -231,10 +231,10 @@ fn is_exit_score(score: &mut BinaryHeap<Reverse<u64>>) -> bool {
 
     let base_score = iter.first().unwrap();
 
-    let _ret = iter.iter().all(|v| v == base_score);
+    let ret = iter.iter().all(|v| v == base_score);
 
     if score.len() > 10000 {
         score.clear();
     }
-    false
+    return false;
 }

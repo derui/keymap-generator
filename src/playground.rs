@@ -22,7 +22,7 @@ pub struct Playground {
 const TOURNAMENT_SIZE: usize = 10;
 const KEYMAP_SIZE: usize = 30;
 const WORKERS: u8 = 12;
-const MUTATION_PROB: f64 = 0.02;
+const MUTATION_PROB: f64 = 0.30;
 const MUTATION_RATE: f64 = 0.05;
 
 impl Playground {
@@ -70,9 +70,9 @@ impl Playground {
         let rank = self.rank(conjunctions, connection_score.clone()).to_vec();
         let mut picked_keymaps = Vec::new();
         // self.keymapsを個体と見立てて、確率分布を更新する
-        for (_, idx) in self.take_ranks(rng, &rank, TOURNAMENT_SIZE).iter() {
+        for (rank, idx) in self.take_ranks(rng, &rank, TOURNAMENT_SIZE).iter() {
             self.frequency_table
-                .update(&self.keymaps[*idx], 1.0 / (*idx + 1) as f64);
+                .update(&self.keymaps[*idx], 1.0 / (*rank + 1) as f64);
             picked_keymaps.push(self.keymaps[*idx].clone());
         }
         self.frequency_table
@@ -81,7 +81,7 @@ impl Playground {
         // 確率分布から生成する
         let (tx, tr) = channel();
 
-        (0..KEYMAP_SIZE).for_each(|_| {
+        (0..(KEYMAP_SIZE - TOURNAMENT_SIZE)).for_each(|_| {
             let tx = tx.clone();
             let frequency_table = self.frequency_table.clone();
             let mut rng = StdRng::seed_from_u64(rng.gen());
@@ -95,7 +95,7 @@ impl Playground {
             })
         });
 
-        let new_keymaps: Vec<Keymap> = tr.iter().take(KEYMAP_SIZE).collect();
+        let new_keymaps: Vec<Keymap> = tr.iter().take(KEYMAP_SIZE - TOURNAMENT_SIZE).collect();
         let best_keymap = self.keymaps[rank[0].1].clone();
         self.keymaps = new_keymaps;
         self.keymaps.extend_from_slice(&picked_keymaps);
@@ -143,12 +143,15 @@ impl Playground {
         keymaps[scores[0].1].to_owned()
     }
 
+    /// 指定した `count` の個数分 `rank` から取得する
+    ///
+    /// 返却されるtupleの0がrank、1が実際のindexである
     fn take_ranks(
         &self,
         rng: &mut StdRng,
         rank: &[(u64, usize)],
         count: usize,
-    ) -> Vec<(u64, usize)> {
+    ) -> Vec<(usize, usize)> {
         let mut rank = Vec::from_iter(rank.iter().cloned());
         let mut ret = vec![];
         let mut rest = count;
@@ -159,7 +162,8 @@ impl Playground {
 
             for idx in 0..rank.len() {
                 if accum + (0.5 / (idx + 1) as f64) >= prob {
-                    ret.push(rank.remove(idx));
+                    let (_, rank) = rank.remove(idx);
+                    ret.push((idx, rank));
                     rest -= 1;
                     break;
                 }
