@@ -21,9 +21,8 @@ pub struct Playground {
 
 const TOURNAMENT_SIZE: usize = 10;
 const KEYMAP_SIZE: usize = 30;
-const WORKERS: u8 = 12;
-const MUTATION_PROB: f64 = 0.30;
-const MUTATION_RATE: f64 = 0.05;
+const WORKERS: u8 = 20;
+const MUTATION_PROB: f64 = 0.001;
 
 impl Playground {
     pub fn new(gen_count: u8, rng: &mut StdRng, frequency_table: FrequencyTable) -> Self {
@@ -75,8 +74,7 @@ impl Playground {
                 .update(&self.keymaps[*idx], 1.0 / (*rank + 1) as f64);
             picked_keymaps.push(self.keymaps[*idx].clone());
         }
-        self.frequency_table
-            .mutate(rng, MUTATION_PROB, MUTATION_RATE);
+        self.frequency_table.mutate(rng, MUTATION_PROB);
 
         // 確率分布から生成する
         let (tx, tr) = channel();

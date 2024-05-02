@@ -138,15 +138,14 @@ impl Bench {
         }
     }
 
-    fn update(&mut self, total_generations_count: u64, scores: &BinaryHeap<Reverse<u64>>) {
+    fn update(&mut self, total_generations_count: u64, top_scores: &Vec<u64>) {
         self.generations_count += 1;
         let now = SystemTime::now();
         let elapsed = now.duration_since(self.last_time).unwrap();
         if elapsed.as_secs() >= 10 {
             let generation_per_sec = self.generations_count as f64 / elapsed.as_secs_f64();
-            let scores = scores.iter().cloned().map(|v| v.0);
-            let score_len = scores.len();
-            let average_score = scores.sum::<u64>() / score_len as u64;
+            let total_score = top_scores.iter().sum::<u64>();
+            let average_score = total_score / top_scores.len() as u64;
 
             log::info!(
                 "total {}, {} generations in 10 seconds, {:.5} generation/sec, highest average score {}",
@@ -176,7 +175,7 @@ fn main() -> anyhow::Result<()> {
     let mut playground = Playground::new(50, &mut rng, frequency);
     let mut best_score = u64::MAX;
     let mut best_keymap: Option<Keymap> = None;
-    let mut top_scores: BinaryHeap<Reverse<u64>> = BinaryHeap::new();
+    let mut last_scores: Vec<u64> = Vec::new();
     let conjunctions = read_4gram(Path::new(&path))?;
     let conjunctions_2gram = read_2gram(Path::new(&path_2gram))?;
     let two_key_timing = TwoKeyTiming::load(Path::new("typing-time.html"))?;
@@ -189,7 +188,7 @@ fn main() -> anyhow::Result<()> {
     })
     .expect("error setting handler");
 
-    while !is_exit_score(&mut top_scores) && running.load(Ordering::SeqCst) {
+    while !is_exit_score(&mut last_scores) && running.load(Ordering::SeqCst) {
         let ret = playground.advance(&mut rng, &conjunctions, scores.clone(), &conjunctions_2gram);
 
         if best_score > ret.0 {
@@ -205,8 +204,8 @@ fn main() -> anyhow::Result<()> {
             best_keymap = Some(ret.1.clone());
         }
 
-        top_scores.push(Reverse(ret.0));
-        bench.update(playground.generation(), &top_scores);
+        last_scores.insert(0, ret.0);
+        bench.update(playground.generation(), &last_scores);
     }
 
     println!(
@@ -222,19 +221,18 @@ fn main() -> anyhow::Result<()> {
 }
 
 /// exitするかどうかを決定する。トップ10が同一のスコアであれば終了する
-fn is_exit_score(score: &mut BinaryHeap<Reverse<u64>>) -> bool {
+fn is_exit_score(score: &mut Vec<u64>) -> bool {
     if score.len() < 10 {
         return false;
     }
 
-    let iter = score.iter().take(10).collect::<Vec<_>>();
+    let iter = score.iter().collect::<Vec<_>>();
 
     let base_score = iter.first().unwrap();
 
     let ret = iter.iter().all(|v| v == base_score);
 
-    if score.len() > 10000 {
-        score.clear();
-    }
+    score.truncate(1000);
+
     return false;
 }

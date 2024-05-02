@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, mem::swap};
 
 use rand::{rngs::StdRng, Rng};
 use serde::{Deserialize, Serialize};
@@ -26,11 +26,6 @@ impl CombinationFrequency {
         let (first_idx, second_idx) = comb;
 
         // 2次元配列自体は、unshift -> shiftで構成している
-        let count = self
-            .combinations
-            .iter()
-            .map(|v| v.iter().map(|v| v.map_or(0.0, |_| 1.0)).sum::<f64>())
-            .sum::<f64>();
         let mut total = 0_f64;
 
         for (ri, row) in self.combinations.iter_mut().enumerate() {
@@ -38,9 +33,7 @@ impl CombinationFrequency {
                 let Some(v) = col else { continue };
 
                 if ri == first_idx && ci == second_idx {
-                    *v = (*v + learning_rate).min(2000.0)
-                } else {
-                    *v = (*v * (1.0 - (learning_rate / count))).max(1_f64)
+                    *v = (*v + learning_rate)
                 }
                 total += *v;
             }
@@ -51,22 +44,27 @@ impl CombinationFrequency {
 
     /// キーの分布に対して突然変異をおこす
     ///
-    /// 突然変異は、1/2の確率で、 `mutation_rate` 分だけマイナスまたはプラスにシフトする。
-    fn mutate(&mut self, rng: &mut StdRng, mutation_rate: f64) {
-        let mut total = 0_f64;
+    /// 突然変異は、最大と最小のindexの値を交換する。
+    fn mutate(&mut self, rng: &mut StdRng) {
+        let mut cloned = self
+            .combinations
+            .iter()
+            .flatten()
+            .cloned()
+            .enumerate()
+            .filter(|(_, v)| v.is_some())
+            .collect::<Vec<_>>();
+        cloned.sort_by(|(_, v1), (_, v2)| v1.partial_cmp(v2).unwrap());
 
-        for row in self.combinations.iter_mut() {
-            for col in row.iter_mut() {
-                let Some(v) = col else { continue };
-
-                if rng.gen::<f64>() < mutation_rate {
-                    *v = 1.0
-                }
-                total += *v;
-            }
-        }
-
-        self.total = total;
+        let first = cloned.first().unwrap().0;
+        let first_row = first / self.combinations.len();
+        let first_col = first % self.combinations.len();
+        let last = cloned.last().unwrap().0;
+        let last_row = last / self.combinations.len();
+        let last_col = last % self.combinations.len();
+        let tmp = self.combinations[last_row][last_col];
+        self.combinations[last_row][last_col] = self.combinations[first_row][first_col];
+        self.combinations[first_row][first_col] = tmp;
     }
 
     /// 指定された `ch` を含む組み合わせを無効にする
@@ -373,11 +371,11 @@ impl FrequencyTable {
         }
     }
 
-    /// `mutation_prob` に該当する確率で、各キーにおける分布に `mutation_rate` 分の突然変異を与える
-    pub fn mutate(&mut self, rng: &mut StdRng, mutation_prob: f64, mutation_rate: f64) {
+    /// `mutation_prob` に該当する確率で、各キーにおける分布に突然変異を与える
+    pub fn mutate(&mut self, rng: &mut StdRng, mutation_prob: f64) {
         for (key_idx, _) in linear_layout().iter().enumerate() {
             if rng.gen::<f64>() < mutation_prob {
-                self.frequency[key_idx].mutate(rng, mutation_rate)
+                self.frequency[key_idx].mutate(rng)
             }
         }
     }
