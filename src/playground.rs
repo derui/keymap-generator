@@ -22,7 +22,7 @@ pub struct Playground {
 const TOURNAMENT_SIZE: usize = 10;
 const KEYMAP_SIZE: usize = 30;
 const WORKERS: u8 = 20;
-const MUTATION_PROB: f64 = 0.001;
+const MUTATION_PROB: f64 = 0.01;
 
 impl Playground {
     pub fn new(gen_count: u8, rng: &mut StdRng, frequency_table: FrequencyTable) -> Self {
@@ -99,46 +99,6 @@ impl Playground {
         self.keymaps.extend_from_slice(&picked_keymaps);
 
         (rank[0].0, best_keymap)
-    }
-
-    /// 最近傍探索をして、類似keymapのなかでbestなものを探す
-    fn re_rank_neighbor(
-        &self,
-        conjunctions: &[Conjunction],
-        connection_score: Arc<ConnectionScore>,
-        keymap: &Keymap,
-    ) -> Keymap {
-        let conjunctions = Arc::new(conjunctions.to_vec());
-
-        let (tx, tr) = channel();
-        let mut keymaps: Vec<Keymap> = Vec::with_capacity(5000);
-
-        for (i, _) in keymap.iter().enumerate() {
-            for (j, _) in keymap.iter().enumerate() {
-                if i >= j {
-                    continue;
-                }
-
-                let swaps = keymap.swap_keys(i, j);
-                keymaps.extend_from_slice(&swaps);
-            }
-        }
-
-        keymaps.iter().enumerate().for_each(|(idx, k)| {
-            let k = k.clone();
-            let tx = tx.clone();
-            let conjunctions = conjunctions.clone();
-            let pre_scores = connection_score.clone();
-
-            self.pool.execute(move || {
-                let score = score::evaluate(&conjunctions, &pre_scores, &k);
-                tx.send((score, idx)).expect("should be success")
-            })
-        });
-
-        let mut scores: Vec<(u64, usize)> = tr.iter().take(keymaps.len()).collect();
-        scores.sort_by(|a, b| a.0.cmp(&b.0));
-        keymaps[scores[0].1].to_owned()
     }
 
     /// 指定した `count` の個数分 `rank` から取得する

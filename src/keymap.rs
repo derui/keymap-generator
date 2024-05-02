@@ -40,14 +40,6 @@ impl KeyAssignment {
             KeyAssignment::U => false,
         }
     }
-
-    /// assignされていればswapする
-    fn swap(&mut self) {
-        match self {
-            KeyAssignment::A(k) => k.swap(),
-            KeyAssignment::U => (),
-        }
-    }
 }
 
 /// 有効なキーマップ
@@ -463,49 +455,6 @@ impl Keymap {
         ];
 
         checks.iter().all(|c| c(&self.layout))
-    }
-
-    /// 指定したindex間でキーを入れ替える
-    ///
-    /// #Return
-    /// 入れ替え後のキーマップ。制約を満たさない場合はNoneを返す
-    pub fn swap_keys(&self, idx1: usize, idx2: usize) -> Vec<Self> {
-        let mut new = self.clone();
-        let mut vec = Vec::new();
-
-        new.layout[idx1].swap();
-        if new.meet_requirements() {
-            vec.push(new.clone());
-            new.layout[idx1].swap();
-        }
-        new.layout[idx2].swap();
-        if new.meet_requirements() {
-            vec.push(new.clone());
-            new.layout[idx2].swap();
-        }
-
-        new.layout.swap(idx1, idx2);
-        if new.meet_requirements() {
-            vec.push(new.clone());
-        }
-
-        new.layout[idx1].swap();
-        if new.meet_requirements() {
-            vec.push(new.clone());
-        }
-
-        new.layout[idx1].swap();
-        new.layout[idx2].swap();
-        if new.meet_requirements() {
-            vec.push(new.clone());
-        }
-
-        new.layout[idx1].swap();
-        if new.meet_requirements() {
-            vec.push(new.clone());
-        }
-
-        vec
     }
 
     /// 指定した文字を入力できるキーを返す

@@ -1,4 +1,4 @@
-use std::{collections::HashMap, mem::swap};
+use std::collections::HashMap;
 
 use rand::{rngs::StdRng, Rng};
 use serde::{Deserialize, Serialize};
@@ -27,13 +27,20 @@ impl CombinationFrequency {
 
         // 2次元配列自体は、unshift -> shiftで構成している
         let mut total = 0_f64;
+        let count = self
+            .combinations
+            .iter()
+            .map(|v| v.iter().map(|v| v.map_or(0.0, |_| 1.0)).sum::<f64>())
+            .sum::<f64>();
 
         for (ri, row) in self.combinations.iter_mut().enumerate() {
             for (ci, col) in row.iter_mut().enumerate() {
                 let Some(v) = col else { continue };
 
                 if ri == first_idx && ci == second_idx {
-                    *v = (*v + learning_rate)
+                    *v += learning_rate;
+                } else {
+                    *v = *v * (1.0 - learning_rate) / count;
                 }
                 total += *v;
             }
@@ -45,7 +52,7 @@ impl CombinationFrequency {
     /// キーの分布に対して突然変異をおこす
     ///
     /// 突然変異は、最大と最小のindexの値を交換する。
-    fn mutate(&mut self, rng: &mut StdRng) {
+    fn mutate(&mut self) {
         let mut cloned = self
             .combinations
             .iter()
@@ -165,7 +172,7 @@ impl KeyAssigner {
     /// `freq_table` から[KeyAssigner]を生成する
     pub fn from_freq(freq_table: &FrequencyTable) -> Self {
         Self {
-            combinations: freq_table.frequency.iter().cloned().collect(),
+            combinations: freq_table.frequency.to_vec(),
             character_index_map: char_def::definitions().into_iter().collect(),
             character_map: freq_table.character_map.clone(),
         }
@@ -189,7 +196,7 @@ impl KeyAssigner {
             })
             .collect::<Vec<_>>();
 
-        vec.sort_by(|(_, comb1), (_, comb2)| comb1.cmp(&comb2));
+        vec.sort_by(|(_, comb1), (_, comb2)| comb1.cmp(comb2));
         vec.into_iter().map(|(v, _)| v).collect()
     }
 
@@ -375,7 +382,8 @@ impl FrequencyTable {
     pub fn mutate(&mut self, rng: &mut StdRng, mutation_prob: f64) {
         for (key_idx, _) in linear_layout().iter().enumerate() {
             if rng.gen::<f64>() < mutation_prob {
-                self.frequency[key_idx].mutate(rng)
+                self.frequency[key_idx].mutate();
+                break;
             }
         }
     }

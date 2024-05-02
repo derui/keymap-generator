@@ -1,6 +1,5 @@
 use std::{
-    cmp::Reverse,
-    collections::{BinaryHeap, HashMap},
+    collections::HashMap,
     env::args,
     fs::{self, File},
     io::{Read, Write},
@@ -230,9 +229,9 @@ fn is_exit_score(score: &mut Vec<u64>) -> bool {
 
     let base_score = iter.first().unwrap();
 
-    let ret = iter.iter().all(|v| v == base_score);
+    let _ret = iter.iter().all(|v| v == base_score);
 
     score.truncate(1000);
 
-    return false;
+    false
 }
