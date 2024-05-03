@@ -13,6 +13,16 @@ impl CharDef {
         self.turbid.is_none() && self.semiturbid.is_none()
     }
 
+    /// 句点かどうかを返す
+    pub fn is_punctuation_mark(&self) -> bool {
+        self.normal == '、'
+    }
+
+    /// 読点かどうかを返す
+    pub fn is_reading_point(&self) -> bool {
+        self.normal == '。'
+    }
+
     /// 対象の文字に対応する定義を返す
     pub fn normal(&self) -> char {
         self.normal

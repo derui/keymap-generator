@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+use std::{
+    collections::{HashMap, HashSet},
+    hash::BuildHasherDefault,
+};
 
 use rand::{rngs::StdRng, Rng};
 use serde::{Deserialize, Serialize};
@@ -6,7 +9,10 @@ use serde::{Deserialize, Serialize};
 use crate::{
     char_def::{self, definitions, CharDef},
     keymap::Keymap,
-    layout::linear::{linear_layout, LINEAR_L_SHIFT_INDEX, LINEAR_R_SHIFT_INDEX},
+    layout::linear::{
+        linear_layout, LINEAR_L_SEMITURBID_INDEX, LINEAR_L_SHIFT_INDEX, LINEAR_L_TURBID_INDEX,
+        LINEAR_R_SEMITURBID_INDEX, LINEAR_R_SHIFT_INDEX, LINEAR_R_TURBID_INDEX,
+    },
 };
 
 /// 存在する文字のシフト面と無シフト面に対する組み合わせにおける頻度を表す
@@ -93,17 +99,13 @@ impl CombinationFrequency {
 
         // 2次元配列自体は、unshift -> shiftで構成している
         for v in self.combinations[ch_idx].iter_mut() {
-            if let Some(f) = *v {
-                self.total -= f;
-                *v = None;
-            }
+            self.total -= v.unwrap_or(0.0);
+            *v = None;
         }
 
         for row in self.combinations.iter_mut() {
-            if let Some(f) = row[ch_idx] {
-                self.total -= f;
-                row[ch_idx] = None;
-            }
+            self.total -= row[ch_idx].unwrap_or(0.0);
+            row[ch_idx] = None;
         }
     }
 
@@ -371,6 +373,21 @@ impl FrequencyTable {
         combinations[LINEAR_L_SHIFT_INDEX] = CombinationFrequency::new(|_, ch2| ch2.is_cleartone());
         combinations[LINEAR_R_SHIFT_INDEX] = CombinationFrequency::new(|_, ch2| ch2.is_cleartone());
 
+        // 濁音シフトには、半濁音または濁音のキーは配置できない
+        [LINEAR_L_TURBID_INDEX, LINEAR_R_TURBID_INDEX]
+            .iter()
+            .for_each(|idx| {
+                combinations[*idx] =
+                    CombinationFrequency::new(|ch1, ch2| ch1.is_cleartone() && ch2.is_cleartone());
+            });
+
+        // 半濁音キーのシフト面は句読点を配置する
+        // これは、半濁音と濁音に上記の制約を付加すると、単純にキーが足らないので、ここだけは固定ではないこととするため。
+        combinations[LINEAR_L_SEMITURBID_INDEX] =
+            CombinationFrequency::new(|ch1, ch2| ch1.is_cleartone() && ch2.is_punctuation_mark());
+        combinations[LINEAR_R_SEMITURBID_INDEX] =
+            CombinationFrequency::new(|ch1, ch2| ch1.is_cleartone() && ch2.is_reading_point());
+
         FrequencyTable {
             frequency: combinations,
             character_map: char_def::definitions()
@@ -393,15 +410,11 @@ impl FrequencyTable {
 
     /// `mutation_prob` に該当する確率で、各キーにおける分布に突然変異を与える
     pub fn mutate(&mut self, rng: &mut StdRng, mutation_prob: f64) {
-        if rng.gen::<f64>() >= mutation_prob {
+        if rng.gen::<f64>() > mutation_prob {
             return;
         }
 
-        // 先頭からやっていくと、後半で有効になる確率とかが低くなりそうなので、適用はランダムにする
-        let len = linear_layout().len();
-
-        // １キーを個体と考えて、それぞれに対して確率を適用する
-        for idx in 0..len {
+        for idx in 0..linear_layout().len() {
             self.frequency[idx].mutate(rng);
         }
     }

@@ -108,11 +108,12 @@ impl Bench {
             let average_score = total_score / scores.len() as u64;
 
             log::info!(
-                "total {}, {} generations in 10 seconds, {:.5} generation/sec, highest average score {}",
+                "total {}, {} generations in 10 seconds, {:.5} generation/sec, average score {}, last best {}",
                 total_generations_count,
                 self.generations_count,
                 generation_per_sec,
                 average_score,
+                scores[0]
             );
             self.last_time = now;
             self.generations_count = 0;
@@ -149,7 +150,7 @@ fn main() -> anyhow::Result<()> {
 
     while running.load(Ordering::SeqCst) {
         // 直近の10個が全く変わらない場合、突然変異を強制する
-        let ret = playground.advance(&mut rng, &conjunctions, scores.clone(), mutation_request);
+        let ret = playground.advance(&mut rng, &conjunctions, scores.clone());
 
         if best_score > ret.0 {
             log::info!(

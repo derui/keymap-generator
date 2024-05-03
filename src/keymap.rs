@@ -447,10 +447,10 @@ impl Keymap {
         let checks = [
             constraints::should_shift_having_same_key,
             constraints::should_shift_only_clear_tones,
-            constraints::should_be_explicit_between_left_turbid_and_right_semiturbit,
-            constraints::should_only_one_turbid,
-            constraints::should_be_explicit_between_right_turbid_and_left_semiturbit,
-            constraints::should_only_one_semiturbid,
+            // constraints::should_be_explicit_between_left_turbid_and_right_semiturbit,
+            // constraints::should_only_one_turbid,
+            // constraints::should_be_explicit_between_right_turbid_and_left_semiturbit,
+            // constraints::should_only_one_semiturbid,
             constraints::should_be_able_to_all_input,
         ];
 
