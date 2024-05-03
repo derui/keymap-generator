@@ -22,7 +22,7 @@ pub struct Playground {
 const TOURNAMENT_SIZE: usize = 10;
 const KEYMAP_SIZE: usize = 30;
 const WORKERS: u8 = 20;
-const MUTATION_PROB: f64 = 0.01;
+const MUTATION_PROB: f64 = 0.00;
 
 impl Playground {
     pub fn new(gen_count: u8, rng: &mut StdRng, frequency_table: FrequencyTable) -> Self {
@@ -62,7 +62,7 @@ impl Playground {
         rng: &mut StdRng,
         conjunctions: &[Conjunction],
         connection_score: Arc<ConnectionScore>,
-        _conjunctions_2gram: &[Conjunction],
+        mutation_request: bool,
     ) -> (u64, Keymap) {
         self.generation += 1;
 
@@ -74,7 +74,8 @@ impl Playground {
                 .update(&self.keymaps[*idx], 1.0 / (*rank + 1) as f64);
             picked_keymaps.push(self.keymaps[*idx].clone());
         }
-        self.frequency_table.mutate(rng, MUTATION_PROB);
+        self.frequency_table
+            .mutate(rng, if mutation_request { 1.0 } else { MUTATION_PROB });
 
         // 確率分布から生成する
         let (tx, tr) = channel();

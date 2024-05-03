@@ -422,11 +422,11 @@ impl Keymap {
     fn assign_keys(layout: &mut [KeyAssignment], rng: &mut StdRng, assigner: &mut KeyAssigner) {
         // 各文字を設定していく。
         for idx in assigner.ordered_key_indices() {
-            let assignment = &mut layout[idx];
             if idx == LINEAR_L_SHIFT_INDEX || idx == LINEAR_R_SHIFT_INDEX {
                 continue;
             }
 
+            let assignment = &mut layout[idx];
             if let Some(key) = assigner.pick_key(rng, idx) {
                 *assignment = KeyAssignment::A(KeyDef::from_combination(&key));
             }
@@ -663,12 +663,11 @@ impl<'a> Iterator for KeymapIterator<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         while self.index < self.keymap.layout.len() {
-            // 割当のない場所がありうる
             if let KeyAssignment::A(k) = &self.keymap.layout[self.index] {
                 self.index += 1;
                 return Some(k);
             }
-            self.index += 1;
+            unreachable!("All keys must be assigned");
         }
 
         None

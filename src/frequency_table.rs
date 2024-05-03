@@ -39,8 +39,6 @@ impl CombinationFrequency {
 
                 if ri == first_idx && ci == second_idx {
                     *v += learning_rate;
-                } else {
-                    *v = *v * (1.0 - learning_rate) / count;
                 }
                 total += *v;
             }
@@ -196,7 +194,7 @@ impl KeyAssigner {
             })
             .collect::<Vec<_>>();
 
-        vec.sort_by(|(_, comb1), (_, comb2)| comb1.cmp(comb2));
+        vec.sort_by(|(_, comb1), (_, comb2)| comb2.cmp(comb1));
         vec.into_iter().map(|(v, _)| v).collect()
     }
 

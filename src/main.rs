@@ -163,9 +163,8 @@ fn main() -> anyhow::Result<()> {
     env_logger::init();
 
     let path = args().nth(1).expect("missing path");
-    let path_2gram = args().nth(2).expect("missing path");
     let frequency = args()
-        .nth(3)
+        .nth(2)
         .and_then(|v| read_frequency(Path::new(&v)).ok())
         .unwrap_or(FrequencyTable::new());
     let mut rng = StdRng::seed_from_u64(random());
@@ -176,7 +175,6 @@ fn main() -> anyhow::Result<()> {
     let mut best_keymap: Option<Keymap> = None;
     let mut last_scores: Vec<u64> = Vec::new();
     let conjunctions = read_4gram(Path::new(&path))?;
-    let conjunctions_2gram = read_2gram(Path::new(&path_2gram))?;
     let two_key_timing = TwoKeyTiming::load(Path::new("typing-time.html"))?;
     let scores = Arc::new(ConnectionScore::new(&two_key_timing));
     let running = Arc::new(AtomicBool::new(true));
@@ -187,8 +185,10 @@ fn main() -> anyhow::Result<()> {
     })
     .expect("error setting handler");
 
-    while !is_exit_score(&mut last_scores) && running.load(Ordering::SeqCst) {
-        let ret = playground.advance(&mut rng, &conjunctions, scores.clone(), &conjunctions_2gram);
+    while running.load(Ordering::SeqCst) {
+        // 直近の10個が全く変わらない場合、突然変異を強制する
+        let mutation_request = is_exit_score(&mut last_scores);
+        let ret = playground.advance(&mut rng, &conjunctions, scores.clone(), mutation_request);
 
         if best_score > ret.0 {
             log::info!(
@@ -229,9 +229,9 @@ fn is_exit_score(score: &mut Vec<u64>) -> bool {
 
     let base_score = iter.first().unwrap();
 
-    let _ret = iter.iter().all(|v| v == base_score);
+    let ret = iter.iter().all(|v| v == base_score);
 
     score.truncate(1000);
 
-    false
+    ret
 }
