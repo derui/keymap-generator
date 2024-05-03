@@ -27,7 +27,7 @@ impl CombinationFrequency {
 
         // 2次元配列自体は、unshift -> shiftで構成している
         let mut total = 0_f64;
-        let count = self
+        let _count = self
             .combinations
             .iter()
             .map(|v| v.iter().map(|v| v.map_or(0.0, |_| 1.0)).sum::<f64>())
@@ -50,26 +50,41 @@ impl CombinationFrequency {
     /// キーの分布に対して突然変異をおこす
     ///
     /// 突然変異は、最大と最小のindexの値を交換する。
-    fn mutate(&mut self) {
-        let mut cloned = self
+    fn mutate(&mut self, rng: &mut StdRng) {
+        let combinations = self
             .combinations
             .iter()
             .flatten()
             .cloned()
-            .enumerate()
-            .filter(|(_, v)| v.is_some())
             .collect::<Vec<_>>();
-        cloned.sort_by(|(_, v1), (_, v2)| v1.partial_cmp(v2).unwrap());
+        let len = combinations.len();
 
-        let first = cloned.first().unwrap().0;
-        let first_row = first / self.combinations.len();
-        let first_col = first % self.combinations.len();
-        let last = cloned.last().unwrap().0;
-        let last_row = last / self.combinations.len();
-        let last_col = last % self.combinations.len();
-        let tmp = self.combinations[last_row][last_col];
-        self.combinations[last_row][last_col] = self.combinations[first_row][first_col];
-        self.combinations[first_row][first_col] = tmp;
+        loop {
+            let first = rng.gen_range(0..len);
+            let second = rng.gen_range(0..len);
+
+            if first == second {
+                continue;
+            }
+
+            let Some(first_v) = combinations[first] else {
+                continue;
+            };
+            let Some(second_v) = combinations[second] else {
+                continue;
+            };
+
+            let first_row = first / self.combinations.len();
+            let first_col = first % self.combinations.len();
+
+            let second_row = second / self.combinations.len();
+            let second_col = second % self.combinations.len();
+
+            self.combinations[first_row][first_col] = Some(second_v);
+            self.combinations[second_row][second_col] = Some(first_v);
+
+            break;
+        }
     }
 
     /// 指定された `ch` を含む組み合わせを無効にする
@@ -378,11 +393,16 @@ impl FrequencyTable {
 
     /// `mutation_prob` に該当する確率で、各キーにおける分布に突然変異を与える
     pub fn mutate(&mut self, rng: &mut StdRng, mutation_prob: f64) {
-        for (key_idx, _) in linear_layout().iter().enumerate() {
-            if rng.gen::<f64>() < mutation_prob {
-                self.frequency[key_idx].mutate();
-                break;
-            }
+        if rng.gen::<f64>() >= mutation_prob {
+            return;
+        }
+
+        // 先頭からやっていくと、後半で有効になる確率とかが低くなりそうなので、適用はランダムにする
+        let len = linear_layout().len();
+
+        // １キーを個体と考えて、それぞれに対して確率を適用する
+        for idx in 0..len {
+            self.frequency[idx].mutate(rng);
         }
     }
 }

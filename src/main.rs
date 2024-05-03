@@ -64,45 +64,6 @@ fn read_4gram(path: &Path) -> anyhow::Result<Vec<Conjunction>> {
     Ok(conjunctions)
 }
 
-fn read_2gram(path: &Path) -> anyhow::Result<Vec<Conjunction>> {
-    let mut conjunctions = Vec::new();
-    let file = File::open(path).unwrap();
-
-    let mut rdr = csv::ReaderBuilder::new()
-        .delimiter(b'\t')
-        .from_reader(&file);
-
-    let char_position_map: HashMap<char, usize> = char_def::all_chars()
-        .into_iter()
-        .enumerate()
-        .map(|(idx, v)| (v, idx))
-        .collect();
-
-    for result in rdr.records() {
-        // The iterator yields Result<StringRecord, Error>, so we check the
-        // error here.
-        let record = result?;
-        let Some(text) = record
-            .get(2)
-            .filter(|v| !v.is_empty())
-            .map(|v| v.to_string())
-        else {
-            break;
-        };
-        let appearances: u32 = record.get(3).unwrap().parse()?;
-        conjunctions.push(Conjunction {
-            text: text
-                .chars()
-                .filter_map(|v| char_position_map.get(&v))
-                .cloned()
-                .collect(),
-            appearances,
-        });
-    }
-
-    Ok(conjunctions)
-}
-
 fn save_frequency(table: &FrequencyTable) {
     let mut output = File::create("./frequency_table.bin").unwrap();
     let bin = to_allocvec(&table).unwrap();
@@ -137,14 +98,14 @@ impl Bench {
         }
     }
 
-    fn update(&mut self, total_generations_count: u64, top_scores: &Vec<u64>) {
+    fn update(&mut self, total_generations_count: u64, scores: &[u64]) {
         self.generations_count += 1;
         let now = SystemTime::now();
         let elapsed = now.duration_since(self.last_time).unwrap();
         if elapsed.as_secs() >= 10 {
             let generation_per_sec = self.generations_count as f64 / elapsed.as_secs_f64();
-            let total_score = top_scores.iter().sum::<u64>();
-            let average_score = total_score / top_scores.len() as u64;
+            let total_score = scores.iter().sum::<u64>();
+            let average_score = total_score / scores.len() as u64;
 
             log::info!(
                 "total {}, {} generations in 10 seconds, {:.5} generation/sec, highest average score {}",
@@ -179,6 +140,7 @@ fn main() -> anyhow::Result<()> {
     let scores = Arc::new(ConnectionScore::new(&two_key_timing));
     let running = Arc::new(AtomicBool::new(true));
     let r = running.clone();
+    let mut mutation_request = false;
 
     ctrlc::set_handler(move || {
         r.store(false, Ordering::SeqCst);
@@ -187,7 +149,6 @@ fn main() -> anyhow::Result<()> {
 
     while running.load(Ordering::SeqCst) {
         // 直近の10個が全く変わらない場合、突然変異を強制する
-        let mutation_request = is_exit_score(&mut last_scores);
         let ret = playground.advance(&mut rng, &conjunctions, scores.clone(), mutation_request);
 
         if best_score > ret.0 {
@@ -203,7 +164,7 @@ fn main() -> anyhow::Result<()> {
             best_keymap = Some(ret.1.clone());
         }
 
-        last_scores.insert(0, ret.0);
+        mutation_request = is_mutation_request(&mut last_scores, ret.0);
         bench.update(playground.generation(), &last_scores);
     }
 
@@ -219,19 +180,20 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// exitするかどうかを決定する。トップ10が同一のスコアであれば終了する
-fn is_exit_score(score: &mut Vec<u64>) -> bool {
-    if score.len() < 10 {
-        return false;
-    }
+/// 突然変異を実行するかどうかを判定する。
+///
+/// 突然変異は、score更新前後で平均値が変わらない場合にrequestする
+fn is_mutation_request(scores: &mut Vec<u64>, score: u64) -> bool {
+    let previous_ave = if !scores.is_empty() {
+        scores.iter().sum::<u64>() / scores.len() as u64
+    } else {
+        0
+    };
 
-    let iter = score.iter().collect::<Vec<_>>();
+    scores.insert(0, score);
+    scores.truncate(1000);
 
-    let base_score = iter.first().unwrap();
+    let current_ave = scores.iter().sum::<u64>() / scores.len() as u64;
 
-    let ret = iter.iter().all(|v| v == base_score);
-
-    score.truncate(1000);
-
-    ret
+    previous_ave == current_ave
 }

@@ -662,15 +662,15 @@ impl<'a> Iterator for KeymapIterator<'a> {
     type Item = &'a KeyDef;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while self.index < self.keymap.layout.len() {
-            if let KeyAssignment::A(k) = &self.keymap.layout[self.index] {
-                self.index += 1;
-                return Some(k);
-            }
-            unreachable!("All keys must be assigned");
+        if self.index >= self.keymap.layout.len() {
+            return None;
         }
 
-        None
+        if let KeyAssignment::A(k) = &self.keymap.layout[self.index] {
+            self.index += 1;
+            return Some(k);
+        }
+        unreachable!("All keys must be assigned");
     }
 }
 
