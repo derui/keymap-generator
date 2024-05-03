@@ -22,7 +22,7 @@ pub struct Playground {
 const TOURNAMENT_SIZE: usize = 10;
 const KEYMAP_SIZE: usize = 30;
 const WORKERS: u8 = 20;
-const MUTATION_PROB: f64 = 0.01;
+const MUTATION_PROB: f64 = 0.005;
 
 impl Playground {
     pub fn new(gen_count: u8, rng: &mut StdRng, frequency_table: FrequencyTable) -> Self {
@@ -66,17 +66,19 @@ impl Playground {
         self.generation += 1;
 
         let rank = self.rank(conjunctions, connection_score.clone()).to_vec();
+        let mut picked_keymaps = Vec::new();
         // self.keymapsを個体と見立てて、確率分布を更新する
         for (rank, idx) in self.take_ranks(rng, &rank, TOURNAMENT_SIZE).iter() {
             self.frequency_table
                 .update(&self.keymaps[*idx], 1.0 / (*rank + 1) as f64);
+            picked_keymaps.push(self.keymaps[*idx].clone());
         }
         self.frequency_table.mutate(rng, MUTATION_PROB);
 
         // 確率分布から生成する
         let (tx, tr) = channel();
 
-        (0..KEYMAP_SIZE).for_each(|_| {
+        (0..(KEYMAP_SIZE - TOURNAMENT_SIZE)).for_each(|_| {
             let tx = tx.clone();
             let frequency_table = self.frequency_table.clone();
             let mut rng = StdRng::seed_from_u64(rng.gen());
@@ -90,9 +92,10 @@ impl Playground {
             })
         });
 
-        let new_keymaps: Vec<Keymap> = tr.iter().take(KEYMAP_SIZE).collect();
+        let new_keymaps: Vec<Keymap> = tr.iter().take(KEYMAP_SIZE - TOURNAMENT_SIZE).collect();
         let best_keymap = self.keymaps[rank[0].1].clone();
         self.keymaps = new_keymaps;
+        self.keymaps.extend_from_slice(&picked_keymaps);
 
         (rank[0].0, best_keymap)
     }

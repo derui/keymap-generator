@@ -220,31 +220,40 @@ impl KeyAssigner {
     /// 選択されたキーに含まれている文字は、無シフト面の両方から使用できなくなる
     pub fn pick_key(&mut self, rng: &mut StdRng, key_idx: usize) -> Option<CharCombination> {
         let freq = &self.combinations[key_idx];
+        let mut rows = (0..freq.combinations.len()).collect::<Vec<_>>();
+        rows.sort_by_key(|_| rng.gen::<i32>());
 
         let prob = rng.gen::<f64>();
         let mut accum = 0.0;
-        for (first_idx, first) in freq.combinations.iter().enumerate() {
-            for (second_idx, second) in first.iter().enumerate() {
-                let Some(second) = second else { continue };
+        for first_idx in rows.iter() {
+            let first = &freq.combinations[*first_idx];
 
-                if accum + (*second / freq.total) >= prob {
+            let mut cols = (0..freq.combinations.len()).collect::<Vec<_>>();
+            cols.sort_by_key(|_| rng.gen::<i32>());
+
+            for second_idx in cols.iter() {
+                let Some(second) = first[*second_idx] else {
+                    continue;
+                };
+
+                if accum + (second / freq.total) >= prob {
                     for freq in self.combinations.iter_mut() {
                         freq.disable(
                             &self.character_map,
-                            self.character_index_map[first_idx].normal(),
+                            self.character_index_map[*first_idx].normal(),
                         );
                         freq.disable(
                             &self.character_map,
-                            self.character_index_map[second_idx].normal(),
+                            self.character_index_map[*second_idx].normal(),
                         );
                     }
 
                     return Some(CharCombination(
-                        self.character_index_map[first_idx],
-                        self.character_index_map[second_idx],
+                        self.character_index_map[*first_idx],
+                        self.character_index_map[*second_idx],
                     ));
                 }
-                accum += *second / freq.total;
+                accum += second / freq.total;
             }
         }
 
