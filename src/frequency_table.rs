@@ -211,7 +211,7 @@ impl KeyAssigner {
             })
             .collect::<Vec<_>>();
 
-        vec.sort_by(|(_, comb1), (_, comb2)| comb2.cmp(comb1));
+        vec.sort_unstable_by(|(_, comb1), (_, comb2)| comb2.cmp(comb1));
         vec.into_iter().map(|(v, _)| v).collect()
     }
 
@@ -423,8 +423,6 @@ impl FrequencyTable {
             return;
         }
 
-        for idx in 0..linear_layout().len() {
-            self.frequency[idx].mutate(rng);
-        }
+        self.frequency[rng.gen_range(0..linear_layout().len())].mutate(rng);
     }
 }

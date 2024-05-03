@@ -3,13 +3,14 @@ use std::fmt::Display;
 use rand::rngs::StdRng;
 
 use crate::{
-    char_def::{self},
+    char_def,
     frequency_table::KeyAssigner,
     key_def::KeyDef,
     layout::{
         linear::{
-            self, LINEAR_L_SEMITURBID_INDEX, LINEAR_L_SHIFT_INDEX, LINEAR_L_TURBID_INDEX,
-            LINEAR_R_SEMITURBID_INDEX, LINEAR_R_SHIFT_INDEX, LINEAR_R_TURBID_INDEX,
+            self, linear_layout, LINEAR_L_SEMITURBID_INDEX, LINEAR_L_SHIFT_INDEX,
+            LINEAR_L_TURBID_INDEX, LINEAR_R_SEMITURBID_INDEX, LINEAR_R_SHIFT_INDEX,
+            LINEAR_R_TURBID_INDEX,
         },
         Point,
     },

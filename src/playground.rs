@@ -78,7 +78,7 @@ impl Playground {
         // 確率分布から生成する
         let (tx, tr) = channel();
 
-        (0..(KEYMAP_SIZE - TOURNAMENT_SIZE)).for_each(|_| {
+        (0..KEYMAP_SIZE).for_each(|_| {
             let tx = tx.clone();
             let frequency_table = self.frequency_table.clone();
             let mut rng = StdRng::seed_from_u64(rng.gen());
@@ -92,10 +92,9 @@ impl Playground {
             })
         });
 
-        let new_keymaps: Vec<Keymap> = tr.iter().take(KEYMAP_SIZE - TOURNAMENT_SIZE).collect();
+        let new_keymaps: Vec<Keymap> = tr.iter().take(KEYMAP_SIZE).collect();
         let best_keymap = self.keymaps[rank[0].1].clone();
         self.keymaps = new_keymaps;
-        self.keymaps.extend_from_slice(&picked_keymaps);
 
         (rank[0].0, best_keymap)
     }
