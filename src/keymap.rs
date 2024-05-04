@@ -8,9 +8,8 @@ use crate::{
     key_def::KeyDef,
     layout::{
         linear::{
-            self, linear_layout, LINEAR_L_SEMITURBID_INDEX, LINEAR_L_SHIFT_INDEX,
-            LINEAR_L_TURBID_INDEX, LINEAR_R_SEMITURBID_INDEX, LINEAR_R_SHIFT_INDEX,
-            LINEAR_R_TURBID_INDEX,
+            self, LINEAR_L_SEMITURBID_INDEX, LINEAR_L_SHIFT_INDEX, LINEAR_L_TURBID_INDEX,
+            LINEAR_R_SEMITURBID_INDEX, LINEAR_R_SHIFT_INDEX, LINEAR_R_TURBID_INDEX,
         },
         Point,
     },
@@ -34,11 +33,17 @@ enum KeyAssignment {
 }
 
 impl KeyAssignment {
-    /// 対象の文字が入力可能であるかを返す
-    fn contains(&self, c: char) -> bool {
+    /// 対象の文字の入力時の種別を返す
+    fn as_kind(&self, c: char) -> Option<KeyKind> {
         match self {
-            KeyAssignment::A(k) => k.chars().contains(&c),
-            KeyAssignment::U => false,
+            KeyAssignment::A(k) => match k {
+                _ if k.shifted() == c => Some(KeyKind::Shift),
+                _ if k.turbid() == Some(c) => Some(KeyKind::Turbid),
+                _ if k.semiturbid() == Some(c) => Some(KeyKind::Semiturbid),
+                _ if k.unshift() == c => Some(KeyKind::Normal),
+                _ => None,
+            },
+            KeyAssignment::U => None,
         }
     }
 }
@@ -465,16 +470,7 @@ impl Keymap {
         let layout = linear::linear_layout();
 
         for (idx, assignment) in self.layout.iter().enumerate() {
-            if assignment.contains(char) {
-                let kind = match idx {
-                    LINEAR_L_SHIFT_INDEX | LINEAR_R_SHIFT_INDEX => KeyKind::Shift,
-                    LINEAR_L_TURBID_INDEX => KeyKind::Turbid,
-                    LINEAR_R_TURBID_INDEX => KeyKind::Turbid,
-                    LINEAR_L_SEMITURBID_INDEX => KeyKind::Semiturbid,
-                    LINEAR_R_SEMITURBID_INDEX => KeyKind::Semiturbid,
-                    _ => KeyKind::Normal,
-                };
-
+            if let Some(kind) = assignment.as_kind(char) {
                 return Some((kind, layout[idx]));
             }
         }
