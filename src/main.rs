@@ -141,7 +141,6 @@ fn main() -> anyhow::Result<()> {
     let scores = Arc::new(ConnectionScore::new(&two_key_timing));
     let running = Arc::new(AtomicBool::new(true));
     let r = running.clone();
-    let mut mutation_request = false;
     let mut last_best_updated = SystemTime::now();
 
     ctrlc::set_handler(move || {
@@ -170,16 +169,16 @@ fn main() -> anyhow::Result<()> {
         let now = SystemTime::now();
         if now.duration_since(last_best_updated).unwrap().as_secs() >= 300 {
             log::info!(
-                "Long time no best at generation {}! last score: {}, last best: {} for evaluation:\n{:?}",
+                "Long time no best at generation {}. last score: {}, last best score: {} for evaluation:\n{:?}",
                 playground.generation(),
                 ret.0,
-                ret.1,
-                ret.1.key_combinations(&QWERTY)
+                best_score,
+                best_keymap.clone().unwrap().key_combinations(&QWERTY)
             );
             last_best_updated = now;
         }
 
-        mutation_request = is_mutation_request(&mut last_scores, ret.0);
+        is_mutation_request(&mut last_scores, ret.0);
         bench.update(playground.generation(), &last_scores);
     }
 

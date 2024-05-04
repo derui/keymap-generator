@@ -48,9 +48,10 @@ pub fn evaluate(
     let mut pos_cache: Vec<(KeyKind, Point)> = Vec::with_capacity(char_def::all_chars().len());
 
     for c in char_def::all_chars().iter() {
-        if let Some(v) = keymap.get(*c) {
-            pos_cache.push(v);
-        }
+        let Some(v) = keymap.get(*c) else {
+            unreachable!("should not have any missing key")
+        };
+        pos_cache.push(v);
     }
 
     let mut key_sequence: Vec<Evaluation> = Vec::with_capacity(4);
