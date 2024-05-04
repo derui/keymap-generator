@@ -36,12 +36,12 @@ impl KeyAssignment {
     /// 対象の文字の入力時の種別を返す
     fn as_kind(&self, c: char) -> Option<KeyKind> {
         match self {
-            KeyAssignment::A(k) => match k {
-                _ if k.shifted() == c => Some(KeyKind::Shift),
-                _ if k.turbid() == Some(c) => Some(KeyKind::Turbid),
-                _ if k.semiturbid() == Some(c) => Some(KeyKind::Semiturbid),
-                _ if k.unshift() == c => Some(KeyKind::Normal),
-                _ => None,
+            KeyAssignment::A(k) => match () {
+                () if k.shifted() == c => Some(KeyKind::Shift),
+                () if k.turbid() == Some(c) => Some(KeyKind::Turbid),
+                () if k.semiturbid() == Some(c) => Some(KeyKind::Semiturbid),
+                () if k.unshift() == c => Some(KeyKind::Normal),
+                () => None,
             },
             KeyAssignment::U => None,
         }
