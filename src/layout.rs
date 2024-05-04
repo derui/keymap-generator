@@ -36,39 +36,6 @@ pub mod linear {
 
     use super::Point;
 
-    const LINEAR_LAYOUT: [Point; 26] = [
-        // Point { row: 0, col: 0 },
-        Point { row: 0, col: 1 },
-        Point { row: 0, col: 2 },
-        Point { row: 0, col: 3 },
-        // Point { row: 0, col: 4 },
-        // Point { row: 0, col: 5 },
-        Point { row: 0, col: 6 },
-        Point { row: 0, col: 7 },
-        Point { row: 0, col: 8 },
-        // Point { row: 0, col: 9 },
-        Point { row: 1, col: 0 },
-        Point { row: 1, col: 1 },
-        Point { row: 1, col: 2 },
-        Point { row: 1, col: 3 },
-        Point { row: 1, col: 4 },
-        Point { row: 1, col: 5 },
-        Point { row: 1, col: 6 },
-        Point { row: 1, col: 7 },
-        Point { row: 1, col: 8 },
-        Point { row: 1, col: 9 },
-        Point { row: 2, col: 0 },
-        Point { row: 2, col: 1 },
-        Point { row: 2, col: 2 },
-        Point { row: 2, col: 3 },
-        Point { row: 2, col: 4 },
-        Point { row: 2, col: 5 },
-        Point { row: 2, col: 6 },
-        Point { row: 2, col: 7 },
-        Point { row: 2, col: 8 },
-        Point { row: 2, col: 9 },
-    ];
-
     const LINEAR_MAPPING: [(char, Point); 26] = [
         // Point { row: 0, col: 0 },
         ('w', Point { row: 0, col: 1 }),
@@ -111,8 +78,12 @@ pub mod linear {
     pub const LINEAR_R_SEMITURBID_INDEX: usize = 22;
 
     /// 直線的になるレイアウトを返す
-    pub fn linear_layout() -> &'static [Point] {
-        &LINEAR_LAYOUT
+    pub fn linear_layout() -> Vec<Point> {
+        LINEAR_MAPPING
+            .iter()
+            .cloned()
+            .map(|v| v.1)
+            .collect::<Vec<_>>()
     }
 
     /// 直線的になるレイアウトと、QWERTYにおいて対応する文字のmappingを返す
