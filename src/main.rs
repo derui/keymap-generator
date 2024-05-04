@@ -176,6 +176,7 @@ fn main() -> anyhow::Result<()> {
                 ret.1,
                 ret.1.key_combinations(&QWERTY)
             );
+            last_best_updated = now;
         }
 
         mutation_request = is_mutation_request(&mut last_scores, ret.0);

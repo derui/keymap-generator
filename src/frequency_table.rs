@@ -57,6 +57,24 @@ impl CombinationFrequency {
     ///
     /// 突然変異は、最大と最小のindexの値を交換する。
     fn mutate(&mut self, rng: &mut StdRng) {
+        let current_total = self.total;
+        self.combinations.iter_mut().for_each(|row| {
+            row.iter_mut().for_each(|v| {
+                if let Some(v) = v {
+                    *v = (*v / current_total * 100.0).max(1.0).min(100.0);
+                }
+            })
+        });
+        self.total = self
+            .combinations
+            .iter()
+            .flatten()
+            .map(|v| match v {
+                Some(v) => *v,
+                None => 0.0,
+            })
+            .sum::<f64>();
+
         let combinations = self
             .combinations
             .iter()
