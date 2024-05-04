@@ -169,10 +169,11 @@ fn main() -> anyhow::Result<()> {
         let now = SystemTime::now();
         if now.duration_since(last_best_updated).unwrap().as_secs() >= 300 {
             log::info!(
-                "Long time no best at generation {}. last score: {}, last best score: {} for evaluation:\n{:?}",
+                "Long time no best at generation {}. last score: {}, last best score: {}, {} for evaluation:\n{:?}",
                 playground.generation(),
                 ret.0,
                 best_score,
+                best_keymap.clone().unwrap(),
                 best_keymap.clone().unwrap().key_combinations(&QWERTY)
             );
             last_best_updated = now;

@@ -61,7 +61,7 @@ impl CombinationFrequency {
         self.combinations.iter_mut().for_each(|row| {
             row.iter_mut().for_each(|v| {
                 if let Some(v) = v {
-                    *v = (*v / current_total * 100.0).max(1.0).min(100.0);
+                    *v = (*v / current_total * 10000.0).max(1.0).min(100.0);
                 }
             })
         });

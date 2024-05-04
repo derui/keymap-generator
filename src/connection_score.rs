@@ -152,13 +152,12 @@ impl ConnectionScore {
     ///
     /// ここでの結果は、4連接自体と、シフトに対する評価の両方の合算値である。
     pub fn evaluate(&self, sequence: &[Evaluation]) -> u64 {
-        let mut positions = sequence.iter().map(|v| v.positions);
         let mut score = 0;
 
-        let first: Option<(usize, usize)> = positions.nth(0).map(|(p, _)| p.into());
-        let second: Option<(usize, usize)> = positions.nth(1).map(|(p, _)| p.into());
-        let third: Option<(usize, usize)> = positions.nth(2).map(|(p, _)| p.into());
-        let fourth: Option<(usize, usize)> = positions.nth(3).map(|(p, _)| p.into());
+        let first: Option<(usize, usize)> = sequence.get(0).map(|p| p.positions.0.into());
+        let second: Option<(usize, usize)> = sequence.get(1).map(|p| p.positions.0.into());
+        let third: Option<(usize, usize)> = sequence.get(2).map(|p| p.positions.0.into());
+        let fourth: Option<(usize, usize)> = sequence.get(3).map(|p| p.positions.0.into());
 
         score += unsafe {
             *self
@@ -166,12 +165,18 @@ impl ConnectionScore {
                 .get_unchecked(self.get_index(&first, &second, &third, &fourth)) as u64
         };
 
-        let first: Option<(usize, usize)> = positions.nth(0).and_then(|(_, p)| p.map(|v| v.into()));
-        let second: Option<(usize, usize)> =
-            positions.nth(1).and_then(|(_, p)| p.map(|v| v.into()));
-        let third: Option<(usize, usize)> = positions.nth(2).and_then(|(_, p)| p.map(|v| v.into()));
-        let fourth: Option<(usize, usize)> =
-            positions.nth(3).and_then(|(_, p)| p.map(|v| v.into()));
+        let first: Option<(usize, usize)> = sequence
+            .get(0)
+            .and_then(|p| p.positions.1.map(|v| v.into()));
+        let second: Option<(usize, usize)> = sequence
+            .get(1)
+            .and_then(|p| p.positions.1.map(|v| v.into()));
+        let third: Option<(usize, usize)> = sequence
+            .get(2)
+            .and_then(|p| p.positions.1.map(|v| v.into()));
+        let fourth: Option<(usize, usize)> = sequence
+            .get(3)
+            .and_then(|p| p.positions.1.map(|v| v.into()));
 
         score += unsafe {
             let v = *self
