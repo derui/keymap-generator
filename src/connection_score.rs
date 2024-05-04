@@ -220,7 +220,6 @@ impl ConnectionScore {
         let l: Pos = Pos::from(*l);
 
         // 2連接の評価
-        score += i.two_conjunction_scores(&j, &timings);
         score += j.two_conjunction_scores(&k, &timings);
 
         // 3連接の評価
