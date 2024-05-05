@@ -1,4 +1,7 @@
-use std::sync::{mpsc::channel, Arc};
+use std::{
+    collections::HashMap,
+    sync::{mpsc::channel, Arc},
+};
 
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
@@ -22,7 +25,7 @@ pub struct Playground {
 const TOURNAMENT_SIZE: usize = 10;
 const KEYMAP_SIZE: usize = 30;
 const WORKERS: u8 = 20;
-const MUTATION_PROB: f64 = 0.005;
+const MUTATION_PROB: f64 = 0.01;
 
 impl Playground {
     pub fn new(gen_count: u8, rng: &mut StdRng, frequency_table: FrequencyTable) -> Self {
@@ -78,19 +81,22 @@ impl Playground {
         // 確率分布から生成する
         let (tx, tr) = channel();
 
-        (0..KEYMAP_SIZE).for_each(|_| {
-            let tx = tx.clone();
-            let frequency_table = self.frequency_table.clone();
-            let mut rng = StdRng::seed_from_u64(rng.gen());
+        {
+            let table = Arc::new(Box::new(self.frequency_table.clone()));
+            (0..KEYMAP_SIZE).for_each(|_| {
+                let tx = tx.clone();
+                let frequency_table = table.clone();
+                let mut rng = StdRng::seed_from_u64(rng.gen());
 
-            self.pool.execute(move || loop {
-                let mut assigner = KeyAssigner::from_freq(&frequency_table);
-                if let Some(new_keymap) = Keymap::generate(&mut rng, &mut assigner) {
-                    tx.send(new_keymap).unwrap();
-                    break;
-                }
-            })
-        });
+                self.pool.execute(move || loop {
+                    let mut assigner = KeyAssigner::from_freq(&frequency_table);
+                    if let Some(new_keymap) = Keymap::generate(&mut rng, &mut assigner) {
+                        tx.send(new_keymap).unwrap();
+                        break;
+                    }
+                })
+            });
+        }
 
         let new_keymaps: Vec<Keymap> = tr.iter().take(KEYMAP_SIZE).collect();
         let best_keymap = self.keymaps[rank[0].1].clone();
