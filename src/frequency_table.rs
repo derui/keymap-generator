@@ -412,10 +412,12 @@ impl FrequencyTable {
 
         // 半濁音キーのシフト面は句読点を配置する
         // これは、半濁音と濁音に上記の制約を付加すると、単純にキーが足らないので、ここだけは固定ではないこととするため。
-        combinations[LINEAR_L_SEMITURBID_INDEX] =
-            CombinationFrequency::new(|ch1, ch2| ch1.is_cleartone() && ch2.is_punctuation_mark());
-        combinations[LINEAR_R_SEMITURBID_INDEX] =
-            CombinationFrequency::new(|ch1, ch2| ch1.is_cleartone() && ch2.is_reading_point());
+        combinations[LINEAR_L_SEMITURBID_INDEX] = CombinationFrequency::new(|ch1, ch2| {
+            ch1.semiturbid() == None && ch2.is_punctuation_mark()
+        });
+        combinations[LINEAR_R_SEMITURBID_INDEX] = CombinationFrequency::new(|ch1, ch2| {
+            ch1.semiturbid() == None && ch2.is_reading_point()
+        });
 
         FrequencyTable {
             frequency: combinations,
