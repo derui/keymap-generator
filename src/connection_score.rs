@@ -449,6 +449,14 @@ impl Pos {
                 }
             },
             |first: &Pos, second: &Pos| {
+                // 同じ指で連続して押下している場合はペナルティを与える
+                if first.is_same_hand_and_finger(second) && first.0 != second.0 {
+                    150
+                } else {
+                    0
+                }
+            },
+            |first: &Pos, second: &Pos| {
                 // 段飛ばしをしている場合はペナルティを与える
                 if first.is_skip_row(second) {
                     100
