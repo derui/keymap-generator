@@ -51,15 +51,23 @@ fn read_4gram(path: &Path) -> anyhow::Result<Vec<Conjunction>> {
         let record = result?;
         let text: String = record.get(0).unwrap().to_string();
         let appearances: u32 = record.get(1).unwrap().parse()?;
+
+        let filtered = text
+            .chars()
+            .filter_map(|v| char_position_map.get(&v))
+            .cloned()
+            .collect::<Vec<_>>();
+        if filtered.len() != text.chars().collect::<Vec<_>>().len() {
+            continue;
+        }
+
         conjunctions.push(Conjunction {
-            text: text
-                .chars()
-                .filter_map(|v| char_position_map.get(&v))
-                .cloned()
-                .collect(),
+            text: filtered,
             appearances,
         });
     }
+
+    log::info!("log load {} 4-grams as conjunction", conjunctions.len());
 
     Ok(conjunctions)
 }
