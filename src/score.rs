@@ -93,7 +93,7 @@ pub fn evaluate(
             key_sequence.push(v);
         }
 
-        score += pre_scores.evaluate(&key_sequence);
+        score += pre_scores.evaluate(&key_sequence) * conjunction.appearances as u64;
         key_sequence.clear()
     }
     score
