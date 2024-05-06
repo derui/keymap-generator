@@ -396,9 +396,11 @@ impl FrequencyTable {
         // 可能なキーの位置は26個なので、その分の分布を設定する
         let mut combinations = vec![CombinationFrequency::new(|_, _| true); 26];
 
-        // シフトキーのシフト面に対しては、清音しか許容できない。
-        combinations[LINEAR_L_SHIFT_INDEX] = CombinationFrequency::new(|_, ch2| ch2.is_cleartone());
-        combinations[LINEAR_R_SHIFT_INDEX] = CombinationFrequency::new(|_, ch2| ch2.is_cleartone());
+        // シフトキーに対しては、清音しか許容できない。
+        combinations[LINEAR_L_SHIFT_INDEX] =
+            CombinationFrequency::new(|ch1, ch2| ch1.is_cleartone() && ch2.is_cleartone());
+        combinations[LINEAR_R_SHIFT_INDEX] =
+            CombinationFrequency::new(|ch1, ch2| ch1.is_cleartone() && ch2.is_cleartone());
 
         // 濁音シフトには、半濁音または濁音のキーは配置できない
         [LINEAR_L_TURBID_INDEX, LINEAR_R_TURBID_INDEX]
