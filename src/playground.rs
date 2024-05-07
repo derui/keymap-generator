@@ -17,6 +17,8 @@ use crate::{
 pub struct Playground {
     generation: u64,
     keymaps: Vec<Keymap>,
+    best_score: u64,
+    generated_keymaps: Vec<(u64, Keymap)>,
 
     frequency_table: FrequencyTable,
     pool: threadpool::ThreadPool,
@@ -43,6 +45,8 @@ impl Playground {
         Playground {
             pool: threadpool::ThreadPool::new(WORKERS as usize),
             generation: 1,
+            best_score: u64::MAX,
+            generated_keymaps: Vec::new(),
             keymaps,
             frequency_table,
         }
@@ -68,41 +72,107 @@ impl Playground {
     ) -> (u64, Keymap) {
         self.generation += 1;
 
+        // self.advance_with_neighbor(rng, conjunctions, connection_score)
+        self.advance_with_ga(rng, conjunctions, connection_score)
+    }
+
+    fn advance_with_neighbor(
+        &mut self,
+        rng: &mut StdRng,
+        conjunctions: &[Conjunction],
+        connection_score: Arc<ConnectionScore>,
+    ) -> (u64, Keymap) {
         let rank = self.rank(conjunctions, connection_score.clone()).to_vec();
-        let mut picked_keymaps = Vec::new();
+        let best = self.keymaps[rank[0].1].clone();
+        let (score, best) = self.re_rank_neighbor(conjunctions, connection_score.clone(), &best);
+        self.frequency_table.update(&best, 1.0 / KEYMAP_SIZE as f64);
+        self.frequency_table.mutate(rng, MUTATION_PROB);
+
+        if score < self.best_score {
+            self.best_score = score;
+            self.keymaps[rank[0].1] = best.clone();
+            (score, best)
+        } else {
+            (rank[0].0, self.keymaps[rank[0].1].clone())
+        }
+    }
+
+    fn advance_with_ga(
+        &mut self,
+        rng: &mut StdRng,
+        conjunctions: &[Conjunction],
+        connection_score: Arc<ConnectionScore>,
+    ) -> (u64, Keymap) {
+        let rank = self.rank(conjunctions, connection_score.clone()).to_vec();
         // self.keymapsを個体と見立てて、確率分布を更新する
         for (rank, idx) in self.take_ranks(rng, &rank, TOURNAMENT_SIZE).iter() {
             self.frequency_table
                 .update(&self.keymaps[*idx], 1.0 / (*rank + 1) as f64);
-            picked_keymaps.push(self.keymaps[*idx].clone());
         }
         self.frequency_table.mutate(rng, MUTATION_PROB);
 
-        // 確率分布から生成する
+        // 改善できなくなった時点のキーマップを保存し、ベストを更新する
         let (tx, tr) = channel();
 
-        {
-            let table = Arc::new(Box::new(self.frequency_table.clone()));
-            (0..KEYMAP_SIZE).for_each(|_| {
-                let tx = tx.clone();
-                let frequency_table = table.clone();
-                let mut rng = StdRng::seed_from_u64(rng.gen());
+        let table = Arc::new(Box::new(self.frequency_table.clone()));
+        (0..KEYMAP_SIZE).for_each(|_| {
+            let tx = tx.clone();
+            let frequency_table = table.clone();
+            let mut rng = StdRng::seed_from_u64(rng.gen());
 
-                self.pool.execute(move || loop {
-                    let mut assigner = KeyAssigner::from_freq(&frequency_table);
-                    if let Some(new_keymap) = Keymap::generate(&mut rng, &mut assigner) {
-                        tx.send(new_keymap).unwrap();
-                        break;
-                    }
-                })
-            });
-        }
+            self.pool.execute(move || loop {
+                let mut assigner = KeyAssigner::from_freq(&frequency_table);
+                if let Some(new_keymap) = Keymap::generate(&mut rng, &mut assigner) {
+                    tx.send(new_keymap).unwrap();
+                    break;
+                }
+            })
+        });
 
         let new_keymaps: Vec<Keymap> = tr.iter().take(KEYMAP_SIZE).collect();
         let best_keymap = self.keymaps[rank[0].1].clone();
         self.keymaps = new_keymaps;
-
         (rank[0].0, best_keymap)
+    }
+
+    /// 最近傍探索をして、類似keymapのなかでbestなものを探す
+    fn re_rank_neighbor(
+        &self,
+        conjunctions: &[Conjunction],
+        connection_score: Arc<ConnectionScore>,
+        keymap: &Keymap,
+    ) -> (u64, Keymap) {
+        let conjunctions = Arc::new(conjunctions.to_vec());
+
+        let (tx, tr) = channel();
+        let mut keymaps: Vec<Keymap> = Vec::with_capacity(5000);
+
+        for (i, _) in keymap.iter().enumerate() {
+            for (j, _) in keymap.iter().enumerate() {
+                if i >= j {
+                    continue;
+                }
+
+                let swaps = keymap.swap_keys(i, j);
+                keymaps.extend_from_slice(&swaps);
+            }
+        }
+
+        keymaps.iter().enumerate().for_each(|(idx, k)| {
+            let k = k.clone();
+            let tx = tx.clone();
+            let conjunctions = conjunctions.clone();
+            let pre_scores = connection_score.clone();
+
+            self.pool.execute(move || {
+                let score = score::evaluate(&conjunctions, &pre_scores, &k);
+                tx.send((score, idx)).expect("should be success")
+            })
+        });
+
+        let mut scores: Vec<(u64, usize)> = tr.iter().take(keymaps.len()).collect();
+        scores.sort_by(|a, b| a.0.cmp(&b.0));
+        (scores[0].0, keymaps[scores[0].1].to_owned())
     }
 
     /// 指定した `count` の個数分 `rank` から取得する

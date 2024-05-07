@@ -252,19 +252,19 @@ const CHARS: [CharDef; 51] = [
         semiturbid: None,
     },
     CharDef {
-        normal: 'や',
+        normal: 'ゃ',
         turbid: None,
-        semiturbid: Some('ゃ'),
+        semiturbid: Some('や'),
     },
     CharDef {
-        normal: 'ゆ',
+        normal: 'ゅ',
         turbid: None,
-        semiturbid: Some('ゅ'),
+        semiturbid: Some('ゆ'),
     },
     CharDef {
-        normal: 'よ',
+        normal: 'ょ',
         turbid: None,
-        semiturbid: Some('ょ'),
+        semiturbid: Some('よ'),
     },
     CharDef {
         normal: 'ら',

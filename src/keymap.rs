@@ -46,6 +46,14 @@ impl KeyAssignment {
             KeyAssignment::U => None,
         }
     }
+
+    /// assignされていればswapする
+    fn swap(&mut self) {
+        match self {
+            KeyAssignment::A(k) => k.swap(),
+            KeyAssignment::U => (),
+        }
+    }
 }
 
 /// 有効なキーマップ
@@ -108,7 +116,7 @@ mod constraints {
                 let l = l.turbid();
                 let r = r.turbid();
 
-                matches!((l, r), (Some(_), None) | (None, Some(_)))
+                matches!((l, r), (Some(_), None) | (None, Some(_)) | (None, None))
             }
             _ => true,
         }
@@ -124,7 +132,7 @@ mod constraints {
                 let l = l.semiturbid();
                 let r = r.semiturbid();
 
-                matches!((l, r), (Some(_), None) | (None, Some(_)))
+                matches!((l, r), (Some(_), None) | (None, Some(_)) | (None, None))
             }
             _ => true,
         }
@@ -453,14 +461,57 @@ impl Keymap {
         let checks = [
             constraints::should_shift_having_same_key,
             constraints::should_shift_only_clear_tones,
-            // constraints::should_be_explicit_between_left_turbid_and_right_semiturbit,
-            // constraints::should_only_one_turbid,
-            // constraints::should_be_explicit_between_right_turbid_and_left_semiturbit,
-            // constraints::should_only_one_semiturbid,
+            constraints::should_be_explicit_between_left_turbid_and_right_semiturbit,
+            constraints::should_only_one_turbid,
+            constraints::should_be_explicit_between_right_turbid_and_left_semiturbit,
+            constraints::should_only_one_semiturbid,
             constraints::should_be_able_to_all_input,
         ];
 
         checks.iter().all(|c| c(&self.layout))
+    }
+
+    /// 指定したindex間でキーを入れ替える
+    ///
+    /// #Return
+    /// 入れ替え後のキーマップ。制約を満たさない場合はNoneを返す
+    pub fn swap_keys(&self, idx1: usize, idx2: usize) -> Vec<Self> {
+        let mut new = self.clone();
+        let mut vec = Vec::new();
+
+        new.layout[idx1].swap();
+        if new.meet_requirements() {
+            vec.push(new.clone());
+            new.layout[idx1].swap();
+        }
+        new.layout[idx2].swap();
+        if new.meet_requirements() {
+            vec.push(new.clone());
+            new.layout[idx2].swap();
+        }
+
+        new.layout.swap(idx1, idx2);
+        if new.meet_requirements() {
+            vec.push(new.clone());
+        }
+
+        new.layout[idx1].swap();
+        if new.meet_requirements() {
+            vec.push(new.clone());
+        }
+
+        new.layout[idx1].swap();
+        new.layout[idx2].swap();
+        if new.meet_requirements() {
+            vec.push(new.clone());
+        }
+
+        new.layout[idx1].swap();
+        if new.meet_requirements() {
+            vec.push(new.clone());
+        }
+
+        vec
     }
 
     /// 指定した文字を入力できるキーを返す
