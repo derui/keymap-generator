@@ -117,12 +117,20 @@ impl ConnectionScore {
                 let score = this.evaluate_two_connection(&i.into(), &j.into());
                 let index = this.get_index(&Some(i.into()), &Some(j.into()), &None, &None);
                 this.scores[index] = score;
+                let index = this.get_index(&None, &Some(j.into()), &None, &None);
+                this.scores[index] = score;
 
                 for k in indices.iter().cloned() {
                     let score =
                         this.evaluate_three_connection(timings, &i.into(), &j.into(), &k.into());
                     let index =
                         this.get_index(&Some(i.into()), &Some(j.into()), &Some(k.into()), &None);
+                    this.scores[index] = score;
+                    let index = this.get_index(&None, &Some(j.into()), &Some(k.into()), &None);
+                    this.scores[index] = score;
+                    let index = this.get_index(&None, &None, &Some(k.into()), &None);
+                    this.scores[index] = score;
+                    let index = this.get_index(&Some(i.into()), &None, &Some(k.into()), &None);
                     this.scores[index] = score;
 
                     for l in indices.iter().cloned() {
@@ -329,7 +337,7 @@ impl ConnectionScore {
             |first: &Pos, second: &Pos, third: &Pos| {
                 // 同じ手を連続して打鍵しているばあいはペナルティを与える
                 if first.is_same_hand(second) && second.is_same_hand(third) {
-                    100
+                    300
                 } else {
                     0
                 }
@@ -357,16 +365,24 @@ impl ConnectionScore {
         // rowは0-2、colは0-9なので、全部合わせても31に収まるのでこうする。bit maskは本来なくてもいいのだが、一応追加している
         let mut index: usize = 0;
         if let Some((r, c)) = i {
-            index = (index << 5) | ((r * 10 + c) & bit_mask)
+            index = (index << 5) | ((r * 10 + c + 1) & bit_mask)
+        } else {
+            index <<= 5
         }
         if let Some((r, c)) = j {
-            index = (index << 5) | ((r * 10 + c) & bit_mask)
+            index = (index << 5) | ((r * 10 + c + 1) & bit_mask)
+        } else {
+            index <<= 5
         }
         if let Some((r, c)) = k {
-            index = (index << 5) | ((r * 10 + c) & bit_mask)
+            index = (index << 5) | ((r * 10 + c + 1) & bit_mask)
+        } else {
+            index <<= 5
         }
         if let Some((r, c)) = l {
-            index = (index << 5) | ((r * 10 + c) & bit_mask)
+            index = (index << 5) | ((r * 10 + c + 1) & bit_mask)
+        } else {
+            index <<= 5
         }
 
         index
