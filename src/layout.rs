@@ -29,12 +29,18 @@ impl From<(usize, usize)> for Point {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Hand {
+    Right,
+    Left,
+}
+
 /// 直線的なレイアウトを表す。ここでのレイアウトは、あくまでも通常のキー配置との対応関係のみを管理しており、
 /// 割当などは対応外である。
 pub mod linear {
     use std::collections::HashMap;
 
-    use super::Point;
+    use super::{Hand, Point};
 
     const LINEAR_MAPPING: [(char, Point); 26] = [
         // Point { row: 0, col: 0 },
@@ -72,10 +78,6 @@ pub mod linear {
     /// 各特殊キーの位置
     pub const LINEAR_L_SHIFT_INDEX: usize = 8;
     pub const LINEAR_R_SHIFT_INDEX: usize = 13;
-    pub const LINEAR_L_TURBID_INDEX: usize = 9;
-    pub const LINEAR_R_TURBID_INDEX: usize = 12;
-    pub const LINEAR_L_SEMITURBID_INDEX: usize = 19;
-    pub const LINEAR_R_SEMITURBID_INDEX: usize = 22;
 
     /// 直線的になるレイアウトを返す
     pub fn linear_layout() -> Vec<Point> {
@@ -89,5 +91,43 @@ pub mod linear {
     /// 直線的になるレイアウトと、QWERTYにおいて対応する文字のmappingを返す
     pub fn linear_mapping() -> HashMap<char, Point> {
         LINEAR_MAPPING.iter().cloned().collect()
+    }
+
+    /// layoutにおいて担当する手を返す
+    pub fn get_hand_of_point(point: &Point) -> Hand {
+        if point.col <= 4 {
+            Hand::Left
+        } else {
+            Hand::Right
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use self::linear::get_hand_of_point;
+
+    use super::*;
+
+    #[test]
+    fn get_left_hand() {
+        // arrange
+
+        // act
+        let ret = get_hand_of_point(&Point { row: 1, col: 3 });
+
+        // assert
+        assert_eq!(ret, Hand::Left);
+    }
+
+    #[test]
+    fn get_right_hand() {
+        // arrange
+
+        // act
+        let ret = get_hand_of_point(&Point { row: 1, col: 5 });
+
+        // assert
+        assert_eq!(ret, Hand::Right);
     }
 }
