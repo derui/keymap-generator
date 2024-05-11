@@ -1,13 +1,11 @@
 use crate::{
     char_def,
     connection_score::{ConnectionScore, Evaluation, Pos},
+    key_seq::KeySeq,
     keymap::{KeyKind, Keymap},
     layout::{
         self,
-        linear::{
-            LINEAR_L_SEMITURBID_INDEX, LINEAR_L_SHIFT_INDEX, LINEAR_L_TURBID_INDEX,
-            LINEAR_R_SEMITURBID_INDEX, LINEAR_R_SHIFT_INDEX, LINEAR_R_TURBID_INDEX,
-        },
+        linear::{LINEAR_L_SHIFT_INDEX, LINEAR_R_SHIFT_INDEX},
         Point,
     },
 };
@@ -45,7 +43,7 @@ pub fn evaluate(
     let mut score = 0;
     let linear_layout = layout::linear::linear_layout();
 
-    let mut pos_cache: Vec<(KeyKind, Point)> = Vec::with_capacity(char_def::all_chars().len());
+    let mut pos_cache: Vec<KeySeq> = Vec::with_capacity(char_def::all_chars().len());
 
     for c in char_def::all_chars().iter() {
         let Some(v) = keymap.get(*c) else {
@@ -54,43 +52,15 @@ pub fn evaluate(
         pos_cache.push(v);
     }
 
-    let mut key_sequence: Vec<Evaluation> = Vec::with_capacity(4);
+    let mut key_sequence: Vec<Evaluation> = Vec::with_capacity(10);
     for conjunction in conjunctions {
         for ch in conjunction.text.iter() {
-            let (k, point) = pos_cache[*ch];
-            let (r, c): (usize, usize) = point.into();
+            let seq = &pos_cache[*ch];
+            let seq = seq.as_raw_sequence();
 
-            // 対象の文字がshift/濁音/半濁音の場合は、それに対応するキーも評価に加える
-            // この場合、一応1動作として扱うのだが、次の打鍵に対してそれぞれからの評価が追加されるものとする
-            let additional_finger: Option<Pos> = match k {
-                crate::keymap::KeyKind::Normal => None,
-                crate::keymap::KeyKind::Shift => {
-                    if HAND_ASSIGNMENT[r][c] == 2 {
-                        Some((&linear_layout[LINEAR_L_SHIFT_INDEX]).into())
-                    } else {
-                        Some((&linear_layout[LINEAR_R_SHIFT_INDEX]).into())
-                    }
-                }
-                crate::keymap::KeyKind::Turbid => {
-                    if HAND_ASSIGNMENT[r][c] == 2 {
-                        Some((&linear_layout[LINEAR_L_TURBID_INDEX]).into())
-                    } else {
-                        Some((&linear_layout[LINEAR_R_TURBID_INDEX]).into())
-                    }
-                }
-                crate::keymap::KeyKind::Semiturbid => {
-                    if HAND_ASSIGNMENT[r][c] == 2 {
-                        Some((&linear_layout[LINEAR_L_SEMITURBID_INDEX]).into())
-                    } else {
-                        Some((&linear_layout[LINEAR_R_SEMITURBID_INDEX]).into())
-                    }
-                }
-            };
-
-            let v = Evaluation {
-                positions: ((r, c).into(), additional_finger),
-            };
-            key_sequence.push(v);
+            key_sequence.extend(seq.iter().map(|(p, s)| Evaluation {
+                positions: (p.into(), s.map(|v| (&v).into())),
+            }));
         }
 
         score += pre_scores.evaluate(&key_sequence) * conjunction.appearances as u64;

@@ -1,4 +1,4 @@
-use crate::{char_def::CharDef, frequency_table::CharCombination};
+use crate::{char_def::CharDef, frequency_table::CharCombination, key_seq::KeySeq, layout::Point};
 
 /// キー自体の基本定義。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -7,12 +7,41 @@ pub struct KeyDef {
     shifted: CharDef,
 }
 
+/// 前置シフトのパターン
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PreShiftPattern {
+    // 無シフト
+    Unshift,
+    // シフト
+    Shift,
+    // 前置シフトのキーではない
+    NoPreShift,
+}
+
 impl KeyDef {
     /// 無シフトに対して[def]を設定した[KeyDef]を返す
     pub fn from_combination(combination: &CharCombination) -> Self {
         KeyDef {
             unshift: combination.unshift(),
             shifted: combination.shifted(),
+        }
+    }
+
+    // 濁点を持つかを返す
+    pub fn as_turbid(&self, point: &Point) -> Option<KeySeq> {
+        match (self.unshift, self.shifted) {
+            (CharDef::Turbid, _) => Some(KeySeq::from_unshift(self.unshift.normal(), point)),
+            (_, CharDef::Turbid) => Some(KeySeq::from_shift(self.shifted.normal(), point)),
+            _ => None,
+        }
+    }
+
+    // 半濁点を持つかを返す
+    pub fn as_semiturbid(&self, point: &Point) -> Option<KeySeq> {
+        match (self.unshift, self.shifted) {
+            (CharDef::SemiTurbid, _) => Some(KeySeq::from_unshift(self.unshift.normal(), point)),
+            (_, CharDef::SemiTurbid) => Some(KeySeq::from_shift(self.shifted.normal(), point)),
+            _ => None,
         }
     }
 

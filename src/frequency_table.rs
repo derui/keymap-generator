@@ -1,7 +1,4 @@
-use std::{
-    collections::{HashMap, HashSet},
-    hash::BuildHasherDefault,
-};
+use std::collections::HashMap;
 
 use rand::{rngs::StdRng, Rng};
 use serde::{Deserialize, Serialize};
@@ -9,10 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     char_def::{self, definitions, CharDef},
     keymap::Keymap,
-    layout::linear::{
-        linear_layout, LINEAR_L_SEMITURBID_INDEX, LINEAR_L_SHIFT_INDEX, LINEAR_L_TURBID_INDEX,
-        LINEAR_R_SEMITURBID_INDEX, LINEAR_R_SHIFT_INDEX, LINEAR_R_TURBID_INDEX,
-    },
+    layout::linear::{linear_layout, LINEAR_L_SHIFT_INDEX, LINEAR_R_SHIFT_INDEX},
 };
 
 /// 存在する文字のシフト面と無シフト面に対する組み合わせにおける頻度を表す
@@ -394,30 +388,16 @@ impl FrequencyTable {
     /// 一様な変更として認識するため、0.5で初期化している
     pub fn new() -> Self {
         // 可能なキーの位置は26個なので、その分の分布を設定する
-        let mut combinations = vec![CombinationFrequency::new(|_, _| true); 26];
-
-        // シフトキーに対しては、清音しか許容できない。
-        combinations[LINEAR_L_SHIFT_INDEX] =
-            CombinationFrequency::new(|ch1, ch2| ch1.is_cleartone() && ch2.is_cleartone());
-        combinations[LINEAR_R_SHIFT_INDEX] =
-            CombinationFrequency::new(|ch1, ch2| ch1.is_cleartone() && ch2.is_cleartone());
-
-        // 濁音シフトには、半濁音または濁音のキーは配置できない
-        [LINEAR_L_TURBID_INDEX, LINEAR_R_TURBID_INDEX]
-            .iter()
-            .for_each(|idx| {
-                combinations[*idx] =
-                    CombinationFrequency::new(|ch1, ch2| ch1.is_cleartone() && ch2.is_cleartone());
+        // 句読点は特殊なキーに割り当てられるため、それらは除外する
+        let mut combinations = vec![
+            CombinationFrequency::new(|p1, p2| {
+                !(p1.is_reading_point()
+                    || p1.is_punctuation_mark()
+                    || p2.is_reading_point()
+                    || p2.is_punctuation_mark())
             });
-
-        // 半濁音キーのシフト面は句読点を配置する
-        // これは、半濁音と濁音に上記の制約を付加すると、単純にキーが足らないので、ここだけは固定ではないこととするため。
-        combinations[LINEAR_L_SEMITURBID_INDEX] = CombinationFrequency::new(|ch1, ch2| {
-            ch1.semiturbid() == None && ch2.is_punctuation_mark()
-        });
-        combinations[LINEAR_R_SEMITURBID_INDEX] = CombinationFrequency::new(|ch1, ch2| {
-            ch1.semiturbid() == None && ch2.is_reading_point()
-        });
+            26
+        ];
 
         FrequencyTable {
             frequency: combinations,

@@ -79,6 +79,16 @@ pub mod linear {
     pub const LINEAR_L_SHIFT_INDEX: usize = 8;
     pub const LINEAR_R_SHIFT_INDEX: usize = 13;
 
+    /// 句点の位置
+    pub fn reading_point_points() -> Vec<Point> {
+        vec![Point { row: 2, col: 3 }, Point { row: 2, col: 6 }]
+    }
+
+    /// 読点の位置
+    pub fn punctuation_mark_points() -> Vec<Point> {
+        vec![Point { row: 1, col: 3 }, Point { row: 1, col: 6 }]
+    }
+
     /// 直線的になるレイアウトを返す
     pub fn linear_layout() -> Vec<Point> {
         LINEAR_MAPPING
@@ -101,10 +111,21 @@ pub mod linear {
             Hand::Right
         }
     }
+
+    /// layoutにおいて、指定された位置に対応する文字を返す
+    pub fn get_char_of_point(point: &Point) -> char {
+        LINEAR_MAPPING
+            .iter()
+            .find(|(_, p)| *p == *point)
+            .map(|(c, _)| *c)
+            .unwrap()
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use tests::linear::get_char_of_point;
+
     use self::linear::get_hand_of_point;
 
     use super::*;
@@ -129,5 +150,16 @@ mod tests {
 
         // assert
         assert_eq!(ret, Hand::Right);
+    }
+
+    #[test]
+    fn char_of_point() {
+        // arrange
+
+        // act
+        let ret = get_char_of_point(&Point { row: 1, col: 5 });
+
+        // assert
+        assert_eq!(ret, 'h');
     }
 }

@@ -41,6 +41,21 @@ impl KeySeq {
         }
     }
 
+    /// シフトを表す新しいKeySeqを生成する
+    ///
+    /// # Arguments
+    /// * `char` - 入力する文字
+    /// * `key_pos` - キーを押下する順序
+    ///
+    /// # Returns
+    /// 新しいKeySeq
+    pub fn from_shift_like(char: char, key_pos: &Point, shift_pos: &Point) -> Self {
+        KeySeq {
+            char,
+            sequence: vec![KeyPressPattern::Shift(*shift_pos, *key_pos)],
+        }
+    }
+
     /// 単打を表す新しいKeySeqを生成する
     ///
     /// # Arguments
@@ -76,13 +91,40 @@ impl KeySeq {
         }
     }
 
+    /// key sequenceを文字列に変換する
+    pub fn to_char_sequence(&self) -> String {
+        let mut s = String::new();
+
+        for seq in &self.sequence {
+            match seq {
+                KeyPressPattern::Sequential(p) => {
+                    s.push_str(&format!("{}", layout::linear::get_char_of_point(p)));
+                }
+                KeyPressPattern::Shift(shift_p, p) => {
+                    s.push_str(&format!(
+                        "{}{}",
+                        layout::linear::get_char_of_point(shift_p),
+                        layout::linear::get_char_of_point(p)
+                    ));
+                }
+            }
+        }
+        s
+    }
+
     /// `char` を返す
     pub fn char(&self) -> char {
         self.char
     }
 
     /// `sequence` を返す
-    pub fn sequence(&self) -> &[KeyPressPattern] {
-        &self.sequence
+    pub fn as_raw_sequence(&self) -> Vec<(Point, Option<Point>)> {
+        self.sequence
+            .iter()
+            .map(|seq| match seq {
+                KeyPressPattern::Shift(f, s) => (s.clone(), Some(f.clone())),
+                KeyPressPattern::Sequential(p) => (p.clone(), None),
+            })
+            .collect()
     }
 }

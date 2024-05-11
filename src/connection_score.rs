@@ -161,38 +161,49 @@ impl ConnectionScore {
     /// ここでの結果は、4連接自体と、シフトに対する評価の両方の合算値である。
     pub fn evaluate(&self, sequence: &[Evaluation]) -> u64 {
         let mut score = 0;
+        let mut idx = 0;
 
-        let first: Option<(usize, usize)> = sequence.get(0).map(|p| p.positions.0.into());
-        let second: Option<(usize, usize)> = sequence.get(1).map(|p| p.positions.0.into());
-        let third: Option<(usize, usize)> = sequence.get(2).map(|p| p.positions.0.into());
-        let fourth: Option<(usize, usize)> = sequence.get(3).map(|p| p.positions.0.into());
+        loop {
+            if sequence.len() >= idx {
+                break;
+            }
+            let first: Option<(usize, usize)> = sequence.get(idx).map(|p| p.positions.0.into());
+            let second: Option<(usize, usize)> =
+                sequence.get(idx + 1).map(|p| p.positions.0.into());
+            let third: Option<(usize, usize)> = sequence.get(idx + 2).map(|p| p.positions.0.into());
+            let fourth: Option<(usize, usize)> =
+                sequence.get(idx + 3).map(|p| p.positions.0.into());
 
-        score += unsafe {
-            *self
-                .scores
-                .get_unchecked(self.get_index(&first, &second, &third, &fourth)) as u64
-        };
+            score += unsafe {
+                *self
+                    .scores
+                    .get_unchecked(self.get_index(&first, &second, &third, &fourth))
+                    as u64
+            };
 
-        let first: Option<(usize, usize)> = sequence
-            .get(0)
-            .and_then(|p| p.positions.1.map(|v| v.into()));
-        let second: Option<(usize, usize)> = sequence
-            .get(1)
-            .and_then(|p| p.positions.1.map(|v| v.into()));
-        let third: Option<(usize, usize)> = sequence
-            .get(2)
-            .and_then(|p| p.positions.1.map(|v| v.into()));
-        let fourth: Option<(usize, usize)> = sequence
-            .get(3)
-            .and_then(|p| p.positions.1.map(|v| v.into()));
+            let first: Option<(usize, usize)> = sequence
+                .get(idx)
+                .and_then(|p| p.positions.1.map(|v| v.into()));
+            let second: Option<(usize, usize)> = sequence
+                .get(idx + 1)
+                .and_then(|p| p.positions.1.map(|v| v.into()));
+            let third: Option<(usize, usize)> = sequence
+                .get(idx + 2)
+                .and_then(|p| p.positions.1.map(|v| v.into()));
+            let fourth: Option<(usize, usize)> = sequence
+                .get(idx + 3)
+                .and_then(|p| p.positions.1.map(|v| v.into()));
 
-        score += unsafe {
-            let v = *self
-                .scores
-                .get_unchecked(self.get_index(&first, &second, &third, &fourth))
-                as f64;
-            (v * 1.3) as u64
-        };
+            score += unsafe {
+                let v = *self
+                    .scores
+                    .get_unchecked(self.get_index(&first, &second, &third, &fourth))
+                    as f64;
+                (v * 1.3) as u64
+            };
+
+            idx += 4
+        }
 
         score
     }
@@ -233,7 +244,7 @@ impl ConnectionScore {
         let l: Pos = Pos::from(*l);
 
         // 2連接の評価
-        score += j.two_conjunction_scores(&k, &timings);
+        score += j.two_conjunction_scores(&k, timings);
 
         // 3連接の評価
         score += self.three_conjunction_scores(&i, &j, &k);
@@ -270,7 +281,7 @@ impl ConnectionScore {
         let k: Pos = Pos::from(*k);
 
         // 2連接の評価
-        let score = i.two_conjunction_scores(&j, &timings);
+        let score = i.two_conjunction_scores(&j, timings);
 
         score + two_score + FINGER_WEIGHTS[k.0][k.1] as u32
     }
@@ -295,7 +306,7 @@ impl ConnectionScore {
         let j: Pos = Pos::from(*j);
 
         // 2連接の評価
-        FINGER_WEIGHTS[i.0][i.0] as u32 + FINGER_WEIGHTS[j.0][j.1] as u32
+        FINGER_WEIGHTS[i.0][i.1] as u32 + FINGER_WEIGHTS[j.0][j.1] as u32
     }
     /// 単一キーの評価を行う
     ///

@@ -1,7 +1,4 @@
-use std::{
-    collections::HashMap,
-    sync::{mpsc::channel, Arc},
-};
+use std::sync::{mpsc::channel, Arc};
 
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
@@ -18,7 +15,7 @@ pub struct Playground {
     generation: u64,
     keymaps: Vec<Keymap>,
     best_score: u64,
-    generated_keymaps: Vec<(u64, Keymap)>,
+    mode: EvaluationMode,
 
     frequency_table: FrequencyTable,
     pool: threadpool::ThreadPool,
@@ -28,6 +25,12 @@ const TOURNAMENT_SIZE: usize = 10;
 const KEYMAP_SIZE: usize = 30;
 const WORKERS: u8 = 20;
 const MUTATION_PROB: f64 = 0.01;
+
+#[derive(Debug)]
+enum EvaluationMode {
+    Neighbor,
+    GA,
+}
 
 impl Playground {
     pub fn new(gen_count: u8, rng: &mut StdRng, frequency_table: FrequencyTable) -> Self {
@@ -46,7 +49,7 @@ impl Playground {
             pool: threadpool::ThreadPool::new(WORKERS as usize),
             generation: 1,
             best_score: u64::MAX,
-            generated_keymaps: Vec::new(),
+            mode: EvaluationMode::GA,
             keymaps,
             frequency_table,
         }
@@ -72,8 +75,19 @@ impl Playground {
     ) -> (u64, Keymap) {
         self.generation += 1;
 
-        // self.advance_with_neighbor(rng, conjunctions, connection_score)
-        self.advance_with_ga(rng, conjunctions, connection_score)
+        // if self.generation % 1000 == 0 {
+        //     self.mode = match self.mode {
+        //         EvaluationMode::Neighbor => EvaluationMode::GA,
+        //         EvaluationMode::GA => EvaluationMode::Neighbor,
+        //     }
+        // }
+
+        match self.mode {
+            EvaluationMode::Neighbor => {
+                self.advance_with_neighbor(rng, conjunctions, connection_score)
+            }
+            EvaluationMode::GA => self.advance_with_ga(rng, conjunctions, connection_score),
+        }
     }
 
     fn advance_with_neighbor(
@@ -84,11 +98,12 @@ impl Playground {
     ) -> (u64, Keymap) {
         let rank = self.rank(conjunctions, connection_score.clone()).to_vec();
         let best = self.keymaps[rank[0].1].clone();
-        let (score, best) = self.re_rank_neighbor(conjunctions, connection_score.clone(), &best);
-        self.frequency_table.update(&best, 1.0 / KEYMAP_SIZE as f64);
-        self.frequency_table.mutate(rng, MUTATION_PROB);
+        let (score, best) =
+            self.re_rank_neighbor(rng, conjunctions, connection_score.clone(), &best);
 
         if score < self.best_score {
+            self.frequency_table.update(&best, 1.0 / KEYMAP_SIZE as f64);
+            self.frequency_table.mutate(rng, MUTATION_PROB);
             self.best_score = score;
             self.keymaps[rank[0].1] = best.clone();
             (score, best)
@@ -138,6 +153,7 @@ impl Playground {
     /// 最近傍探索をして、類似keymapのなかでbestなものを探す
     fn re_rank_neighbor(
         &self,
+        rng: &mut StdRng,
         conjunctions: &[Conjunction],
         connection_score: Arc<ConnectionScore>,
         keymap: &Keymap,
@@ -147,15 +163,21 @@ impl Playground {
         let (tx, tr) = channel();
         let mut keymaps: Vec<Keymap> = Vec::with_capacity(5000);
 
-        for (i, _) in keymap.iter().enumerate() {
-            for (j, _) in keymap.iter().enumerate() {
-                if i >= j {
-                    continue;
-                }
+        loop {
+            let len = keymap.iter().collect::<Vec<_>>().len();
+            let i = rng.gen_range(0..len);
+            let j = rng.gen_range(0..len);
 
-                let swaps = keymap.swap_keys(i, j);
-                keymaps.extend_from_slice(&swaps);
+            if i >= j {
+                continue;
             }
+
+            let swaps = keymap.swap_keys(i, j);
+            keymaps.extend_from_slice(&swaps);
+            if keymaps.is_empty() {
+                continue;
+            }
+            break;
         }
 
         keymaps.iter().enumerate().for_each(|(idx, k)| {

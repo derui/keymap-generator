@@ -26,6 +26,7 @@ mod char_def;
 mod connection_score;
 mod frequency_table;
 mod key_def;
+mod key_seq;
 mod keymap;
 mod layout;
 mod playground;

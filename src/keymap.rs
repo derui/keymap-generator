@@ -1,16 +1,14 @@
-use std::fmt::Display;
+use std::{collections::HashMap, fmt::Display};
 
 use rand::rngs::StdRng;
 
 use crate::{
     char_def,
     frequency_table::KeyAssigner,
-    key_def::KeyDef,
+    key_def::{KeyDef, PreShiftPattern},
+    key_seq::KeySeq,
     layout::{
-        linear::{
-            self, LINEAR_L_SEMITURBID_INDEX, LINEAR_L_SHIFT_INDEX, LINEAR_L_TURBID_INDEX,
-            LINEAR_R_SEMITURBID_INDEX, LINEAR_R_SHIFT_INDEX, LINEAR_R_TURBID_INDEX,
-        },
+        linear::{self, LINEAR_L_SHIFT_INDEX, LINEAR_R_SHIFT_INDEX},
         Point,
     },
 };
@@ -47,6 +45,22 @@ impl KeyAssignment {
         }
     }
 
+    /// 対象の文字の入力時の種別を返す
+    fn as_turbid(&self, point: &Point) -> Option<KeySeq> {
+        match self {
+            KeyAssignment::A(k) => k.as_turbid(point),
+            KeyAssignment::U => None,
+        }
+    }
+
+    /// 対象の文字の入力時の種別を返す
+    fn as_semiturbid(&self, point: &Point) -> Option<KeySeq> {
+        match self {
+            KeyAssignment::A(k) => k.as_semiturbid(point),
+            KeyAssignment::U => None,
+        }
+    }
+
     /// assignされていればswapする
     fn swap(&mut self) {
         match self {
@@ -56,21 +70,12 @@ impl KeyAssignment {
     }
 }
 
-/// 有効なキーマップ
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Keymap {
-    layout: Vec<KeyAssignment>,
-}
-
 mod constraints {
     use std::collections::HashSet;
 
     use crate::{
         char_def::{self, definitions},
-        layout::linear::{
-            LINEAR_L_SEMITURBID_INDEX, LINEAR_L_SHIFT_INDEX, LINEAR_L_TURBID_INDEX,
-            LINEAR_R_SEMITURBID_INDEX, LINEAR_R_SHIFT_INDEX, LINEAR_R_TURBID_INDEX,
-        },
+        layout::linear::{LINEAR_L_SHIFT_INDEX, LINEAR_R_SHIFT_INDEX},
     };
 
     use super::KeyAssignment;
@@ -106,83 +111,12 @@ mod constraints {
         }
     }
 
-    /// 左右の濁音シフト間では、いずれかのキーにしか濁音が設定されていないかどうかを確認する
-    pub(super) fn should_only_one_turbid(layout: &[KeyAssignment]) -> bool {
-        let left_turbid = &layout[LINEAR_L_TURBID_INDEX];
-        let right_turbid = &layout[LINEAR_R_TURBID_INDEX];
-
-        match (left_turbid, right_turbid) {
-            (KeyAssignment::A(l), KeyAssignment::A(r)) => {
-                let l = l.turbid();
-                let r = r.turbid();
-
-                matches!((l, r), (Some(_), None) | (None, Some(_)) | (None, None))
-            }
-            _ => true,
-        }
-    }
-
-    /// 左右の濁音シフト間では、いずれかのキーにしか濁音が設定されていないかどうかを確認する
-    pub(super) fn should_only_one_semiturbid(layout: &[KeyAssignment]) -> bool {
-        let l = &layout[LINEAR_L_SEMITURBID_INDEX];
-        let r = &layout[LINEAR_R_SEMITURBID_INDEX];
-
-        match (l, r) {
-            (KeyAssignment::A(l), KeyAssignment::A(r)) => {
-                let l = l.semiturbid();
-                let r = r.semiturbid();
-
-                matches!((l, r), (Some(_), None) | (None, Some(_)) | (None, None))
-            }
-            _ => true,
-        }
-    }
-
-    /// 左右の濁音・半濁音の間では、いずれかのキーにしか濁音と半濁音が設定されていないかどうかを確認する
-    ///
-    /// このキーが同時に押下されたとき、矛盾なく入力できるのは、
-    /// * 濁音キーに半濁音が設定されていて、半濁音キーには濁音が設定されていない
-    /// * 半濁音キーに濁音が設定されていて、濁音キーには半濁音が設定されていない
-    /// のいずれかである
-    pub(super) fn should_be_explicit_between_left_turbid_and_right_semiturbit(
-        layout: &[KeyAssignment],
-    ) -> bool {
-        let left_turbid = &layout[LINEAR_L_TURBID_INDEX];
-        let right_semiturbid = &layout[LINEAR_R_SEMITURBID_INDEX];
-
-        match (left_turbid, right_semiturbid) {
-            (KeyAssignment::A(l), KeyAssignment::A(r)) => {
-                matches!(
-                    (r.turbid(), l.semiturbid(),),
-                    (None, None) | (Some(_), None) | (None, Some(_))
-                )
-            }
-            _ => true,
-        }
-    }
-
-    /// 左右の濁音・半濁音の間では、いずれかのキーにしか濁音と半濁音が設定されていないかどうかを確認する
-    pub(super) fn should_be_explicit_between_right_turbid_and_left_semiturbit(
-        layout: &[KeyAssignment],
-    ) -> bool {
-        // 濁音と半濁音を同時に押下したとき、両方に値が入っていると競合してしまうので、それを防ぐ
-        let right_turbid = &layout[LINEAR_R_TURBID_INDEX];
-        let left_semiturbid = &layout[LINEAR_L_SEMITURBID_INDEX];
-
-        match (right_turbid, left_semiturbid) {
-            (KeyAssignment::A(r), KeyAssignment::A(l)) => {
-                matches!(
-                    (l.turbid(), r.semiturbid(),),
-                    (None, None) | (Some(_), None) | (None, Some(_))
-                )
-            }
-            _ => true,
-        }
-    }
-
     /// すべての文字が入力できる状態であることを確認する
     pub(super) fn should_be_able_to_all_input(layout: &[KeyAssignment]) -> bool {
-        let mut chars: HashSet<char> = char_def::all_chars().into_iter().collect();
+        let mut chars: HashSet<char> = char_def::all_chars()
+            .into_iter()
+            .filter(|v| *v != '、' && *v != '。')
+            .collect();
 
         for assignment in layout.iter() {
             match assignment {
@@ -194,6 +128,7 @@ mod constraints {
                 KeyAssignment::U => continue,
             }
         }
+        log::info!("{chars:?}, {layout:?}");
 
         chars.is_empty()
     }
@@ -293,112 +228,14 @@ mod constraints {
             // assert
             assert!(!ret, "should be valid")
         }
-
-        #[test]
-        fn only_one_turbid_between_turbid_keys() {
-            // arrange
-            let mut layout = empty_layout();
-            let c1 = char_def::find('あ').unwrap();
-            let c2 = char_def::find('か').unwrap();
-            let c3 = char_def::find('い').unwrap();
-            let c4 = char_def::find('ら').unwrap();
-            put_key(
-                &mut layout,
-                KeyDef::from_combination(&CharCombination::new(&c1, &c2)),
-                LINEAR_L_TURBID_INDEX,
-            );
-            put_key(
-                &mut layout,
-                KeyDef::from_combination(&CharCombination::new(&c3, &c4)),
-                LINEAR_R_TURBID_INDEX,
-            );
-
-            // act
-            let ret = should_only_one_turbid(&layout);
-
-            // assert
-            assert!(ret, "should be valid")
-        }
-
-        #[test]
-        fn two_turbid_between_turbid_keys() {
-            // arrange
-            let mut layout = empty_layout();
-            let c1 = char_def::find('あ').unwrap();
-            let c2 = char_def::find('か').unwrap();
-            let c3 = char_def::find('い').unwrap();
-            let c4 = char_def::find('し').unwrap();
-            put_key(
-                &mut layout,
-                KeyDef::from_combination(&CharCombination::new(&c1, &c2)),
-                LINEAR_L_TURBID_INDEX,
-            );
-            put_key(
-                &mut layout,
-                KeyDef::from_combination(&CharCombination::new(&c3, &c4)),
-                LINEAR_R_TURBID_INDEX,
-            );
-
-            // act
-            let ret = should_only_one_turbid(&layout);
-
-            // assert
-            assert!(!ret, "should be valid")
-        }
-
-        #[test]
-        fn only_one_turbid_and_semiturbid_set_between_left_turbid_and_right_semiturbid() {
-            // arrange
-            let mut layout = empty_layout();
-            let c1 = char_def::find('あ').unwrap();
-            let c2 = char_def::find('か').unwrap();
-            let c3 = char_def::find('い').unwrap();
-            let c4 = char_def::find('ら').unwrap();
-            put_key(
-                &mut layout,
-                KeyDef::from_combination(&CharCombination::new(&c1, &c2)),
-                LINEAR_L_TURBID_INDEX,
-            );
-            put_key(
-                &mut layout,
-                KeyDef::from_combination(&CharCombination::new(&c3, &c4)),
-                LINEAR_R_SEMITURBID_INDEX,
-            );
-
-            // act
-            let ret = should_be_explicit_between_left_turbid_and_right_semiturbit(&layout);
-
-            // assert
-            assert!(ret, "should be valid")
-        }
-
-        #[test]
-        fn only_one_turbid_and_semiturbid_set_between_right_turbid_and_left_semiturbid() {
-            // arrange
-            let mut layout = empty_layout();
-
-            let c1 = char_def::find('あ').unwrap();
-            let c2 = char_def::find('か').unwrap();
-            let c3 = char_def::find('い').unwrap();
-            let c4 = char_def::find('ら').unwrap();
-            put_key(
-                &mut layout,
-                KeyDef::from_combination(&CharCombination::new(&c1, &c2)),
-                LINEAR_R_TURBID_INDEX,
-            );
-            put_key(
-                &mut layout,
-                KeyDef::from_combination(&CharCombination::new(&c3, &c4)),
-                LINEAR_L_SEMITURBID_INDEX,
-            );
-
-            // act
-            let ret = should_be_explicit_between_right_turbid_and_left_semiturbit(&layout);
-
-            // assert
-            assert!(ret, "should be valid")
-        }
     }
+}
+
+/// 有効なキーマップ
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Keymap {
+    layout: Vec<KeyAssignment>,
+    sequences: HashMap<char, KeySeq>,
 }
 
 impl Keymap {
@@ -421,13 +258,72 @@ impl Keymap {
 
         // 各場所にassignする
         Keymap::assign_keys(&mut layout, rng, assigner);
-        let keymap = Keymap { layout };
 
-        if !keymap.meet_requirements() {
+        if !Keymap::meet_requirements(&layout) {
             None
         } else {
+            let mut sequences = Keymap::build_sequences(&layout);
+            {
+                let reading_pos = linear::reading_point_points();
+                sequences.insert(
+                    '、',
+                    KeySeq::from_shift_like('、', &reading_pos[0], &reading_pos[1]),
+                );
+
+                let punctuation_pos = linear::punctuation_mark_points();
+                sequences.insert(
+                    '。',
+                    KeySeq::from_shift_like('。', &punctuation_pos[0], &punctuation_pos[1]),
+                );
+            }
+            let keymap = Keymap { layout, sequences };
             Some(keymap)
         }
+    }
+
+    /// charとsequenceのmappingを生成する
+    fn build_sequences(layout: &[KeyAssignment]) -> HashMap<char, KeySeq> {
+        let mut sequences = HashMap::new();
+        let linear_layout = linear::linear_layout();
+
+        let turbid_pos = layout
+            .iter()
+            .position(|v| v.as_turbid(&From::from((0, 0))).is_some())
+            .expect("should have turbid");
+        let semiturbid_pos = layout
+            .iter()
+            .position(|v| v.as_semiturbid(&From::from((0, 0))).is_some())
+            .expect("should have turbid");
+        let turbid_seq = KeySeq::from_shift(
+            char_def::CharDef::Turbid.normal(),
+            &linear_layout[turbid_pos],
+        );
+        let semiturbid_seq = KeySeq::from_shift(
+            char_def::CharDef::SemiTurbid.normal(),
+            &linear_layout[semiturbid_pos],
+        );
+
+        for (idx, assignment) in layout.iter().enumerate() {
+            if let KeyAssignment::A(k) = assignment {
+                let p = linear_layout[idx];
+                let unshift = KeySeq::from_unshift(k.unshift(), &p);
+                let shifted = KeySeq::from_shift(k.shifted(), &p);
+                sequences.insert(k.unshift(), unshift);
+                sequences.insert(k.shifted(), shifted);
+
+                if let Some(turbid) = k.turbid() {
+                    let turbid_seq = KeySeq::from_turbid_like(turbid, &p, &turbid_seq);
+                    sequences.insert(turbid, turbid_seq);
+                }
+
+                if let Some(semiturbid) = k.semiturbid() {
+                    let semiturbid_seq = KeySeq::from_turbid_like(semiturbid, &p, &semiturbid_seq);
+                    sequences.insert(semiturbid, semiturbid_seq);
+                }
+            }
+        }
+
+        sequences
     }
 
     /// キー全体の配置を行う
@@ -457,18 +353,18 @@ impl Keymap {
     ///
     /// # Returns
     /// 制約を満たしていたらtrue
-    fn meet_requirements(&self) -> bool {
+    fn meet_requirements(layout: &[KeyAssignment]) -> bool {
         let checks = [
             constraints::should_shift_having_same_key,
-            constraints::should_shift_only_clear_tones,
-            constraints::should_be_explicit_between_left_turbid_and_right_semiturbit,
-            constraints::should_only_one_turbid,
-            constraints::should_be_explicit_between_right_turbid_and_left_semiturbit,
-            constraints::should_only_one_semiturbid,
+            // constraints::should_shift_only_clear_tones,
+            // constraints::should_be_explicit_between_left_turbid_and_right_semiturbit,
+            // constraints::should_only_one_turbid,
+            // constraints::should_be_explicit_between_right_turbid_and_left_semiturbit,
+            // constraints::should_only_one_semiturbid,
             constraints::should_be_able_to_all_input,
         ];
 
-        checks.iter().all(|c| c(&self.layout))
+        checks.iter().all(|c| c(layout))
     }
 
     /// 指定したindex間でキーを入れ替える
@@ -480,34 +376,34 @@ impl Keymap {
         let mut vec = Vec::new();
 
         new.layout[idx1].swap();
-        if new.meet_requirements() {
+        if Keymap::meet_requirements(&new.layout) {
             vec.push(new.clone());
             new.layout[idx1].swap();
         }
         new.layout[idx2].swap();
-        if new.meet_requirements() {
+        if Keymap::meet_requirements(&new.layout) {
             vec.push(new.clone());
             new.layout[idx2].swap();
         }
 
         new.layout.swap(idx1, idx2);
-        if new.meet_requirements() {
+        if Keymap::meet_requirements(&new.layout) {
             vec.push(new.clone());
         }
 
         new.layout[idx1].swap();
-        if new.meet_requirements() {
+        if Keymap::meet_requirements(&new.layout) {
             vec.push(new.clone());
         }
 
         new.layout[idx1].swap();
         new.layout[idx2].swap();
-        if new.meet_requirements() {
+        if Keymap::meet_requirements(&new.layout) {
             vec.push(new.clone());
         }
 
         new.layout[idx1].swap();
-        if new.meet_requirements() {
+        if Keymap::meet_requirements(&new.layout) {
             vec.push(new.clone());
         }
 
@@ -517,20 +413,12 @@ impl Keymap {
     /// 指定した文字を入力できるキーを返す
     ///
     /// 対象の文字が存在しない場合はNoneを返す
-    pub fn get(&self, char: char) -> Option<(KeyKind, Point)> {
-        let layout = linear::linear_layout();
-
-        for (idx, assignment) in self.layout.iter().enumerate() {
-            if let Some(kind) = assignment.as_kind(char) {
-                return Some((kind, layout[idx]));
-            }
-        }
-
-        None
+    pub fn get(&self, char: char) -> Option<KeySeq> {
+        self.sequences.get(&char).cloned()
     }
 
     /// https://github.com/mobitan/chutoro/tree/main/tools
-    /// 上記での評価用にpairを生成する。
+    /// 上記での評価用にpairを生成する。生成されるkeymapは、qwerty配列である
     ///
     /// # Arguments
     /// * `key_layout` - マッピング対象のalphabetキー
@@ -541,50 +429,8 @@ impl Keymap {
         let mut ret: Vec<(String, String)> = Vec::new();
         let layout = linear::linear_layout();
 
-        for (r, key) in self.layout.iter().enumerate() {
-            match key {
-                KeyAssignment::A(key) => {
-                    let (r, c): (usize, usize) = layout[r].into();
-                    let unshift = key.unshift();
-                    ret.push((unshift.to_string(), key_layout[r][c].to_string()));
-
-                    let shifted = key.shifted();
-                    {
-                        let (sr, sc) = if c <= 4 {
-                            layout[LINEAR_R_SHIFT_INDEX].into()
-                        } else {
-                            layout[LINEAR_L_SHIFT_INDEX].into()
-                        };
-                        let key = key_layout[sr][sc];
-                        ret.push((shifted.to_string(), format!("{}{}", key, key_layout[r][c])));
-                    }
-
-                    if let Some(turbid) = key.turbid() {
-                        let (sr, sc) = if c <= 4 {
-                            layout[LINEAR_R_TURBID_INDEX].into()
-                        } else {
-                            layout[LINEAR_L_TURBID_INDEX].into()
-                        };
-                        let key = key_layout[sr][sc];
-                        ret.push((turbid.to_string(), format!("{}{}", key, key_layout[r][c])));
-                    }
-
-                    if let Some(semiturbid) = key.semiturbid() {
-                        let (sr, sc) = if c <= 4 {
-                            layout[LINEAR_R_SEMITURBID_INDEX].into()
-                        } else {
-                            layout[LINEAR_L_SEMITURBID_INDEX].into()
-                        };
-                        let key = key_layout[sr][sc];
-
-                        ret.push((
-                            semiturbid.to_string(),
-                            format!("{}{}", key, key_layout[r][c]),
-                        ));
-                    }
-                }
-                KeyAssignment::U => continue,
-            }
+        for (r, (_, seq)) in self.sequences.iter().enumerate() {
+            ret.push((seq.char().to_string(), seq.to_char_sequence()))
         }
 
         ret
