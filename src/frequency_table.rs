@@ -389,7 +389,7 @@ impl FrequencyTable {
     pub fn new() -> Self {
         // 可能なキーの位置は26個なので、その分の分布を設定する
         // 句読点は特殊なキーに割り当てられるため、それらは除外する
-        let mut combinations = vec![
+        let combinations = vec![
             CombinationFrequency::new(|p1, p2| {
                 !(p1.is_reading_point()
                     || p1.is_punctuation_mark()

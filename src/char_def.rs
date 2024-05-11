@@ -129,7 +129,7 @@ pub fn all_chars() -> Vec<char> {
 }
 
 /// ひらがなの一覧。評価で利用する
-const CHARS: [CharDef; 52] = [
+const CHARS: [CharDef; 53] = [
     CharDef::Normal {
         normal: 'あ',
         turbid: None,
@@ -377,6 +377,11 @@ const CHARS: [CharDef; 52] = [
     },
     CharDef::Normal {
         normal: 'ー',
+        turbid: None,
+        semiturbid: None,
+    },
+    CharDef::Normal {
+        normal: 'ヴ',
         turbid: None,
         semiturbid: None,
     },

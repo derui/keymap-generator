@@ -1,13 +1,9 @@
 use crate::{
     char_def,
-    connection_score::{ConnectionScore, Evaluation, Pos},
+    connection_score::{ConnectionScore, Evaluation},
     key_seq::KeySeq,
-    keymap::{KeyKind, Keymap},
-    layout::{
-        self,
-        linear::{LINEAR_L_SHIFT_INDEX, LINEAR_R_SHIFT_INDEX},
-        Point,
-    },
+    keymap::Keymap,
+    layout::{self},
 };
 
 /// キーを押下する手の割当。1 = 左手、2 = 右手

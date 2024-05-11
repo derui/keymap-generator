@@ -7,17 +7,6 @@ pub struct KeyDef {
     shifted: CharDef,
 }
 
-/// 前置シフトのパターン
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum PreShiftPattern {
-    // 無シフト
-    Unshift,
-    // シフト
-    Shift,
-    // 前置シフトのキーではない
-    NoPreShift,
-}
-
 impl KeyDef {
     /// 無シフトに対して[def]を設定した[KeyDef]を返す
     pub fn from_combination(combination: &CharCombination) -> Self {

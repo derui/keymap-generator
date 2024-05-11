@@ -1,8 +1,4 @@
-use crate::{
-    char_def::CharDef,
-    frequency_table::CharCombination,
-    layout::{self, Point},
-};
+use crate::layout::{self, Point};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum KeyPressPattern {
@@ -122,8 +118,8 @@ impl KeySeq {
         self.sequence
             .iter()
             .map(|seq| match seq {
-                KeyPressPattern::Shift(f, s) => (s.clone(), Some(f.clone())),
-                KeyPressPattern::Sequential(p) => (p.clone(), None),
+                KeyPressPattern::Shift(f, s) => (*s, Some(*f)),
+                KeyPressPattern::Sequential(p) => (*p, None),
             })
             .collect()
     }

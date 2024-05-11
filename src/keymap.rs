@@ -5,21 +5,13 @@ use rand::rngs::StdRng;
 use crate::{
     char_def,
     frequency_table::KeyAssigner,
-    key_def::{KeyDef, PreShiftPattern},
+    key_def::KeyDef,
     key_seq::KeySeq,
     layout::{
         linear::{self, LINEAR_L_SHIFT_INDEX, LINEAR_R_SHIFT_INDEX},
         Point,
     },
 };
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum KeyKind {
-    Normal,
-    Shift,
-    Turbid,
-    Semiturbid,
-}
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 enum KeyAssignment {
@@ -31,20 +23,6 @@ enum KeyAssignment {
 }
 
 impl KeyAssignment {
-    /// 対象の文字の入力時の種別を返す
-    fn as_kind(&self, c: char) -> Option<KeyKind> {
-        match self {
-            KeyAssignment::A(k) => match () {
-                () if k.shifted() == c => Some(KeyKind::Shift),
-                () if k.turbid() == Some(c) => Some(KeyKind::Turbid),
-                () if k.semiturbid() == Some(c) => Some(KeyKind::Semiturbid),
-                () if k.unshift() == c => Some(KeyKind::Normal),
-                () => None,
-            },
-            KeyAssignment::U => None,
-        }
-    }
-
     /// 対象の文字の入力時の種別を返す
     fn as_turbid(&self, point: &Point) -> Option<KeySeq> {
         match self {
