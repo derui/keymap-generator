@@ -79,12 +79,12 @@ pub mod linear {
     pub const LINEAR_L_SHIFT_INDEX: usize = 8;
     pub const LINEAR_R_SHIFT_INDEX: usize = 13;
 
-    /// 句点の位置
+    /// 読点の位置
     pub fn reading_point_points() -> Vec<Point> {
         vec![Point { row: 2, col: 3 }, Point { row: 2, col: 6 }]
     }
 
-    /// 読点の位置
+    /// 句点の位置
     pub fn punctuation_mark_points() -> Vec<Point> {
         vec![Point { row: 1, col: 3 }, Point { row: 1, col: 6 }]
     }

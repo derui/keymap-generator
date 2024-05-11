@@ -164,7 +164,7 @@ impl ConnectionScore {
         let mut idx = 0;
 
         loop {
-            if sequence.len() >= idx {
+            if sequence.len() <= idx {
                 break;
             }
             let first: Option<(usize, usize)> = sequence.get(idx).map(|p| p.positions.0.into());
@@ -181,18 +181,30 @@ impl ConnectionScore {
                     as u64
             };
 
-            let first: Option<(usize, usize)> = sequence
-                .get(idx)
-                .and_then(|p| p.positions.1.map(|v| v.into()));
-            let second: Option<(usize, usize)> = sequence
-                .get(idx + 1)
-                .and_then(|p| p.positions.1.map(|v| v.into()));
-            let third: Option<(usize, usize)> = sequence
-                .get(idx + 2)
-                .and_then(|p| p.positions.1.map(|v| v.into()));
-            let fourth: Option<(usize, usize)> = sequence
-                .get(idx + 3)
-                .and_then(|p| p.positions.1.map(|v| v.into()));
+            let first: Option<(usize, usize)> = sequence.get(idx).map(|p| {
+                p.positions
+                    .1
+                    .map(|v| v.into())
+                    .unwrap_or(p.positions.0.into())
+            });
+            let second: Option<(usize, usize)> = sequence.get(idx + 1).map(|p| {
+                p.positions
+                    .1
+                    .map(|v| v.into())
+                    .unwrap_or(p.positions.0.into())
+            });
+            let third: Option<(usize, usize)> = sequence.get(idx + 2).map(|p| {
+                p.positions
+                    .1
+                    .map(|v| v.into())
+                    .unwrap_or(p.positions.0.into())
+            });
+            let fourth: Option<(usize, usize)> = sequence.get(idx + 3).map(|p| {
+                p.positions
+                    .1
+                    .map(|v| v.into())
+                    .unwrap_or(p.positions.0.into())
+            });
 
             score += unsafe {
                 let v = *self

@@ -106,7 +106,6 @@ mod constraints {
                 KeyAssignment::U => continue,
             }
         }
-        log::info!("{chars:?}, {layout:?}");
 
         chars.is_empty()
     }
@@ -241,19 +240,7 @@ impl Keymap {
             None
         } else {
             let mut sequences = Keymap::build_sequences(&layout);
-            {
-                let reading_pos = linear::reading_point_points();
-                sequences.insert(
-                    '、',
-                    KeySeq::from_shift_like('、', &reading_pos[0], &reading_pos[1]),
-                );
 
-                let punctuation_pos = linear::punctuation_mark_points();
-                sequences.insert(
-                    '。',
-                    KeySeq::from_shift_like('。', &punctuation_pos[0], &punctuation_pos[1]),
-                );
-            }
             let keymap = Keymap { layout, sequences };
             Some(keymap)
         }
@@ -301,6 +288,19 @@ impl Keymap {
             }
         }
 
+        {
+            let reading_pos = linear::reading_point_points();
+            sequences.insert(
+                '、',
+                KeySeq::from_shift_like('。', &reading_pos[0], &reading_pos[1]),
+            );
+
+            let punctuation_pos = linear::punctuation_mark_points();
+            sequences.insert(
+                '。',
+                KeySeq::from_shift_like('、', &punctuation_pos[0], &punctuation_pos[1]),
+            );
+        }
         sequences
     }
 
@@ -355,34 +355,52 @@ impl Keymap {
 
         new.layout[idx1].swap();
         if Keymap::meet_requirements(&new.layout) {
-            vec.push(new.clone());
+            vec.push(Keymap {
+                layout: new.layout.clone(),
+                sequences: Keymap::build_sequences(&new.layout),
+            });
             new.layout[idx1].swap();
         }
         new.layout[idx2].swap();
         if Keymap::meet_requirements(&new.layout) {
-            vec.push(new.clone());
+            vec.push(Keymap {
+                layout: new.layout.clone(),
+                sequences: Keymap::build_sequences(&new.layout),
+            });
             new.layout[idx2].swap();
         }
 
         new.layout.swap(idx1, idx2);
         if Keymap::meet_requirements(&new.layout) {
-            vec.push(new.clone());
+            vec.push(Keymap {
+                layout: new.layout.clone(),
+                sequences: Keymap::build_sequences(&new.layout),
+            });
         }
 
         new.layout[idx1].swap();
         if Keymap::meet_requirements(&new.layout) {
-            vec.push(new.clone());
+            vec.push(Keymap {
+                layout: new.layout.clone(),
+                sequences: Keymap::build_sequences(&new.layout),
+            });
         }
 
         new.layout[idx1].swap();
         new.layout[idx2].swap();
         if Keymap::meet_requirements(&new.layout) {
-            vec.push(new.clone());
+            vec.push(Keymap {
+                layout: new.layout.clone(),
+                sequences: Keymap::build_sequences(&new.layout),
+            });
         }
 
         new.layout[idx1].swap();
         if Keymap::meet_requirements(&new.layout) {
-            vec.push(new.clone());
+            vec.push(Keymap {
+                layout: new.layout.clone(),
+                sequences: Keymap::build_sequences(&new.layout),
+            });
         }
 
         vec
