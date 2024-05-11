@@ -97,6 +97,7 @@ impl Playground {
                 search_count += 1;
             }
         }
+        self.keymaps[rank[0].1] = best_keymap.clone();
         (best_score, best_keymap)
     }
 

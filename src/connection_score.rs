@@ -114,13 +114,13 @@ impl ConnectionScore {
             this.scores[index] = score;
 
             for j in indices.iter().cloned() {
-                let score = this.evaluate_two_connection(&i.into(), &j.into());
+                let score = this.evaluate_two_connection(&i.into(), &j.into(), &timings);
                 let index = this.get_index(&Some(i.into()), &Some(j.into()), &None, &None);
                 this.scores[index] = score;
 
                 for k in indices.iter().cloned() {
                     let score =
-                        this.evaluate_three_connection(timings, &i.into(), &j.into(), &k.into());
+                        this.evaluate_three_connection(&i.into(), &j.into(), &k.into(), timings);
                     let index =
                         this.get_index(&Some(i.into()), &Some(j.into()), &Some(k.into()), &None);
                     this.scores[index] = score;
@@ -203,17 +203,8 @@ impl ConnectionScore {
         k: &(usize, usize),
         l: &(usize, usize),
     ) -> u32 {
-        let mut score = self.evaluate_three_connection(timings, i, j, k);
-        let i: Pos = Pos::from(*i);
-        let j: Pos = Pos::from(*j);
-        let k: Pos = Pos::from(*k);
+        let score = self.evaluate_three_connection(i, j, k, timings);
         let l: Pos = Pos::from(*l);
-
-        // 2連接の評価
-        score += j.two_conjunction_scores(&k, timings);
-
-        // 3連接の評価
-        score += self.three_conjunction_scores(&i, &j, &k);
 
         score + FINGER_WEIGHTS[l.0][l.1] as u32
     }
@@ -236,20 +227,17 @@ impl ConnectionScore {
     /// 評価値
     fn evaluate_three_connection(
         &self,
-        timings: &TwoKeyTiming,
         i: &(usize, usize),
         j: &(usize, usize),
         k: &(usize, usize),
+        timings: &TwoKeyTiming,
     ) -> u32 {
-        let two_score = self.evaluate_two_connection(i, j);
+        let two_score = self.evaluate_two_connection(i, j, timings);
         let i: Pos = Pos::from(*i);
         let j: Pos = Pos::from(*j);
         let k: Pos = Pos::from(*k);
 
-        // 2連接の評価
-        let score = i.two_conjunction_scores(&j, timings);
-
-        score + two_score + FINGER_WEIGHTS[k.0][k.1] as u32
+        two_score + self.three_conjunction_scores(&i, &j, &k) + FINGER_WEIGHTS[k.0][k.1] as u32
     }
 
     /// 2連接の評価を行う
@@ -267,12 +255,19 @@ impl ConnectionScore {
     ///
     /// # Returns
     /// 評価値
-    fn evaluate_two_connection(&self, i: &(usize, usize), j: &(usize, usize)) -> u32 {
+    fn evaluate_two_connection(
+        &self,
+        i: &(usize, usize),
+        j: &(usize, usize),
+        timings: &TwoKeyTiming,
+    ) -> u32 {
         let i: Pos = Pos::from(*i);
         let j: Pos = Pos::from(*j);
 
         // 2連接の評価
-        FINGER_WEIGHTS[i.0][i.1] as u32 + FINGER_WEIGHTS[j.0][j.1] as u32
+        FINGER_WEIGHTS[i.0][i.1] as u32
+            + FINGER_WEIGHTS[j.0][j.1] as u32
+            + i.two_conjunction_scores(&i, timings)
     }
     /// 単一キーの評価を行う
     ///
