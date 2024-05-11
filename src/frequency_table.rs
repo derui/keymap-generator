@@ -232,18 +232,15 @@ impl KeyAssigner {
     /// 選択されたキーに含まれている文字は、無シフト面の両方から使用できなくなる
     pub fn pick_key(&mut self, rng: &mut StdRng, key_idx: usize) -> Option<CharCombination> {
         let freq = &self.combinations[key_idx];
-        let mut rows = (0..freq.combinations.len()).collect::<Vec<_>>();
-        rows.sort_by_key(|_| rng.gen::<i32>());
+        let mut indices = (0..freq.combinations.len()).collect::<Vec<_>>();
+        indices.sort_by_key(|_| rng.gen::<i32>());
 
         let prob = rng.gen::<f64>();
         let mut accum = 0.0;
-        for first_idx in rows.iter() {
+        for first_idx in indices.iter() {
             let first = &freq.combinations[*first_idx];
 
-            let mut cols = (0..freq.combinations.len()).collect::<Vec<_>>();
-            cols.sort_by_key(|_| rng.gen::<i32>());
-
-            for second_idx in cols.iter() {
+            for second_idx in indices.iter() {
                 let Some(second) = first[*second_idx] else {
                     continue;
                 };
@@ -260,9 +257,9 @@ impl KeyAssigner {
                         );
                     }
 
-                    return Some(CharCombination(
-                        self.character_index_map[*first_idx],
-                        self.character_index_map[*second_idx],
+                    return Some(CharCombination::new(
+                        &self.character_index_map[*first_idx],
+                        &self.character_index_map[*second_idx],
                     ));
                 }
                 accum += second / freq.total;
@@ -285,9 +282,9 @@ impl KeyAssigner {
                 let Some(second) = second else { continue };
 
                 if accum + (*second / freq.total) >= prob {
-                    return CharCombination(
-                        self.character_index_map[first_idx],
-                        self.character_index_map[second_idx],
+                    return CharCombination::new(
+                        &self.character_index_map[first_idx],
+                        &self.character_index_map[second_idx],
                     );
                 }
                 accum += *second / freq.total;
@@ -394,7 +391,11 @@ impl FrequencyTable {
                 !(p1.is_reading_point()
                     || p1.is_punctuation_mark()
                     || p2.is_reading_point()
-                    || p2.is_punctuation_mark())
+                    || p2.is_punctuation_mark()
+                    || (*p1 == CharDef::Turbid && !p2.is_cleartone())
+                    || (*p1 == CharDef::SemiTurbid && !p2.is_cleartone())
+                    || (*p2 == CharDef::SemiTurbid && !p1.is_cleartone())
+                    || (*p1 == CharDef::Turbid && *p2 == CharDef::SemiTurbid))
             });
             26
         ];

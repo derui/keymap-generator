@@ -20,8 +20,8 @@ impl CharDef {
                 turbid,
                 semiturbid,
             } => turbid.is_none() && semiturbid.is_none(),
-            CharDef::Turbid => false,
-            CharDef::SemiTurbid => false,
+            CharDef::Turbid => true,
+            CharDef::SemiTurbid => true,
         }
     }
 
@@ -306,19 +306,19 @@ const CHARS: [CharDef; 53] = [
         semiturbid: None,
     },
     CharDef::Normal {
-        normal: 'ゃ',
+        normal: 'や',
         turbid: None,
-        semiturbid: Some('や'),
+        semiturbid: Some('ゃ'),
     },
     CharDef::Normal {
-        normal: 'ゅ',
+        normal: 'ゆ',
         turbid: None,
-        semiturbid: Some('ゆ'),
+        semiturbid: Some('ゅ'),
     },
     CharDef::Normal {
-        normal: 'ょ',
+        normal: 'よ',
         turbid: None,
-        semiturbid: Some('よ'),
+        semiturbid: Some('ょ'),
     },
     CharDef::Normal {
         normal: 'ら',

@@ -96,9 +96,9 @@ pub struct ConnectionScore {
 }
 
 // struct for evaluation
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Evaluation {
-    pub positions: (Pos, Option<Pos>),
+    pub positions: Pos,
 }
 
 impl ConnectionScore {
@@ -117,20 +117,12 @@ impl ConnectionScore {
                 let score = this.evaluate_two_connection(&i.into(), &j.into());
                 let index = this.get_index(&Some(i.into()), &Some(j.into()), &None, &None);
                 this.scores[index] = score;
-                let index = this.get_index(&None, &Some(j.into()), &None, &None);
-                this.scores[index] = score;
 
                 for k in indices.iter().cloned() {
                     let score =
                         this.evaluate_three_connection(timings, &i.into(), &j.into(), &k.into());
                     let index =
                         this.get_index(&Some(i.into()), &Some(j.into()), &Some(k.into()), &None);
-                    this.scores[index] = score;
-                    let index = this.get_index(&None, &Some(j.into()), &Some(k.into()), &None);
-                    this.scores[index] = score;
-                    let index = this.get_index(&None, &None, &Some(k.into()), &None);
-                    this.scores[index] = score;
-                    let index = this.get_index(&Some(i.into()), &None, &Some(k.into()), &None);
                     this.scores[index] = score;
 
                     for l in indices.iter().cloned() {
@@ -163,16 +155,11 @@ impl ConnectionScore {
         let mut score = 0;
         let mut idx = 0;
 
-        loop {
-            if sequence.len() <= idx {
-                break;
-            }
-            let first: Option<(usize, usize)> = sequence.get(idx).map(|p| p.positions.0.into());
-            let second: Option<(usize, usize)> =
-                sequence.get(idx + 1).map(|p| p.positions.0.into());
-            let third: Option<(usize, usize)> = sequence.get(idx + 2).map(|p| p.positions.0.into());
-            let fourth: Option<(usize, usize)> =
-                sequence.get(idx + 3).map(|p| p.positions.0.into());
+        while sequence.len() > idx {
+            let first: Option<(usize, usize)> = sequence.get(idx).map(|p| p.positions.into());
+            let second: Option<(usize, usize)> = sequence.get(idx + 1).map(|p| p.positions.into());
+            let third: Option<(usize, usize)> = sequence.get(idx + 2).map(|p| p.positions.into());
+            let fourth: Option<(usize, usize)> = sequence.get(idx + 3).map(|p| p.positions.into());
 
             score += unsafe {
                 *self
@@ -181,40 +168,7 @@ impl ConnectionScore {
                     as u64
             };
 
-            let first: Option<(usize, usize)> = sequence.get(idx).map(|p| {
-                p.positions
-                    .1
-                    .map(|v| v.into())
-                    .unwrap_or(p.positions.0.into())
-            });
-            let second: Option<(usize, usize)> = sequence.get(idx + 1).map(|p| {
-                p.positions
-                    .1
-                    .map(|v| v.into())
-                    .unwrap_or(p.positions.0.into())
-            });
-            let third: Option<(usize, usize)> = sequence.get(idx + 2).map(|p| {
-                p.positions
-                    .1
-                    .map(|v| v.into())
-                    .unwrap_or(p.positions.0.into())
-            });
-            let fourth: Option<(usize, usize)> = sequence.get(idx + 3).map(|p| {
-                p.positions
-                    .1
-                    .map(|v| v.into())
-                    .unwrap_or(p.positions.0.into())
-            });
-
-            score += unsafe {
-                let v = *self
-                    .scores
-                    .get_unchecked(self.get_index(&first, &second, &third, &fourth))
-                    as f64;
-                (v * 1.3) as u64
-            };
-
-            idx += 4
+            idx += 1
         }
 
         score
@@ -480,7 +434,7 @@ impl Pos {
                 }
             },
             |first: &Pos, second: &Pos| {
-                // 同じ指で同じ行をスキップしている場合はペナルティを与える
+                // 同じ指で行をスキップしている場合はペナルティを与える
                 if first.is_skip_row_on_same_finger(second) {
                     100
                 } else {

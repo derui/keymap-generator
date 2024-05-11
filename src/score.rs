@@ -6,13 +6,6 @@ use crate::{
     layout::{self},
 };
 
-/// キーを押下する手の割当。1 = 左手、2 = 右手
-static HAND_ASSIGNMENT: [[u8; 10]; 3] = [
-    [1, 1, 1, 1, 1, 2, 2, 2, 2, 2],
-    [1, 1, 1, 1, 1, 2, 2, 2, 2, 2],
-    [1, 1, 1, 1, 1, 2, 2, 2, 2, 2],
-];
-
 #[derive(Debug, Clone)]
 pub struct Conjunction {
     /// 連接のテキスト
@@ -37,26 +30,29 @@ pub fn evaluate(
     keymap: &Keymap,
 ) -> u64 {
     let mut score = 0;
-    let linear_layout = layout::linear::linear_layout();
 
-    let mut pos_cache: Vec<KeySeq> = Vec::with_capacity(char_def::all_chars().len());
+    let mut pos_cache: Vec<Vec<Evaluation>> = Vec::with_capacity(char_def::all_chars().len());
 
     for c in char_def::all_chars().iter() {
         let Some(v) = keymap.get(*c) else {
             unreachable!("should not have any missing key")
         };
-        pos_cache.push(v);
+        pos_cache.push(
+            v.as_raw_sequence()
+                .iter()
+                .map(|p| Evaluation {
+                    positions: p.into(),
+                })
+                .collect(),
+        );
     }
 
     let mut key_sequence: Vec<Evaluation> = Vec::with_capacity(10);
     for conjunction in conjunctions {
         for ch in conjunction.text.iter() {
             let seq = &pos_cache[*ch];
-            let seq = seq.as_raw_sequence();
 
-            key_sequence.extend(seq.iter().map(|(p, s)| Evaluation {
-                positions: (p.into(), s.map(|v| (&v).into())),
-            }));
+            key_sequence.extend(seq.iter().cloned());
         }
 
         score += pre_scores.evaluate(&key_sequence) * conjunction.appearances as u64;

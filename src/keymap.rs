@@ -239,7 +239,7 @@ impl Keymap {
         if !Keymap::meet_requirements(&layout) {
             None
         } else {
-            let mut sequences = Keymap::build_sequences(&layout);
+            let sequences = Keymap::build_sequences(&layout);
 
             let keymap = Keymap { layout, sequences };
             Some(keymap)
@@ -423,7 +423,6 @@ impl Keymap {
     /// 最初のセルにひらがな、２番めのセルにkeyのcombinationを返す
     pub fn key_combinations(&self, key_layout: &[[char; 10]; 3]) -> Vec<(String, String)> {
         let mut ret: Vec<(String, String)> = Vec::new();
-        let layout = linear::linear_layout();
 
         for (r, (_, seq)) in self.sequences.iter().enumerate() {
             ret.push((seq.char().to_string(), seq.to_char_sequence()))

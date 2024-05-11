@@ -158,7 +158,6 @@ fn main() -> anyhow::Result<()> {
     .expect("error setting handler");
 
     while running.load(Ordering::SeqCst) {
-        // 直近の10個が全く変わらない場合、突然変異を強制する
         let ret = playground.advance(&mut rng, &conjunctions, scores.clone());
 
         if best_score > ret.0 {
