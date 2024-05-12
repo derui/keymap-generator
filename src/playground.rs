@@ -30,7 +30,7 @@ impl Playground {
 
         // まずは必要な数だけ生成しておく
         let mut keymaps = Vec::new();
-        while keymaps.len() < 2 {
+        while keymaps.len() < KEYMAP_SIZE {
             let mut assigner = KeyAssigner::from_freq(&frequency_table);
             if let Some(keymap) = Keymap::generate(rng, &mut assigner) {
                 keymaps.push(keymap);
@@ -62,10 +62,11 @@ impl Playground {
         rng: &mut StdRng,
         conjunctions: &[Conjunction],
         connection_score: Arc<ConnectionScore>,
+        do_neighbor_search: bool,
     ) -> (u64, Keymap) {
         self.generation += 1;
 
-        if self.generation % 2000 == 0 {
+        if do_neighbor_search {
             log::info!("Do neighbor search");
             return self.advance_with_neighbor(rng, conjunctions, connection_score);
         }
@@ -82,21 +83,23 @@ impl Playground {
         let rank = self.rank(conjunctions, connection_score.clone()).to_vec();
         let mut best_keymap = self.keymaps[rank[0].1].clone();
         let mut best_score = rank[0].0;
-        let mut search_count = 0;
 
-        while search_count < 100 {
+        loop {
             let (score, best) =
-                self.re_rank_neighbor(rng, conjunctions, connection_score.clone(), &best_keymap);
+                self.re_rank_neighbor(conjunctions, connection_score.clone(), &best_keymap);
 
             if score < best_score {
-                self.frequency_table.update(&best, 1.0 / KEYMAP_SIZE as f64);
-                self.frequency_table.mutate(rng, MUTATION_PROB);
                 best_score = score;
                 best_keymap = best;
             } else {
-                search_count += 1;
+                break;
             }
         }
+
+        self.frequency_table
+            .update(&best_keymap, 1.0 / KEYMAP_SIZE as f64);
+        self.frequency_table.mutate(rng, MUTATION_PROB);
+
         self.keymaps[rank[0].1] = best_keymap.clone();
         (best_score, best_keymap)
     }
@@ -142,7 +145,6 @@ impl Playground {
     /// 最近傍探索をして、類似keymapのなかでbestなものを探す
     fn re_rank_neighbor(
         &self,
-        rng: &mut StdRng,
         conjunctions: &[Conjunction],
         connection_score: Arc<ConnectionScore>,
         keymap: &Keymap,
@@ -153,20 +155,15 @@ impl Playground {
         let mut keymaps: Vec<Keymap> = Vec::with_capacity(5000);
         let len = keymap.iter().collect::<Vec<_>>().len();
 
-        loop {
-            let i = rng.gen_range(0..len);
-            let j = rng.gen_range(0..len);
+        for i in 0..len {
+            for j in 0..len {
+                if i >= j {
+                    continue;
+                }
 
-            if i >= j {
-                continue;
+                let swaps = keymap.swap_keys(i, j);
+                keymaps.extend_from_slice(&swaps);
             }
-
-            let swaps = keymap.swap_keys(i, j);
-            keymaps.extend_from_slice(&swaps);
-            if keymaps.is_empty() {
-                continue;
-            }
-            break;
         }
 
         keymaps.iter().enumerate().for_each(|(idx, k)| {

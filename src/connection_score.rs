@@ -168,7 +168,7 @@ impl ConnectionScore {
                     as u64
             };
 
-            idx += 1
+            idx += 4
         }
 
         score

@@ -151,6 +151,7 @@ fn main() -> anyhow::Result<()> {
     let running = Arc::new(AtomicBool::new(true));
     let r = running.clone();
     let mut last_best_updated = SystemTime::now();
+    let mut no_update_long_time = false;
 
     ctrlc::set_handler(move || {
         r.store(false, Ordering::SeqCst);
@@ -158,7 +159,7 @@ fn main() -> anyhow::Result<()> {
     .expect("error setting handler");
 
     while running.load(Ordering::SeqCst) {
-        let ret = playground.advance(&mut rng, &conjunctions, scores.clone());
+        let ret = playground.advance(&mut rng, &conjunctions, scores.clone(), no_update_long_time);
 
         if best_score > ret.0 {
             log::info!(
@@ -175,7 +176,7 @@ fn main() -> anyhow::Result<()> {
         }
 
         let now = SystemTime::now();
-        if now.duration_since(last_best_updated).unwrap().as_secs() >= 300 {
+        if now.duration_since(last_best_updated).unwrap().as_secs() >= 60 {
             log::info!(
                 "Long time no best at generation {}. last score: {}, last best score: {}, {} for evaluation:\n{:?}",
                 playground.generation(),
@@ -185,6 +186,9 @@ fn main() -> anyhow::Result<()> {
                 best_keymap.clone().unwrap().key_combinations(&QWERTY)
             );
             last_best_updated = now;
+            no_update_long_time = true;
+        } else {
+            no_update_long_time = false;
         }
 
         is_mutation_request(&mut last_scores, ret.0);

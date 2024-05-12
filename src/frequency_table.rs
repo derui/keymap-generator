@@ -386,19 +386,35 @@ impl FrequencyTable {
     pub fn new() -> Self {
         // 可能なキーの位置は26個なので、その分の分布を設定する
         // 句読点は特殊なキーに割り当てられるため、それらは除外する
-        let combinations = vec![
+        let mut combinations = vec![
             CombinationFrequency::new(|p1, p2| {
                 !(p1.is_reading_point()
                     || p1.is_punctuation_mark()
                     || p2.is_reading_point()
                     || p2.is_punctuation_mark()
                     || (*p1 == CharDef::Turbid && !p2.is_cleartone())
+                    || (*p2 == CharDef::Turbid && !p1.is_cleartone())
                     || (*p1 == CharDef::SemiTurbid && !p2.is_cleartone())
                     || (*p2 == CharDef::SemiTurbid && !p1.is_cleartone())
-                    || (*p1 == CharDef::Turbid && *p2 == CharDef::SemiTurbid))
+                    || (*p1 == CharDef::Turbid && *p2 == CharDef::SemiTurbid)
+                    || (*p2 == CharDef::Turbid && *p1 == CharDef::SemiTurbid))
             });
             26
         ];
+
+        [LINEAR_L_SHIFT_INDEX, LINEAR_R_SHIFT_INDEX]
+            .iter()
+            .for_each(|key| {
+                combinations[*key] = CombinationFrequency::new(|p1, p2| {
+                    !(p1.is_reading_point()
+                        || p1.is_punctuation_mark()
+                        || p2.is_reading_point()
+                        || p2.is_punctuation_mark()
+                        || !p2.is_cleartone()
+                        || (*p1 == CharDef::Turbid && *p2 == CharDef::SemiTurbid)
+                        || (*p2 == CharDef::Turbid && *p1 == CharDef::SemiTurbid))
+                });
+            });
 
         FrequencyTable {
             frequency: combinations,

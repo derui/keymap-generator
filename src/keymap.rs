@@ -69,7 +69,7 @@ mod constraints {
         }
     }
 
-    /// 左右のシフトキーには清音しか設定されていないかどうかを確認する
+    /// 左右のシフトのシフト面のキーには清音しか設定されていないかどうかを確認する
     pub(super) fn should_shift_only_clear_tones(layout: &[KeyAssignment]) -> bool {
         let left_shifted = &layout[LINEAR_L_SHIFT_INDEX];
         let right_shifted = &layout[LINEAR_R_SHIFT_INDEX];
@@ -84,6 +84,54 @@ mod constraints {
                 let l = l.shifted();
                 let r = r.shifted();
                 cleartones.contains(&l) && cleartones.contains(&r)
+            }
+            _ => false,
+        }
+    }
+
+    /// 濁音には清音しか設定されていないかどうかを確認する
+    pub(super) fn should_turbid_key_only_clear_tones(layout: &[KeyAssignment]) -> bool {
+        let Some(turbid) = layout
+            .iter()
+            .find(|v| v.as_turbid(&((0, 0).into())).is_some())
+        else {
+            return false;
+        };
+
+        let cleartones = definitions()
+            .into_iter()
+            .filter(|v| v.is_cleartone())
+            .map(|v| v.normal())
+            .collect::<Vec<char>>();
+        match turbid {
+            KeyAssignment::A(l) => {
+                let unshift = l.unshift();
+                let shifted = l.shifted();
+                cleartones.contains(&unshift) && cleartones.contains(&shifted)
+            }
+            _ => false,
+        }
+    }
+
+    /// 半濁音には清音しか設定されていないかどうかを確認する
+    pub(super) fn should_semiturbid_key_only_clear_tones(layout: &[KeyAssignment]) -> bool {
+        let Some(semiturbid) = layout
+            .iter()
+            .find(|v| v.as_semiturbid(&((0, 0).into())).is_some())
+        else {
+            return false;
+        };
+
+        let cleartones = definitions()
+            .into_iter()
+            .filter(|v| v.is_cleartone())
+            .map(|v| v.normal())
+            .collect::<Vec<char>>();
+        match semiturbid {
+            KeyAssignment::A(l) => {
+                let unshift = l.unshift();
+                let shifted = l.shifted();
+                cleartones.contains(&unshift) && cleartones.contains(&shifted)
             }
             _ => false,
         }
@@ -259,14 +307,12 @@ impl Keymap {
             .iter()
             .position(|v| v.as_semiturbid(&From::from((0, 0))).is_some())
             .expect("should have turbid");
-        let turbid_seq = KeySeq::from_shift(
-            char_def::CharDef::Turbid.normal(),
-            &linear_layout[turbid_pos],
-        );
-        let semiturbid_seq = KeySeq::from_shift(
-            char_def::CharDef::SemiTurbid.normal(),
-            &linear_layout[semiturbid_pos],
-        );
+        let turbid_seq = layout[turbid_pos]
+            .as_turbid(&linear_layout[turbid_pos])
+            .expect("should have turbid");
+        let semiturbid_seq = layout[semiturbid_pos]
+            .as_semiturbid(&linear_layout[semiturbid_pos])
+            .expect("should have semiturbid");
 
         for (idx, assignment) in layout.iter().enumerate() {
             if let KeyAssignment::A(k) = assignment {
@@ -334,7 +380,9 @@ impl Keymap {
     fn meet_requirements(layout: &[KeyAssignment]) -> bool {
         let checks = [
             constraints::should_shift_having_same_key,
-            // constraints::should_shift_only_clear_tones,
+            constraints::should_shift_only_clear_tones,
+            constraints::should_turbid_key_only_clear_tones,
+            constraints::should_semiturbid_key_only_clear_tones,
             // constraints::should_be_explicit_between_left_turbid_and_right_semiturbit,
             // constraints::should_only_one_turbid,
             // constraints::should_be_explicit_between_right_turbid_and_left_semiturbit,
