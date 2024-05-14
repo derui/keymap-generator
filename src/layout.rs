@@ -86,7 +86,7 @@ pub mod linear {
 
     /// 句点の位置
     pub fn punctuation_mark_points() -> Vec<Point> {
-        vec![Point { row: 1, col: 3 }, Point { row: 1, col: 6 }]
+        vec![Point { row: 0, col: 2 }, Point { row: 0, col: 7 }]
     }
 
     /// 直線的になるレイアウトを返す

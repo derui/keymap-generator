@@ -40,8 +40,9 @@ pub fn evaluate(
         pos_cache.push(
             v.as_raw_sequence()
                 .iter()
-                .map(|p| Evaluation {
+                .map(|(p, shift)| Evaluation {
                     positions: p.into(),
+                    shift: shift.is_some(),
                 })
                 .collect(),
         );

@@ -69,7 +69,7 @@ mod constraints {
         }
     }
 
-    /// 左右のシフトのシフト面のキーには清音しか設定されていないかどうかを確認する
+    /// 左右のシフトキーには清音しか設定されていないかどうかを確認する
     pub(super) fn should_shift_only_clear_tones(layout: &[KeyAssignment]) -> bool {
         let left_shifted = &layout[LINEAR_L_SHIFT_INDEX];
         let right_shifted = &layout[LINEAR_R_SHIFT_INDEX];
@@ -81,12 +81,30 @@ mod constraints {
             .collect::<Vec<char>>();
         match (left_shifted, right_shifted) {
             (KeyAssignment::A(l), KeyAssignment::A(r)) => {
-                let l = l.shifted();
-                let r = r.shifted();
-                cleartones.contains(&l) && cleartones.contains(&r)
+                let shifted_l = l.shifted();
+                let shifted_r = r.shifted();
+                let unshift_l = l.unshift();
+                let unshift_r = r.unshift();
+                cleartones.contains(&shifted_l)
+                    && cleartones.contains(&shifted_r)
+                    && cleartones.contains(&unshift_l)
+                    && cleartones.contains(&unshift_r)
             }
             _ => false,
         }
+    }
+
+    /// 左右のシフトキーには濁音または半濁音が設定されていてはいけない
+    pub(super) fn should_not_shift_turbid_or_semiturbid(layout: &[KeyAssignment]) -> bool {
+        let left_turbid = layout[LINEAR_L_SHIFT_INDEX].as_turbid(&((0, 0).into()));
+        let right_turbid = layout[LINEAR_R_SHIFT_INDEX].as_turbid(&((0, 0).into()));
+        let left_semiturbid = layout[LINEAR_L_SHIFT_INDEX].as_semiturbid(&((0, 0).into()));
+        let right_semiturbid = layout[LINEAR_R_SHIFT_INDEX].as_semiturbid(&((0, 0).into()));
+
+        left_turbid.is_none()
+            && right_turbid.is_none()
+            && left_semiturbid.is_none()
+            && right_semiturbid.is_none()
     }
 
     /// 濁音には清音しか設定されていないかどうかを確認する
@@ -383,6 +401,7 @@ impl Keymap {
             constraints::should_shift_only_clear_tones,
             constraints::should_turbid_key_only_clear_tones,
             constraints::should_semiturbid_key_only_clear_tones,
+            constraints::should_not_shift_turbid_or_semiturbid,
             // constraints::should_be_explicit_between_left_turbid_and_right_semiturbit,
             // constraints::should_only_one_turbid,
             // constraints::should_be_explicit_between_right_turbid_and_left_semiturbit,
@@ -407,16 +426,17 @@ impl Keymap {
                 layout: new.layout.clone(),
                 sequences: Keymap::build_sequences(&new.layout),
             });
-            new.layout[idx1].swap();
         }
+        new.layout[idx1].swap();
+
         new.layout[idx2].swap();
         if Keymap::meet_requirements(&new.layout) {
             vec.push(Keymap {
                 layout: new.layout.clone(),
                 sequences: Keymap::build_sequences(&new.layout),
             });
-            new.layout[idx2].swap();
         }
+        new.layout[idx2].swap();
 
         new.layout.swap(idx1, idx2);
         if Keymap::meet_requirements(&new.layout) {

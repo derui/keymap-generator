@@ -114,12 +114,12 @@ impl KeySeq {
     }
 
     /// `sequence` を返す
-    pub fn as_raw_sequence(&self) -> Vec<Point> {
+    pub fn as_raw_sequence(&self) -> Vec<(Point, Option<Point>)> {
         self.sequence
             .iter()
-            .flat_map(|seq| match seq {
-                KeyPressPattern::Shift(f, s) => vec![*s, *f],
-                KeyPressPattern::Sequential(p) => vec![*p],
+            .map(|seq| match seq {
+                KeyPressPattern::Shift(f, s) => (*f, Some(*s)),
+                KeyPressPattern::Sequential(p) => (*p, None),
             })
             .collect()
     }

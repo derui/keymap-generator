@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs::File, io::Read, path::Path};
+use std::{borrow::Borrow, collections::HashMap, fs::File, io::Read, path::Path};
 
 use scraper::{Html, Selector};
 
@@ -99,6 +99,7 @@ pub struct ConnectionScore {
 #[derive(Debug, Clone)]
 pub struct Evaluation {
     pub positions: Pos,
+    pub shift: bool,
 }
 
 impl ConnectionScore {
@@ -162,10 +163,28 @@ impl ConnectionScore {
             let fourth: Option<(usize, usize)> = sequence.get(idx + 3).map(|p| p.positions.into());
 
             score += unsafe {
-                *self
+                let score = *self
                     .scores
-                    .get_unchecked(self.get_index(&first, &second, &third, &fourth))
-                    as u64
+                    .get_unchecked(self.get_index(&first, &second, &third, &fourth));
+
+                let shifts = sequence
+                    .get(idx)
+                    .map(|p| if p.shift { 1 } else { 0 })
+                    .unwrap_or(0)
+                    + sequence
+                        .get(idx + 1)
+                        .map(|p| if p.shift { 1 } else { 0 })
+                        .unwrap_or(0)
+                    + sequence
+                        .get(idx + 2)
+                        .map(|p| if p.shift { 1 } else { 0 })
+                        .unwrap_or(0)
+                    + sequence
+                        .get(idx + 3)
+                        .map(|p| if p.shift { 1 } else { 0 })
+                        .unwrap_or(0);
+
+                (score as f64 * (1.3_f32).powi(shifts) as f64) as u64
             };
 
             idx += 4

@@ -22,7 +22,7 @@ pub struct Playground {
 const TOURNAMENT_SIZE: usize = 10;
 const KEYMAP_SIZE: usize = 30;
 const WORKERS: u8 = 20;
-const MUTATION_PROB: f64 = 0.01;
+const MUTATION_PROB: f64 = 0.0001;
 
 impl Playground {
     pub fn new(gen_count: u8, rng: &mut StdRng, frequency_table: FrequencyTable) -> Self {
@@ -83,7 +83,9 @@ impl Playground {
         let rank = self.rank(conjunctions, connection_score.clone()).to_vec();
         let mut best_keymap = self.keymaps[rank[0].1].clone();
         let mut best_score = rank[0].0;
+        let mut search_count = 0;
 
+        log::info!("previous best score: {}", best_score);
         loop {
             let (score, best) =
                 self.re_rank_neighbor(conjunctions, connection_score.clone(), &best_keymap);
@@ -94,11 +96,11 @@ impl Playground {
             } else {
                 break;
             }
+            search_count += 1;
         }
+        log::info!("after best score: {}, {search_count}", best_score);
 
-        self.frequency_table
-            .update(&best_keymap, 1.0 / KEYMAP_SIZE as f64);
-        self.frequency_table.mutate(rng, MUTATION_PROB);
+        self.frequency_table.update(&best_keymap, 1.0);
 
         self.keymaps[rank[0].1] = best_keymap.clone();
         (best_score, best_keymap)
@@ -156,11 +158,7 @@ impl Playground {
         let len = keymap.iter().collect::<Vec<_>>().len();
 
         for i in 0..len {
-            for j in 0..len {
-                if i >= j {
-                    continue;
-                }
-
+            for j in (i + 1)..len {
                 let swaps = keymap.swap_keys(i, j);
                 keymaps.extend_from_slice(&swaps);
             }
