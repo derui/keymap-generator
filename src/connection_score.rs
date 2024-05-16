@@ -157,34 +157,26 @@ impl ConnectionScore {
         let mut idx = 0;
 
         while sequence.len() > idx {
-            let first: Option<(usize, usize)> = sequence.get(idx).map(|p| p.positions.into());
-            let second: Option<(usize, usize)> = sequence.get(idx + 1).map(|p| p.positions.into());
-            let third: Option<(usize, usize)> = sequence.get(idx + 2).map(|p| p.positions.into());
-            let fourth: Option<(usize, usize)> = sequence.get(idx + 3).map(|p| p.positions.into());
+            let first: Option<((usize, usize), bool)> =
+                sequence.get(idx).map(|p| (p.positions.into(), p.shift));
+            let second: Option<((usize, usize), bool)> =
+                sequence.get(idx + 1).map(|p| (p.positions.into(), p.shift));
+            let third: Option<((usize, usize), bool)> =
+                sequence.get(idx + 2).map(|p| (p.positions.into(), p.shift));
+            let fourth: Option<((usize, usize), bool)> =
+                sequence.get(idx + 3).map(|p| (p.positions.into(), p.shift));
 
             score += unsafe {
                 let score = *self
                     .scores
-                    .get_unchecked(self.get_index(&first, &second, &third, &fourth));
+                    .get_unchecked(self.get_index_of_evaluation(&first, &second, &third, &fourth));
 
-                let shifts = sequence
-                    .get(idx)
-                    .map(|p| if p.shift { 1 } else { 0 })
-                    .unwrap_or(0)
-                    + sequence
-                        .get(idx + 1)
-                        .map(|p| if p.shift { 1 } else { 0 })
-                        .unwrap_or(0)
-                    + sequence
-                        .get(idx + 2)
-                        .map(|p| if p.shift { 1 } else { 0 })
-                        .unwrap_or(0)
-                    + sequence
-                        .get(idx + 3)
-                        .map(|p| if p.shift { 1 } else { 0 })
-                        .unwrap_or(0);
+                let shifts: i32 = first.map(|(_, s)| s).unwrap_or(false) as i32
+                    + second.map(|(_, s)| s).unwrap_or(false) as i32
+                    + third.map(|(_, s)| s).unwrap_or(false) as i32
+                    + fourth.map(|(_, s)| s).unwrap_or(false) as i32;
 
-                (score as f64 * (1.3_f32).powi(shifts) as f64) as u64
+                (score as f64 * (1.2_f32).powf(shifts as f32) as f64) as u64
             };
 
             idx += 4
@@ -371,6 +363,45 @@ impl ConnectionScore {
             index <<= 5
         }
         if let Some((r, c)) = l {
+            index = (index << 5) | ((r * 10 + c + 1) & bit_mask)
+        } else {
+            index <<= 5
+        }
+
+        index
+    }
+
+    /// 4連接に対応する全体のindexを返す。
+    ///
+    /// 26キーあるので、これが5bitに収まる。shiftのstateはいずれかにつき一回にはなる。
+    /// 全体としてこれらがこれが追加されると3bit必要になってしまい、32bitが必要になってしまい、メモリに乗らなくなってしまう。
+    /// なので、シフトの評価自体は別途行うことにする。
+    fn get_index_of_evaluation(
+        &self,
+        i: &Option<((usize, usize), bool)>,
+        j: &Option<((usize, usize), bool)>,
+        k: &Option<((usize, usize), bool)>,
+        l: &Option<((usize, usize), bool)>,
+    ) -> usize {
+        let bit_mask = 0b00011111;
+        // rowは0-2、colは0-9なので、全部合わせても31に収まるのでこうする。bit maskは本来なくてもいいのだが、一応追加している
+        let mut index: usize = 0;
+        if let Some(((r, c), _)) = i {
+            index = (index << 5) | ((r * 10 + c + 1) & bit_mask)
+        } else {
+            index <<= 5
+        }
+        if let Some(((r, c), _)) = j {
+            index = (index << 5) | ((r * 10 + c + 1) & bit_mask)
+        } else {
+            index <<= 5
+        }
+        if let Some(((r, c), _)) = k {
+            index = (index << 5) | ((r * 10 + c + 1) & bit_mask)
+        } else {
+            index <<= 5
+        }
+        if let Some(((r, c), _)) = l {
             index = (index << 5) | ((r * 10 + c + 1) & bit_mask)
         } else {
             index <<= 5

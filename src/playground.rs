@@ -67,8 +67,7 @@ impl Playground {
         self.generation += 1;
 
         if do_neighbor_search {
-            log::info!("Do neighbor search");
-            return self.advance_with_neighbor(rng, conjunctions, connection_score);
+            return self.advance_with_neighbor(conjunctions, connection_score);
         }
 
         self.advance_with_ga(rng, conjunctions, connection_score)
@@ -76,7 +75,6 @@ impl Playground {
 
     fn advance_with_neighbor(
         &mut self,
-        rng: &mut StdRng,
         conjunctions: &[Conjunction],
         connection_score: Arc<ConnectionScore>,
     ) -> (u64, Keymap) {
@@ -85,7 +83,7 @@ impl Playground {
         let mut best_score = rank[0].0;
         let mut search_count = 0;
 
-        log::info!("previous best score: {}", best_score);
+        log::info!("Do neighbor search, current best score: {}", best_score);
         loop {
             let (score, best) =
                 self.re_rank_neighbor(conjunctions, connection_score.clone(), &best_keymap);
