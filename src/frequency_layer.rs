@@ -94,7 +94,7 @@ impl LayeredFrequency {
         &self,
         rng: &mut StdRng,
         key_pool: &UsedKeyPool,
-    ) -> Vec<(String, Option<CharDef>)> {
+    ) -> LayeredCharCombination {
         let mut ret = vec![];
         let mut key_pool = key_pool.clone();
         let def = char_def::definitions();
@@ -109,7 +109,7 @@ impl LayeredFrequency {
             ret.push((layer.name.clone(), char));
         }
 
-        ret
+        LayeredCharCombination::new(&ret)
     }
 
     /// 指定されたlayerと文字の組み合わせから、頻度表を更新する
@@ -140,5 +140,27 @@ impl LayeredFrequency {
                 layer.update(idx, rate)
             }
         }
+    }
+}
+
+/// layerごとに文字を割り当てた、キーごとの組み合わせ
+pub struct LayeredCharCombination(Vec<(String, Option<CharDef>)>);
+
+impl LayeredCharCombination {
+    fn new(chars: &[(String, Option<CharDef>)]) -> Self {
+        LayeredCharCombination(chars.iter().cloned().collect())
+    }
+
+    /// layerに割り当てられた文字を取得する
+    ///
+    /// # Returns
+    /// layerが存在しないか、割り当てられていなかった場合はNone
+    #[inline]
+    pub fn char_of_layer(&self, layer: &str) -> Option<CharDef> {
+        self.0
+            .iter()
+            .find(|(name, _)| *name == layer)
+            .and_then(|(_, c)| *c)
+            .clone()
     }
 }
