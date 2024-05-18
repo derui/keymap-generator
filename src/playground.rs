@@ -73,14 +73,10 @@ fn get_predicates(rng: &mut StdRng) -> HashMap<usize, Vec<fn(&LayeredCharCombina
         );
         ret.insert(
             LINEAR_R_SEMITURBID_INDEX,
-            vec![
-                |v: &LayeredCharCombination| {
-                    v.char_of_layer("normal").map_or(true, |v| v.is_cleartone())
-                },
-                |v: &LayeredCharCombination| {
-                    v.char_of_layer("shift").map_or(true, |v| v.is_cleartone())
-                },
-            ],
+            vec![|v: &LayeredCharCombination| {
+                v.char_of_layer("normal").map_or(true, |v| v.is_cleartone())
+                    && v.char_of_layer("shift").map_or(true, |v| v.is_cleartone())
+            }],
         );
     }
 

@@ -10,7 +10,9 @@ use crate::{
     layout::linear::{linear_layout, LINEAR_L_SHIFT_INDEX, LINEAR_R_SHIFT_INDEX},
 };
 
-const LAYERS: [&str; 2] = ["normal", "shift"];
+pub const NORMAL_LAYER: &str = "normal";
+pub const SHIFT_LAYER: &str = "shift";
+const LAYERS: [&str; 2] = [NORMAL_LAYER, SHIFT_LAYER];
 
 /// キーの配置についての基本制約を頻度で表現し、それに追従するキーを返す構造体
 /// この構造体は、FrequencyTable自体から作成される。
@@ -18,8 +20,6 @@ const LAYERS: [&str; 2] = ["normal", "shift"];
 pub struct KeyAssigner {
     /// 組み合わせの頻度。内容はCombinationFrequencyと同一である
     layered_combinations: Vec<LayeredFrequency>,
-    // 文字と頻度表におけるindexのマッピング
-    character_index_map: Vec<CharDef>,
     // 文字からindexに変換するmap
     character_map: HashMap<char, usize>,
 
@@ -34,11 +34,25 @@ impl KeyAssigner {
         freq_table: &FrequencyTable,
         predicates: &HashMap<usize, Vec<fn(&LayeredCharCombination) -> bool>>,
     ) -> Self {
+        let mut key_pool = HashSet::new();
+
+        key_pool.insert(
+            char_def::definitions()
+                .iter()
+                .position(|v| v.is_punctuation_mark())
+                .expect("should be found punctuation mark"),
+        );
+        key_pool.insert(
+            char_def::definitions()
+                .iter()
+                .position(|v| v.is_reading_point())
+                .expect("should be found reading point"),
+        );
+
         Self {
             layered_combinations: freq_table.frequency.to_vec(),
-            character_index_map: char_def::definitions().into_iter().collect(),
             character_map: freq_table.character_map.clone(),
-            key_pool: HashSet::new(),
+            key_pool,
             key_predicates: predicates.clone(),
         }
     }
@@ -55,16 +69,35 @@ impl KeyAssigner {
         vec
     }
 
-    /// 指定された `key_idx` において、選択確率に応じた [CharCombination] を返す
-    ///
-    /// 選択されたキーに含まれている文字は、無シフト面の両方から使用できなくなる
+    /// 指定された `key_idx` において、選択確率に応じた [LayeredCharCombination] を返す
     pub fn pick_key(&mut self, rng: &mut StdRng, key_idx: usize) -> LayeredCharCombination {
         let freq = &self.layered_combinations[key_idx];
-        let preds = self
-            .key_predicates
-            .get(&key_idx)
-            .cloned()
-            .unwrap_or(Vec::new());
+        let preds = self.key_predicates.get(&key_idx).cloned().unwrap_or(vec![
+            |v: &LayeredCharCombination| {
+                let normal = v.char_of_layer(NORMAL_LAYER);
+                let shift = v.char_of_layer(SHIFT_LAYER);
+
+                match (
+                    normal.and_then(|v| v.turbid()),
+                    shift.and_then(|v| v.turbid()),
+                ) {
+                    (Some(_), Some(_)) => false,
+                    _ => true,
+                }
+            },
+            |v: &LayeredCharCombination| {
+                let normal = v.char_of_layer(NORMAL_LAYER);
+                let shift = v.char_of_layer(SHIFT_LAYER);
+
+                match (
+                    normal.and_then(|v| v.semiturbid()),
+                    shift.and_then(|v| v.semiturbid()),
+                ) {
+                    (Some(_), Some(_)) => false,
+                    _ => true,
+                }
+            },
+        ]);
 
         let char = freq.get_assignment(rng, &self.key_pool, &Vec::new(), &preds);
 
@@ -88,11 +121,11 @@ impl KeyAssigner {
             &self.key_pool,
             &Vec::new(),
             &vec![|comb: &LayeredCharCombination| {
-                comb.char_of_layer("normal")
+                comb.char_of_layer(NORMAL_LAYER)
                     .map_or(true, |v| v.is_cleartone())
                     && comb
-                        .char_of_layer("shift")
-                        .map_or(true, |v| v.is_cleartone())
+                        .char_of_layer(SHIFT_LAYER)
+                        .map_or(false, |v| v.is_cleartone())
             }],
         );
 
@@ -117,16 +150,14 @@ impl KeyAssigner {
 
         // シフトキーは、シフト面が同一であることが要件になる。
         let preds = vec![|comb: &LayeredCharCombination| {
-            comb.char_of_layer("normal")
+            comb.char_of_layer(NORMAL_LAYER)
                 .map_or(true, |v| v.is_cleartone())
-                && comb
-                    .char_of_layer("shift")
-                    .map_or(true, |v| v.is_cleartone())
         }];
+
         let char = freq.get_assignment(
             rng,
             &self.key_pool,
-            &vec![("shift", left_combination.char_of_layer("shift"))],
+            &vec![(SHIFT_LAYER, left_combination.char_of_layer(SHIFT_LAYER))],
             &preds,
         );
 
@@ -159,7 +190,7 @@ impl FrequencyTable {
     pub fn new() -> Self {
         // 可能なキーの位置は26個なので、その分の分布を設定する
         // 句読点は特殊なキーに割り当てられるため、それらは除外する
-        let combinations = vec![LayeredFrequency::new(&LAYERS); 26];
+        let combinations = vec![LayeredFrequency::new(&LAYERS); linear_layout().len()];
 
         FrequencyTable {
             frequency: combinations,
@@ -176,7 +207,7 @@ impl FrequencyTable {
         for (key_idx, def) in best_keymap.iter().enumerate() {
             let normal_def = def.unshift_def();
             let shifted_def = def.shifted_def();
-            let keys = vec![("normal", normal_def), ("shift", shifted_def)];
+            let keys = vec![(NORMAL_LAYER, normal_def), (SHIFT_LAYER, shifted_def)];
 
             self.frequency[key_idx].update(&keys, learning_rate)
         }

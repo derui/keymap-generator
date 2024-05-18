@@ -35,12 +35,12 @@ impl KeyDef {
 
     /// 無シフト面の文字を返す
     pub fn unshift(&self) -> char {
-        self.unshift.map(|v| v.normal()).unwrap_or(' ')
+        self.unshift.map(|v| v.normal()).unwrap_or('　')
     }
 
     /// シフト面の文字を返す
     pub fn shifted(&self) -> char {
-        self.shifted.map(|v| v.normal()).unwrap_or(' ')
+        self.shifted.map(|v| v.normal()).unwrap_or('　')
     }
 
     /// 濁点シフト面の文字があれば返す

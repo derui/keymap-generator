@@ -33,9 +33,13 @@ impl Layer {
 
     /// 頻度表を更新する
     fn update(&mut self, index: &usize, frequency: f64) {
-        self.frequencies[*index] += frequency;
+        if frequency < 0.0 {
+            self.frequencies[*index] *= 1.0 + frequency;
+        } else {
+            self.frequencies[*index] += frequency;
+        }
 
-        self.total += frequency;
+        self.total = self.frequencies.iter().sum();
     }
 
     /// 確率に応じて、文字の定義を返す
@@ -103,21 +107,37 @@ impl LayeredFrequency {
     where
         F: Fn(&LayeredCharCombination) -> bool,
     {
-        let mut ret = vec![];
-        let mut key_pool = key_pool.clone();
+        let mut key_pool_cache: HashSet<usize>;
         let def = char_def::definitions();
+        let mut count = 0;
 
-        loop {
+        while {
+            count += 1;
+            count < 10
+        } {
+            let mut ret = vec![];
+            key_pool_cache = key_pool.clone();
+
             for layer in &self.layers {
                 if let Some((_, c)) = pre_defined.iter().find(|(name, _)| *name == layer.name) {
                     ret.push((layer.name.clone(), *c));
                     continue;
                 }
 
-                let char = layer.get_char(rng, &key_pool);
+                let char = layer.get_char(rng, &key_pool_cache);
 
                 if let Some(c) = char {
-                    key_pool.insert(def.iter().position(|v| v == &c).expect("should be found"));
+                    key_pool_cache
+                        .insert(def.iter().position(|v| v == &c).expect("should be found"));
+
+                    if !c.is_cleartone() {
+                        def.iter()
+                            .enumerate()
+                            .filter(|(_, v)| !v.is_cleartone())
+                            .for_each(|(idx, _)| {
+                                key_pool_cache.insert(idx);
+                            });
+                    }
                 }
 
                 ret.push((layer.name.clone(), char));
@@ -128,6 +148,8 @@ impl LayeredFrequency {
                 return ret;
             }
         }
+
+        LayeredCharCombination::new(&Vec::new())
     }
 
     /// 指定されたlayerと文字の組み合わせから、頻度表を更新する

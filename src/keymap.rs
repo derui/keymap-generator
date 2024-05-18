@@ -81,24 +81,31 @@ mod constraints {
         }
     }
 
-    /// 各キーには濁音が一つ以下設定されているかどうかを確認する
+    /// 各キーには、濁音が一つ以下しか設定されていないかどうかを確認する
     pub(super) fn should_have_only_one_turbid(layout: &[KeyAssignment]) -> bool {
         layout.iter().all(|v| match v {
             KeyAssignment::A(k) => {
                 let unshift = k.unshift_def().and_then(|v| v.turbid());
                 let shifted = k.shifted_def().and_then(|v| v.turbid());
-                matches!((unshift, shifted), (Some(_), _) | (_, Some(_)))
+                matches!(
+                    (unshift, shifted),
+                    (Some(_), _) | (_, Some(_)) | (None, None)
+                )
             }
             KeyAssignment::U => true,
         })
     }
 
+    /// 各キーには、半濁音は一つ以下しか設定されていないかどうかを確認する
     pub(super) fn should_have_only_one_semiturbid(layout: &[KeyAssignment]) -> bool {
         layout.iter().all(|v| match v {
             KeyAssignment::A(k) => {
                 let unshift = k.unshift_def().and_then(|v| v.semiturbid());
                 let shifted = k.shifted_def().and_then(|v| v.semiturbid());
-                matches!((unshift, shifted), (Some(_), _) | (_, Some(_)))
+                matches!(
+                    (unshift, shifted),
+                    (Some(_), _) | (_, Some(_)) | (None, None)
+                )
             }
             KeyAssignment::U => true,
         })
@@ -122,6 +129,7 @@ mod constraints {
             }
         }
 
+        log::info!("{chars:?}");
         chars.is_empty()
     }
 
@@ -214,7 +222,7 @@ mod constraints {
             let c3 = char_def::find('る').unwrap();
             let c4 = char_def::find('ら').unwrap();
             let comb1 = LayeredCharCombination::new(&vec![
-                ("normal".to_string(), Some(c2.clone())),
+                ("normal".to_string(), Some(c1.clone())),
                 ("shift".to_string(), Some(c2.clone())),
             ]);
             let comb2 = LayeredCharCombination::new(&vec![
@@ -255,21 +263,33 @@ impl Keymap {
     /// ならない。
     pub fn generate(rng: &mut StdRng, assigner: &mut KeyAssigner) -> Option<Keymap> {
         let mut layout = vec![KeyAssignment::U; 26];
-        let _chars = char_def::definitions()
-            .into_iter()
-            .map(Some)
-            .collect::<Vec<_>>();
 
         // まずシフトキーに対して割り当てる
         let left = assigner.left_shift_key(rng);
         layout[LINEAR_L_SHIFT_INDEX] = KeyAssignment::A(KeyDef::from_combination(&left));
         let right = assigner.right_shift_key(rng, &left);
         layout[LINEAR_R_SHIFT_INDEX] = KeyAssignment::A(KeyDef::from_combination(&right));
+        layout[LINEAR_L_TURBID_INDEX] = KeyAssignment::A(KeyDef::from_combination(
+            &assigner.pick_key(rng, LINEAR_L_TURBID_INDEX),
+        ));
+        layout[LINEAR_R_TURBID_INDEX] = KeyAssignment::A(KeyDef::from_combination(
+            &assigner.pick_key(rng, LINEAR_R_TURBID_INDEX),
+        ));
+        layout[LINEAR_L_SEMITURBID_INDEX] = KeyAssignment::A(KeyDef::from_combination(
+            &assigner.pick_key(rng, LINEAR_L_SEMITURBID_INDEX),
+        ));
+        layout[LINEAR_R_SEMITURBID_INDEX] = KeyAssignment::A(KeyDef::from_combination(
+            &assigner.pick_key(rng, LINEAR_R_SEMITURBID_INDEX),
+        ));
 
         // 各場所にassignする
         Keymap::assign_keys(&mut layout, rng, assigner);
 
         if !Keymap::meet_requirements(&layout) {
+            let sequences = Keymap::build_sequences(&layout);
+
+            let keymap = Keymap { layout, sequences };
+            log::info!("{keymap}");
             None
         } else {
             let sequences = Keymap::build_sequences(&layout);
@@ -334,7 +354,7 @@ impl Keymap {
     fn assign_keys(layout: &mut [KeyAssignment], rng: &mut StdRng, assigner: &mut KeyAssigner) {
         // 各文字を設定していく。
         for idx in assigner.ordered_key_indices() {
-            if idx == LINEAR_L_SHIFT_INDEX || idx == LINEAR_R_SHIFT_INDEX {
+            if let KeyAssignment::A(_) = layout[idx] {
                 continue;
             }
 
@@ -443,7 +463,7 @@ impl Keymap {
     ///
     /// # Returns
     /// 最初のセルにひらがな、２番めのセルにkeyのcombinationを返す
-    pub fn key_combinations(&self, key_layout: &[[char; 10]; 3]) -> Vec<(String, String)> {
+    pub fn key_combinations(&self) -> Vec<(String, String)> {
         let mut ret: Vec<(String, String)> = Vec::new();
 
         for (r, (_, seq)) in self.sequences.iter().enumerate() {
