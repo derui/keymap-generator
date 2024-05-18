@@ -29,6 +29,13 @@ impl Layer {
         }
     }
 
+    /// 頻度表を更新する
+    fn update(&mut self, index: &usize, frequency: f64) {
+        self.frequencies[*index] += frequency;
+
+        self.total += frequency;
+    }
+
     /// 確率に応じて、文字の定義を返す
     ///
     /// 利用可能なキーがない場合はNoneを返す
@@ -90,22 +97,48 @@ impl LayeredFrequency {
     ) -> Vec<(String, Option<CharDef>)> {
         let mut ret = vec![];
         let mut key_pool = key_pool.clone();
+        let def = char_def::definitions();
 
         for layer in &self.layers {
             let char = layer.get_char(rng, &key_pool);
 
             if let Some(c) = char {
-                key_pool.insert(
-                    char_def::definitions()
-                        .iter()
-                        .position(|v| v == &c)
-                        .unwrap(),
-                );
+                key_pool.insert(def.iter().position(|v| v == &c).expect("should be found"));
             }
 
             ret.push((layer.name.clone(), char));
         }
 
         ret
+    }
+
+    /// 指定されたlayerと文字の組み合わせから、頻度表を更新する
+    pub fn update(&mut self, keys: &[(&str, Option<CharDef>)], rate: f64) {
+        let def = char_def::definitions();
+
+        let keys = keys
+            .iter()
+            .cloned()
+            .filter_map(|(name, char_def)| {
+                if let Some(c) = char_def {
+                    Some((
+                        name,
+                        def.iter().position(|v| *v == c).expect("should be found"),
+                    ))
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+
+        for (name, idx) in keys.iter() {
+            for layer in self.layers.iter_mut() {
+                if layer.name != *name {
+                    continue;
+                }
+
+                layer.update(idx, rate)
+            }
+        }
     }
 }
