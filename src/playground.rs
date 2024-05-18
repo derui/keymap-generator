@@ -125,9 +125,9 @@ impl Playground {
     ) -> (u64, Keymap) {
         self.generation += 1;
 
-        if do_neighbor_search {
-            return self.advance_with_neighbor(conjunctions, connection_score);
-        }
+        // if do_neighbor_search {
+        //     return self.advance_with_neighbor(conjunctions, connection_score);
+        // }
 
         self.advance_with_ga(rng, conjunctions, connection_score)
     }
@@ -177,7 +177,6 @@ impl Playground {
         }
         self.frequency_table.mutate(rng, MUTATION_PROB);
 
-        // 改善できなくなった時点のキーマップを保存し、ベストを更新する
         let (tx, tr) = channel();
 
         let table = Arc::new(Box::new(self.frequency_table.clone()));

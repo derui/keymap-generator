@@ -95,6 +95,21 @@ mod constraints {
         })
     }
 
+    /// 各キーには、拗音対象が一つ以下しか設定されていないかどうかを確認する
+    pub(super) fn should_have_only_one_sulphuric(layout: &[KeyAssignment]) -> bool {
+        layout.iter().all(|v| match v {
+            KeyAssignment::A(k) => {
+                let unshift = k.unshift_def().map_or(false, |v| v.is_sulphuric());
+                let shifted = k.shifted_def().map_or(false, |v| v.is_sulphuric());
+                matches!(
+                    (unshift, shifted),
+                    (false, true) | (true, false) | (false, false)
+                )
+            }
+            KeyAssignment::U => true,
+        })
+    }
+
     /// 濁音シフトには、濁音が一つ以下しか設定されていないかどうかを確認する
     pub(super) fn should_have_only_one_turbid_in_turbid_shifts(layout: &[KeyAssignment]) -> bool {
         let left = &layout[LINEAR_L_TURBID_INDEX];
@@ -428,6 +443,7 @@ impl Keymap {
             constraints::should_have_only_one_semiturbid,
             constraints::should_have_only_one_turbid_in_turbid_shifts,
             constraints::should_have_only_one_semiturbid_in_semiturbid_shifts,
+            constraints::should_have_only_one_sulphuric,
             constraints::should_be_able_to_all_input,
         ];
 

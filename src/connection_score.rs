@@ -12,7 +12,7 @@ use crate::layout::{
 /// 上記を左右同置に改変し、多少の調整を付加
 #[rustfmt::skip]
 static FINGER_WEIGHTS: [[u16; 10];3] = [
-    [1000,   126, 105, 152,  170,  170, 152, 105, 126, 1000],
+    [1000,   126, 105, 152,  300,  300, 152, 105, 126, 1000],
     [97,      96,  91,  90,   138,   138,  90,  91,  96,   97],
     [157,    150, 150, 135,   146,   146, 135, 150, 150,  157],
 ];
@@ -176,7 +176,7 @@ impl ConnectionScore {
                     + third.map(|(_, s)| s).unwrap_or(false) as i32
                     + fourth.map(|(_, s)| s).unwrap_or(false) as i32;
 
-                (score as f64 * (1.2_f32).powf(shifts as f32) as f64) as u64
+                (score as f64 * (1.5_f32).sqrt().powi(shifts) as f64) as u64
             };
 
             idx += 4
@@ -300,10 +300,8 @@ impl ConnectionScore {
     fn three_conjunction_scores(&self, first: &Pos, second: &Pos, third: &Pos) -> u32 {
         let rules = [
             |first: &Pos, second: &Pos, third: &Pos| {
-                // 同じ指でスキップが連続している場合はペナルティ
-                if first.is_skip_row_on_same_finger(second)
-                    && second.is_skip_row_on_same_finger(third)
-                {
+                // スキップが連続している場合はペナルティ
+                if first.is_skip_row(second) && second.is_skip_row(third) {
                     300
                 } else {
                     0

@@ -85,12 +85,12 @@ pub mod linear {
 
     /// 読点の位置
     pub fn reading_point_points() -> Vec<Point> {
-        vec![Point { row: 0, col: 1 }, Point { row: 0, col: 8 }]
+        vec![Point { row: 1, col: 6 }, Point { row: 1, col: 7 }]
     }
 
     /// 句点の位置
     pub fn punctuation_mark_points() -> Vec<Point> {
-        vec![Point { row: 0, col: 2 }, Point { row: 0, col: 7 }]
+        vec![Point { row: 1, col: 2 }, Point { row: 1, col: 3 }]
     }
 
     /// 直線的になるレイアウトを返す
