@@ -1,11 +1,19 @@
-use std::sync::{mpsc::channel, Arc};
+use std::{
+    collections::HashMap,
+    sync::{mpsc::channel, Arc},
+};
 
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
 use crate::{
     connection_score::ConnectionScore,
+    frequency_layer::LayeredCharCombination,
     frequency_table::{FrequencyTable, KeyAssigner},
     keymap::Keymap,
+    layout::linear::{
+        LINEAR_L_SEMITURBID_INDEX, LINEAR_L_TURBID_INDEX, LINEAR_R_SEMITURBID_INDEX,
+        LINEAR_R_TURBID_INDEX,
+    },
     score::{self, Conjunction},
 };
 
@@ -24,6 +32,61 @@ const KEYMAP_SIZE: usize = 30;
 const WORKERS: u8 = 20;
 const MUTATION_PROB: f64 = 0.0001;
 
+/// キー毎に設定する制約条件を生成する
+fn get_predicates(rng: &mut StdRng) -> HashMap<usize, Vec<fn(&LayeredCharCombination) -> bool>> {
+    let mut ret = HashMap::new();
+
+    if rng.gen::<bool>() {
+        ret.insert(
+            LINEAR_L_TURBID_INDEX,
+            vec![
+                |v: &LayeredCharCombination| {
+                    v.char_of_layer("normal").map_or(true, |v| v.is_cleartone())
+                },
+                |v: &LayeredCharCombination| {
+                    v.char_of_layer("shift").map_or(true, |v| v.is_cleartone())
+                },
+            ],
+        );
+        ret.insert(
+            LINEAR_L_SEMITURBID_INDEX,
+            vec![
+                |v: &LayeredCharCombination| {
+                    v.char_of_layer("normal").map_or(true, |v| v.is_cleartone())
+                },
+                |v: &LayeredCharCombination| {
+                    v.char_of_layer("shift").map_or(true, |v| v.is_cleartone())
+                },
+            ],
+        );
+    } else {
+        ret.insert(
+            LINEAR_R_TURBID_INDEX,
+            vec![
+                |v: &LayeredCharCombination| {
+                    v.char_of_layer("normal").map_or(true, |v| v.is_cleartone())
+                },
+                |v: &LayeredCharCombination| {
+                    v.char_of_layer("shift").map_or(true, |v| v.is_cleartone())
+                },
+            ],
+        );
+        ret.insert(
+            LINEAR_R_SEMITURBID_INDEX,
+            vec![
+                |v: &LayeredCharCombination| {
+                    v.char_of_layer("normal").map_or(true, |v| v.is_cleartone())
+                },
+                |v: &LayeredCharCombination| {
+                    v.char_of_layer("shift").map_or(true, |v| v.is_cleartone())
+                },
+            ],
+        );
+    }
+
+    ret
+}
+
 impl Playground {
     pub fn new(gen_count: u8, rng: &mut StdRng, frequency_table: FrequencyTable) -> Self {
         assert!(gen_count > 0, "gen_count must be greater than 0");
@@ -31,7 +94,7 @@ impl Playground {
         // まずは必要な数だけ生成しておく
         let mut keymaps = Vec::new();
         while keymaps.len() < KEYMAP_SIZE {
-            let mut assigner = KeyAssigner::from_freq(&frequency_table);
+            let mut assigner = KeyAssigner::from_freq(&frequency_table, &get_predicates(rng));
             if let Some(keymap) = Keymap::generate(rng, &mut assigner) {
                 keymaps.push(keymap);
             }
@@ -128,7 +191,8 @@ impl Playground {
             let mut rng = StdRng::seed_from_u64(rng.gen());
 
             self.pool.execute(move || loop {
-                let mut assigner = KeyAssigner::from_freq(&frequency_table);
+                let mut assigner =
+                    KeyAssigner::from_freq(&frequency_table, &get_predicates(&mut rng));
                 if let Some(new_keymap) = Keymap::generate(&mut rng, &mut assigner) {
                     tx.send(new_keymap).unwrap();
                     break;

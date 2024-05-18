@@ -8,7 +8,10 @@ use crate::{
     key_def::KeyDef,
     key_seq::KeySeq,
     layout::{
-        linear::{self, LINEAR_L_SHIFT_INDEX, LINEAR_R_SHIFT_INDEX},
+        linear::{
+            self, LINEAR_L_SEMITURBID_INDEX, LINEAR_L_SHIFT_INDEX, LINEAR_L_TURBID_INDEX,
+            LINEAR_R_SEMITURBID_INDEX, LINEAR_R_SHIFT_INDEX, LINEAR_R_TURBID_INDEX,
+        },
         Point,
     },
 };
@@ -23,22 +26,6 @@ enum KeyAssignment {
 }
 
 impl KeyAssignment {
-    /// 対象の文字の入力時の種別を返す
-    fn as_turbid(&self, point: &Point) -> Option<KeySeq> {
-        match self {
-            KeyAssignment::A(k) => k.as_turbid(point),
-            KeyAssignment::U => None,
-        }
-    }
-
-    /// 対象の文字の入力時の種別を返す
-    fn as_semiturbid(&self, point: &Point) -> Option<KeySeq> {
-        match self {
-            KeyAssignment::A(k) => k.as_semiturbid(point),
-            KeyAssignment::U => None,
-        }
-    }
-
     /// assignされていればswapする
     fn swap(&mut self) {
         match self {
@@ -94,65 +81,27 @@ mod constraints {
         }
     }
 
-    /// 左右のシフトキーには濁音または半濁音が設定されていてはいけない
-    pub(super) fn should_not_shift_turbid_or_semiturbid(layout: &[KeyAssignment]) -> bool {
-        let left_turbid = layout[LINEAR_L_SHIFT_INDEX].as_turbid(&((0, 0).into()));
-        let right_turbid = layout[LINEAR_R_SHIFT_INDEX].as_turbid(&((0, 0).into()));
-        let left_semiturbid = layout[LINEAR_L_SHIFT_INDEX].as_semiturbid(&((0, 0).into()));
-        let right_semiturbid = layout[LINEAR_R_SHIFT_INDEX].as_semiturbid(&((0, 0).into()));
-
-        left_turbid.is_none()
-            && right_turbid.is_none()
-            && left_semiturbid.is_none()
-            && right_semiturbid.is_none()
+    /// 各キーには濁音が一つ以下設定されているかどうかを確認する
+    pub(super) fn should_have_only_one_turbid(layout: &[KeyAssignment]) -> bool {
+        layout.iter().all(|v| match v {
+            KeyAssignment::A(k) => {
+                let unshift = k.unshift_def().and_then(|v| v.turbid());
+                let shifted = k.shifted_def().and_then(|v| v.turbid());
+                matches!((unshift, shifted), (Some(_), _) | (_, Some(_)))
+            }
+            KeyAssignment::U => true,
+        })
     }
 
-    /// 濁音には清音しか設定されていないかどうかを確認する
-    pub(super) fn should_turbid_key_only_clear_tones(layout: &[KeyAssignment]) -> bool {
-        let Some(turbid) = layout
-            .iter()
-            .find(|v| v.as_turbid(&((0, 0).into())).is_some())
-        else {
-            return false;
-        };
-
-        let cleartones = definitions()
-            .into_iter()
-            .filter(|v| v.is_cleartone())
-            .map(|v| v.normal())
-            .collect::<Vec<char>>();
-        match turbid {
-            KeyAssignment::A(l) => {
-                let unshift = l.unshift();
-                let shifted = l.shifted();
-                cleartones.contains(&unshift) && cleartones.contains(&shifted)
+    pub(super) fn should_have_only_one_semiturbid(layout: &[KeyAssignment]) -> bool {
+        layout.iter().all(|v| match v {
+            KeyAssignment::A(k) => {
+                let unshift = k.unshift_def().and_then(|v| v.semiturbid());
+                let shifted = k.shifted_def().and_then(|v| v.semiturbid());
+                matches!((unshift, shifted), (Some(_), _) | (_, Some(_)))
             }
-            _ => false,
-        }
-    }
-
-    /// 半濁音には清音しか設定されていないかどうかを確認する
-    pub(super) fn should_semiturbid_key_only_clear_tones(layout: &[KeyAssignment]) -> bool {
-        let Some(semiturbid) = layout
-            .iter()
-            .find(|v| v.as_semiturbid(&((0, 0).into())).is_some())
-        else {
-            return false;
-        };
-
-        let cleartones = definitions()
-            .into_iter()
-            .filter(|v| v.is_cleartone())
-            .map(|v| v.normal())
-            .collect::<Vec<char>>();
-        match semiturbid {
-            KeyAssignment::A(l) => {
-                let unshift = l.unshift();
-                let shifted = l.shifted();
-                cleartones.contains(&unshift) && cleartones.contains(&shifted)
-            }
-            _ => false,
-        }
+            KeyAssignment::U => true,
+        })
     }
 
     /// すべての文字が入力できる状態であることを確認する
@@ -178,7 +127,7 @@ mod constraints {
 
     #[cfg(test)]
     mod tests {
-        use crate::{frequency_table::CharCombination, key_def::KeyDef};
+        use crate::{frequency_layer::LayeredCharCombination, key_def::KeyDef};
 
         use super::*;
 
@@ -197,8 +146,14 @@ mod constraints {
             let c1 = char_def::find('を').unwrap();
             let c2 = char_def::find('る').unwrap();
             let c3 = char_def::find('ら').unwrap();
-            let comb1 = CharCombination::new(&c2, &c1);
-            let comb2 = CharCombination::new(&c3, &c1);
+            let comb1 = LayeredCharCombination::new(&vec![
+                ("normal".to_string(), Some(c2.clone())),
+                ("shift".to_string(), Some(c1.clone())),
+            ]);
+            let comb2 = LayeredCharCombination::new(&vec![
+                ("normal".to_string(), Some(c3.clone())),
+                ("shift".to_string(), Some(c1.clone())),
+            ]);
             put_key(
                 &mut layout,
                 KeyDef::from_combination(&comb1),
@@ -224,8 +179,14 @@ mod constraints {
             let c1 = char_def::find('を').unwrap();
             let c2 = char_def::find('る').unwrap();
             let c3 = char_def::find('ら').unwrap();
-            let comb1 = CharCombination::new(&c2, &c1);
-            let comb2 = CharCombination::new(&c3, &c1);
+            let comb1 = LayeredCharCombination::new(&vec![
+                ("normal".to_string(), Some(c2.clone())),
+                ("shift".to_string(), Some(c1.clone())),
+            ]);
+            let comb2 = LayeredCharCombination::new(&vec![
+                ("normal".to_string(), Some(c3.clone())),
+                ("shift".to_string(), Some(c1.clone())),
+            ]);
             put_key(
                 &mut layout,
                 KeyDef::from_combination(&comb1),
@@ -252,8 +213,14 @@ mod constraints {
             let c2 = char_def::find('に').unwrap();
             let c3 = char_def::find('る').unwrap();
             let c4 = char_def::find('ら').unwrap();
-            let comb1 = CharCombination::new(&c1, &c2);
-            let comb2 = CharCombination::new(&c3, &c4);
+            let comb1 = LayeredCharCombination::new(&vec![
+                ("normal".to_string(), Some(c2.clone())),
+                ("shift".to_string(), Some(c2.clone())),
+            ]);
+            let comb2 = LayeredCharCombination::new(&vec![
+                ("normal".to_string(), Some(c3.clone())),
+                ("shift".to_string(), Some(c4.clone())),
+            ]);
             put_key(
                 &mut layout,
                 KeyDef::from_combination(&comb1),
@@ -317,21 +284,6 @@ impl Keymap {
         let mut sequences = HashMap::new();
         let linear_layout = linear::linear_layout();
 
-        let turbid_pos = layout
-            .iter()
-            .position(|v| v.as_turbid(&From::from((0, 0))).is_some())
-            .expect("should have turbid");
-        let semiturbid_pos = layout
-            .iter()
-            .position(|v| v.as_semiturbid(&From::from((0, 0))).is_some())
-            .expect("should have turbid");
-        let turbid_seq = layout[turbid_pos]
-            .as_turbid(&linear_layout[turbid_pos])
-            .expect("should have turbid");
-        let semiturbid_seq = layout[semiturbid_pos]
-            .as_semiturbid(&linear_layout[semiturbid_pos])
-            .expect("should have semiturbid");
-
         for (idx, assignment) in layout.iter().enumerate() {
             if let KeyAssignment::A(k) = assignment {
                 let p = linear_layout[idx];
@@ -341,12 +293,20 @@ impl Keymap {
                 sequences.insert(k.shifted(), shifted);
 
                 if let Some(turbid) = k.turbid() {
-                    let turbid_seq = KeySeq::from_turbid_like(turbid, &p, &turbid_seq);
+                    let turbid_pos = match linear::get_hand_of_point(&p) {
+                        crate::layout::Hand::Right => linear_layout[LINEAR_L_TURBID_INDEX],
+                        crate::layout::Hand::Left => linear_layout[LINEAR_R_TURBID_INDEX],
+                    };
+                    let turbid_seq = KeySeq::from_shift_like(turbid, &p, &turbid_pos);
                     sequences.insert(turbid, turbid_seq);
                 }
 
                 if let Some(semiturbid) = k.semiturbid() {
-                    let semiturbid_seq = KeySeq::from_turbid_like(semiturbid, &p, &semiturbid_seq);
+                    let semiturbid_pos = match linear::get_hand_of_point(&p) {
+                        crate::layout::Hand::Right => linear_layout[LINEAR_L_SEMITURBID_INDEX],
+                        crate::layout::Hand::Left => linear_layout[LINEAR_R_SEMITURBID_INDEX],
+                    };
+                    let semiturbid_seq = KeySeq::from_shift_like(semiturbid, &p, &semiturbid_pos);
                     sequences.insert(semiturbid, semiturbid_seq);
                 }
             }
@@ -379,9 +339,8 @@ impl Keymap {
             }
 
             let assignment = &mut layout[idx];
-            if let Some(key) = assigner.pick_key(rng, idx) {
-                *assignment = KeyAssignment::A(KeyDef::from_combination(&key));
-            }
+            let key = assigner.pick_key(rng, idx);
+            *assignment = KeyAssignment::A(KeyDef::from_combination(&key));
         }
     }
 
@@ -399,13 +358,8 @@ impl Keymap {
         let checks = [
             constraints::should_shift_having_same_key,
             constraints::should_shift_only_clear_tones,
-            constraints::should_turbid_key_only_clear_tones,
-            constraints::should_semiturbid_key_only_clear_tones,
-            constraints::should_not_shift_turbid_or_semiturbid,
-            // constraints::should_be_explicit_between_left_turbid_and_right_semiturbit,
-            // constraints::should_only_one_turbid,
-            // constraints::should_be_explicit_between_right_turbid_and_left_semiturbit,
-            // constraints::should_only_one_semiturbid,
+            constraints::should_have_only_one_turbid,
+            constraints::should_have_only_one_semiturbid,
             constraints::should_be_able_to_all_input,
         ];
 

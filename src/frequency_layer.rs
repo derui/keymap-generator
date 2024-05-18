@@ -1,12 +1,14 @@
 use std::{collections::HashSet, io::Stderr};
 
 use rand::{rngs::StdRng, Rng};
+use serde::{Deserialize, Serialize};
 
 use crate::char_def::{self, CharDef};
 
 /// 使用済みのキープール。値は [char_def::definitions] のインデックスである
-type UsedKeyPool = HashSet<usize>;
+pub type UsedKeyPool = HashSet<usize>;
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct Layer {
     /// 各キーにおける文字の頻度
     frequencies: Vec<f64>,
@@ -76,6 +78,7 @@ impl Layer {
 }
 
 /// 頻度レイヤーを束ねたもの。各キー毎にわりあてられる。
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LayeredFrequency {
     /// 頻度レイヤーのリスト
     layers: Vec<Layer>,
@@ -90,26 +93,41 @@ impl LayeredFrequency {
     }
 
     /// 各レイヤー毎に取得した文字を返す
-    pub fn get_assignment(
+    pub fn get_assignment<F>(
         &self,
         rng: &mut StdRng,
         key_pool: &UsedKeyPool,
-    ) -> LayeredCharCombination {
+        pre_defined: &[(&str, Option<CharDef>)],
+        predicates: &[F],
+    ) -> LayeredCharCombination
+    where
+        F: Fn(&LayeredCharCombination) -> bool,
+    {
         let mut ret = vec![];
         let mut key_pool = key_pool.clone();
         let def = char_def::definitions();
 
-        for layer in &self.layers {
-            let char = layer.get_char(rng, &key_pool);
+        loop {
+            for layer in &self.layers {
+                if let Some((_, c)) = pre_defined.iter().find(|(name, _)| *name == layer.name) {
+                    ret.push((layer.name.clone(), *c));
+                    continue;
+                }
 
-            if let Some(c) = char {
-                key_pool.insert(def.iter().position(|v| v == &c).expect("should be found"));
+                let char = layer.get_char(rng, &key_pool);
+
+                if let Some(c) = char {
+                    key_pool.insert(def.iter().position(|v| v == &c).expect("should be found"));
+                }
+
+                ret.push((layer.name.clone(), char));
             }
 
-            ret.push((layer.name.clone(), char));
+            let ret = LayeredCharCombination::new(&ret);
+            if predicates.iter().all(|f| f(&ret)) {
+                return ret;
+            }
         }
-
-        LayeredCharCombination::new(&ret)
     }
 
     /// 指定されたlayerと文字の組み合わせから、頻度表を更新する
@@ -144,10 +162,11 @@ impl LayeredFrequency {
 }
 
 /// layerごとに文字を割り当てた、キーごとの組み合わせ
+#[derive(Debug)]
 pub struct LayeredCharCombination(Vec<(String, Option<CharDef>)>);
 
 impl LayeredCharCombination {
-    fn new(chars: &[(String, Option<CharDef>)]) -> Self {
+    pub fn new(chars: &[(String, Option<CharDef>)]) -> Self {
         LayeredCharCombination(chars.iter().cloned().collect())
     }
 
