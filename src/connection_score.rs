@@ -12,7 +12,7 @@ use crate::layout::{
 /// 上記を左右同置に改変し、多少の調整を付加
 #[rustfmt::skip]
 static FINGER_WEIGHTS: [[u16; 10];3] = [
-    [1000,   126, 105, 152,  1000,  1000, 152, 105, 126, 1000],
+    [1000,   126, 105, 152,  170,  170, 152, 105, 126, 1000],
     [97,      96,  91,  90,   138,   138,  90,  91,  96,   97],
     [157,    150, 150, 135,   146,   146, 135, 150, 150,  157],
 ];
@@ -312,7 +312,7 @@ impl ConnectionScore {
             |first: &Pos, second: &Pos, third: &Pos| {
                 // 同じ指を連続して打鍵しているばあいはペナルティを与える
                 if first.is_same_hand_and_finger(second) && second.is_same_hand_and_finger(third) {
-                    250
+                    300
                 } else {
                     0
                 }
@@ -320,7 +320,23 @@ impl ConnectionScore {
             |first: &Pos, second: &Pos, third: &Pos| {
                 // 同じ手を連続して打鍵しているばあいはペナルティを与える
                 if first.is_same_hand(second) && second.is_same_hand(third) {
-                    300
+                    250
+                } else {
+                    0
+                }
+            },
+            |first: &Pos, _: &Pos, third: &Pos| {
+                // 前後で同じ指を使っている場合はペナルティを与える
+                if first.is_same_hand_and_finger(third) {
+                    150
+                } else {
+                    0
+                }
+            },
+            |first: &Pos, second: &Pos, third: &Pos| {
+                // 左右の区別なく、同じ指を使っている場合はペナルティを与える
+                if first.is_same_finger(second) && second.is_same_finger(&third) {
+                    150
                 } else {
                     0
                 }
@@ -457,6 +473,11 @@ impl Pos {
         HAND_ASSIGNMENT[self.0][self.1] == HAND_ASSIGNMENT[other.0][other.1]
     }
 
+    /// 同で押下しているかどうか
+    fn is_same_finger(&self, other: &Pos) -> bool {
+        FINGER_ASSIGNMENT[self.0][self.1] == FINGER_ASSIGNMENT[other.0][other.1]
+    }
+
     /// 同一の手、かつ同一の指かどうか
     fn is_same_hand_and_finger(&self, other: &Pos) -> bool {
         let finger_self = FINGER_ASSIGNMENT[self.0][self.1];
@@ -471,14 +492,6 @@ impl Pos {
     fn two_conjunction_scores(&self, other: &Pos, timings: &TwoKeyTiming) -> u32 {
         let rules = [
             |first: &Pos, second: &Pos| {
-                // 同じ指で同じキーを連続して押下している場合はペナルティを与える
-                if *first == *second {
-                    150
-                } else {
-                    0
-                }
-            },
-            |first: &Pos, second: &Pos| {
                 // 同じ指で行をスキップしている場合はペナルティを与える
                 if first.is_skip_row_on_same_finger(second) {
                     100
@@ -488,7 +501,7 @@ impl Pos {
             },
             |first: &Pos, second: &Pos| {
                 // 同じ指で連続して押下している場合はペナルティを与える
-                if first.is_same_hand_and_finger(second) && first.0 != second.0 {
+                if first.is_same_hand_and_finger(second) {
                     150
                 } else {
                     0

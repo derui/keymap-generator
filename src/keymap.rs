@@ -36,7 +36,10 @@ mod constraints {
 
     use crate::{
         char_def::{self, definitions},
-        layout::linear::{LINEAR_L_SHIFT_INDEX, LINEAR_R_SHIFT_INDEX},
+        layout::linear::{
+            LINEAR_L_SEMITURBID_INDEX, LINEAR_L_SHIFT_INDEX, LINEAR_L_TURBID_INDEX,
+            LINEAR_R_SEMITURBID_INDEX, LINEAR_R_SHIFT_INDEX, LINEAR_R_TURBID_INDEX,
+        },
     };
 
     use super::KeyAssignment;
@@ -85,11 +88,63 @@ mod constraints {
                 let shifted = k.shifted_def().and_then(|v| v.turbid());
                 matches!(
                     (unshift, shifted),
-                    (Some(_), _) | (_, Some(_)) | (None, None)
+                    (Some(_), None) | (None, Some(_)) | (None, None)
                 )
             }
             KeyAssignment::U => true,
         })
+    }
+
+    /// 濁音シフトには、濁音が一つ以下しか設定されていないかどうかを確認する
+    pub(super) fn should_have_only_one_turbid_in_turbid_shifts(layout: &[KeyAssignment]) -> bool {
+        let left = &layout[LINEAR_L_TURBID_INDEX];
+        let right = &layout[LINEAR_R_TURBID_INDEX];
+
+        match (left, right) {
+            (KeyAssignment::A(left), KeyAssignment::A(right)) => {
+                let left_unshift = left.unshift_def().and_then(|v| v.turbid());
+                let left_shifted = left.shifted_def().and_then(|v| v.turbid());
+                let right_unshift = right.unshift_def().and_then(|v| v.turbid());
+                let right_shifted = right.shifted_def().and_then(|v| v.turbid());
+
+                matches!(
+                    (left_unshift, left_shifted, right_unshift, right_shifted),
+                    (Some(_), None, None, None)
+                        | (None, Some(_), None, None)
+                        | (None, None, Some(_), None)
+                        | (None, None, None, Some(_))
+                        | (None, None, None, None),
+                )
+            }
+            _ => true,
+        }
+    }
+
+    /// 半濁音シフトには、半濁音が一つ以下しか設定されていないかどうかを確認する
+    pub(super) fn should_have_only_one_semiturbid_in_semiturbid_shifts(
+        layout: &[KeyAssignment],
+    ) -> bool {
+        let left = &layout[LINEAR_L_SEMITURBID_INDEX];
+        let right = &layout[LINEAR_R_SEMITURBID_INDEX];
+
+        match (left, right) {
+            (KeyAssignment::A(left), KeyAssignment::A(right)) => {
+                let left_unshift = left.unshift_def().and_then(|v| v.semiturbid());
+                let left_shifted = left.shifted_def().and_then(|v| v.semiturbid());
+                let right_unshift = right.unshift_def().and_then(|v| v.semiturbid());
+                let right_shifted = right.shifted_def().and_then(|v| v.semiturbid());
+
+                matches!(
+                    (left_unshift, left_shifted, right_unshift, right_shifted),
+                    (Some(_), None, None, None)
+                        | (None, Some(_), None, None)
+                        | (None, None, Some(_), None)
+                        | (None, None, None, Some(_))
+                        | (None, None, None, None),
+                )
+            }
+            _ => true,
+        }
     }
 
     /// 各キーには、半濁音は一つ以下しか設定されていないかどうかを確認する
@@ -100,7 +155,7 @@ mod constraints {
                 let shifted = k.shifted_def().and_then(|v| v.semiturbid());
                 matches!(
                     (unshift, shifted),
-                    (Some(_), _) | (_, Some(_)) | (None, None)
+                    (Some(_), None) | (None, Some(_)) | (None, None)
                 )
             }
             KeyAssignment::U => true,
@@ -371,6 +426,8 @@ impl Keymap {
             constraints::should_shift_only_clear_tones,
             constraints::should_have_only_one_turbid,
             constraints::should_have_only_one_semiturbid,
+            constraints::should_have_only_one_turbid_in_turbid_shifts,
+            constraints::should_have_only_one_semiturbid_in_semiturbid_shifts,
             constraints::should_be_able_to_all_input,
         ];
 

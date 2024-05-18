@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, mem::swap};
 
 use rand::{rngs::StdRng, Rng};
 use serde::{Deserialize, Serialize};
@@ -28,6 +28,35 @@ impl Layer {
             frequencies,
             name: name.to_string(),
             total: char_def::definitions().len() as f64,
+        }
+    }
+
+    /// キーの分布に対して突然変異をおこす
+    ///
+    /// 突然変異は、最大と最小のindexの値を交換する。
+    fn mutate(&mut self, rng: &mut StdRng) {
+        let current_total = self.total;
+        self.frequencies.iter_mut().for_each(|v| {
+            *v = (*v / current_total * 10000.0).max(1.0).min(100.0);
+        });
+
+        self.total = self.frequencies.iter().sum::<f64>();
+
+        let len = self.frequencies.len();
+
+        loop {
+            let first = rng.gen_range(0..len);
+            let second = rng.gen_range(0..len);
+
+            if first == second {
+                continue;
+            }
+
+            let v = self.frequencies[first];
+            self.frequencies[first] = self.frequencies[second];
+            self.frequencies[second] = v;
+
+            break;
         }
     }
 
@@ -168,6 +197,12 @@ impl LayeredFrequency {
 
                 layer.update(idx, rate)
             }
+        }
+    }
+
+    pub fn mutate(&mut self, rng: &mut StdRng) {
+        for layer in self.layers.iter_mut() {
+            layer.mutate(rng)
         }
     }
 }

@@ -221,8 +221,10 @@ impl FrequencyTable {
 
     /// `mutation_prob` に該当する確率で、各キーにおける分布に突然変異を与える
     pub fn mutate(&mut self, rng: &mut StdRng, mutation_prob: f64) {
-        if rng.gen::<f64>() > mutation_prob {}
+        if rng.gen::<f64>() > mutation_prob {
+            return;
+        }
 
-        // self.frequency[rng.gen_range(0..linear_layout().len())].mutate(rng);
+        self.frequency[rng.gen_range(0..linear_layout().len())].mutate(rng);
     }
 }
