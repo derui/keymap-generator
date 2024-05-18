@@ -125,7 +125,6 @@ mod constraints {
             }
         }
 
-        log::info!("{chars:?}");
         chars.is_empty()
     }
 
@@ -282,10 +281,6 @@ impl Keymap {
         Keymap::assign_keys(&mut layout, rng, assigner);
 
         if !Keymap::meet_requirements(&layout) {
-            let sequences = Keymap::build_sequences(&layout);
-
-            let keymap = Keymap { layout, sequences };
-            log::info!("{keymap}");
             None
         } else {
             let sequences = Keymap::build_sequences(&layout);
@@ -349,7 +344,7 @@ impl Keymap {
     /// ここでの配置は、すでに制約の多い部分は事前に設定してある状態なので、そのまま入れられるところに入れていけばよい
     fn assign_keys(layout: &mut [KeyAssignment], rng: &mut StdRng, assigner: &mut KeyAssigner) {
         // 各文字を設定していく。
-        for idx in assigner.ordered_key_indices() {
+        for idx in assigner.ordered_key_indices(rng) {
             if let KeyAssignment::A(_) = layout[idx] {
                 continue;
             }

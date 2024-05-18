@@ -24,6 +24,7 @@ use crate::{
 
 mod char_def;
 mod connection_score;
+mod frequency_layer;
 mod frequency_table;
 mod key_def;
 mod key_seq;
@@ -87,12 +88,6 @@ fn read_frequency(path: &Path) -> anyhow::Result<FrequencyTable> {
     log::info!("frequency loaded");
     Ok(data)
 }
-
-const QWERTY: [[char; 10]; 3] = [
-    ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
-    ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';'],
-    ['z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/'],
-];
 
 struct Bench {
     last_time: SystemTime,
@@ -167,7 +162,7 @@ fn main() -> anyhow::Result<()> {
                 playground.generation(),
                 ret.0,
                 ret.1,
-                ret.1.key_combinations(&QWERTY)
+                ret.1.key_combinations()
             );
 
             best_score = ret.0;
@@ -183,7 +178,7 @@ fn main() -> anyhow::Result<()> {
                 ret.0,
                 best_score,
                 best_keymap.clone().unwrap(),
-                best_keymap.clone().unwrap().key_combinations(&QWERTY)
+                best_keymap.clone().unwrap().key_combinations()
             );
             last_best_updated = now;
             no_update_long_time = true;
@@ -199,7 +194,7 @@ fn main() -> anyhow::Result<()> {
         "Score: {}, Best keymap: {} for evaluation:\n{:?}",
         best_score,
         best_keymap.clone().unwrap(),
-        best_keymap.unwrap().key_combinations(&QWERTY)
+        best_keymap.unwrap().key_combinations()
     );
 
     save_frequency(&playground.frequency_table());

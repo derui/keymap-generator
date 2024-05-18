@@ -47,8 +47,8 @@ pub mod linear {
         ('w', Point { row: 0, col: 1 }),
         ('e', Point { row: 0, col: 2 }),
         ('r', Point { row: 0, col: 3 }),
-        // Point { row: 0, col: 4 },
-        // Point { row: 0, col: 5 },
+        ('t', Point { row: 0, col: 4 }),
+        ('y', Point { row: 0, col: 5 }),
         ('u', Point { row: 0, col: 6 }),
         ('i', Point { row: 0, col: 7 }),
         ('o', Point { row: 0, col: 8 }),
@@ -67,8 +67,8 @@ pub mod linear {
         ('x', Point { row: 2, col: 1 }),
         ('c', Point { row: 2, col: 2 }),
         ('v', Point { row: 2, col: 3 }),
-        ('b', Point { row: 2, col: 4 }),
-        ('n', Point { row: 2, col: 5 }),
+        // ('b', Point { row: 2, col: 4 }),
+        // ('n', Point { row: 2, col: 5 }),
         ('m', Point { row: 2, col: 6 }),
         (',', Point { row: 2, col: 7 }),
         ('.', Point { row: 2, col: 8 }),
@@ -76,12 +76,16 @@ pub mod linear {
     ];
 
     /// 各特殊キーの位置
-    pub const LINEAR_L_SHIFT_INDEX: usize = 8;
-    pub const LINEAR_R_SHIFT_INDEX: usize = 13;
+    pub const LINEAR_L_SHIFT_INDEX: usize = 10;
+    pub const LINEAR_R_SHIFT_INDEX: usize = 15;
+    pub const LINEAR_L_TURBID_INDEX: usize = 11;
+    pub const LINEAR_R_TURBID_INDEX: usize = 14;
+    pub const LINEAR_L_SEMITURBID_INDEX: usize = 21;
+    pub const LINEAR_R_SEMITURBID_INDEX: usize = 22;
 
     /// 読点の位置
     pub fn reading_point_points() -> Vec<Point> {
-        vec![Point { row: 2, col: 3 }, Point { row: 2, col: 6 }]
+        vec![Point { row: 0, col: 1 }, Point { row: 0, col: 8 }]
     }
 
     /// 句点の位置

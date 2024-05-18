@@ -129,15 +129,6 @@ impl LayeredFrequency {
                 if let Some(c) = char {
                     key_pool_cache
                         .insert(def.iter().position(|v| v == &c).expect("should be found"));
-
-                    if !c.is_cleartone() {
-                        def.iter()
-                            .enumerate()
-                            .filter(|(_, v)| !v.is_cleartone())
-                            .for_each(|(idx, _)| {
-                                key_pool_cache.insert(idx);
-                            });
-                    }
                 }
 
                 ret.push((layer.name.clone(), char));

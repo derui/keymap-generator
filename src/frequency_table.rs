@@ -58,13 +58,19 @@ impl KeyAssigner {
     }
 
     /// 有効なキーが少ない順に並べられたkeyのindexを返す
-    pub fn ordered_key_indices(&self) -> Vec<usize> {
-        let vec = self
+    pub fn ordered_key_indices(&self, rng: &mut StdRng) -> Vec<usize> {
+        let mut vec = self
             .layered_combinations
             .iter()
             .enumerate()
             .map(|v| v.0)
             .collect::<Vec<_>>();
+
+        vec.sort_by(|_, _| {
+            let v1 = rng.gen::<i32>();
+            let v2 = rng.gen::<i32>();
+            v1.cmp(&v2)
+        });
 
         vec
     }
