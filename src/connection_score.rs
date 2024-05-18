@@ -1,4 +1,4 @@
-use std::{borrow::Borrow, collections::HashMap, fs::File, io::Read, path::Path};
+use std::{collections::HashMap, fs::File, io::Read, path::Path};
 
 use scraper::{Html, Selector};
 
@@ -115,7 +115,7 @@ impl ConnectionScore {
             this.scores[index] = score;
 
             for j in indices.iter().cloned() {
-                let score = this.evaluate_two_connection(&i.into(), &j.into(), &timings);
+                let score = this.evaluate_two_connection(&i.into(), &j.into(), timings);
                 let index = this.get_index(&Some(i.into()), &Some(j.into()), &None, &None);
                 this.scores[index] = score;
 

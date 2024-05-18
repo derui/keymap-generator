@@ -1,6 +1,4 @@
-use crate::{
-    char_def::CharDef, frequency_layer::LayeredCharCombination, key_seq::KeySeq, layout::Point,
-};
+use crate::{char_def::CharDef, frequency_layer::LayeredCharCombination};
 
 /// キー自体の基本定義。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -25,12 +23,12 @@ impl KeyDef {
 
     /// 無シフト面の文字定義を返す
     pub fn unshift_def(&self) -> Option<CharDef> {
-        self.unshift.clone()
+        self.unshift
     }
 
     /// シフト面の文字定義を返す
     pub fn shifted_def(&self) -> Option<CharDef> {
-        self.shifted.clone()
+        self.shifted
     }
 
     /// 無シフト面の文字を返す

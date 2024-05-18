@@ -1,4 +1,4 @@
-use std::{collections::HashSet, io::Stderr};
+use std::collections::HashSet;
 
 use rand::{rngs::StdRng, Rng};
 use serde::{Deserialize, Serialize};
@@ -73,11 +73,11 @@ impl Layer {
 
             accum += freq;
             if accum >= prob {
-                return Some(char_def::definitions()[idx].clone());
+                return Some(char_def::definitions()[idx]);
             }
         }
 
-        return None;
+        None
     }
 }
 
@@ -92,7 +92,7 @@ impl LayeredFrequency {
     /// 新規に作成する。
     pub fn new(layers: &[&str]) -> Self {
         LayeredFrequency {
-            layers: layers.iter().map(|v| Layer::new(*v)).collect(),
+            layers: layers.iter().map(|v| Layer::new(v)).collect(),
         }
     }
 
@@ -160,14 +160,12 @@ impl LayeredFrequency {
             .iter()
             .cloned()
             .filter_map(|(name, char_def)| {
-                if let Some(c) = char_def {
-                    Some((
+                char_def.map(|c| {
+                    (
                         name,
                         def.iter().position(|v| *v == c).expect("should be found"),
-                    ))
-                } else {
-                    None
-                }
+                    )
+                })
             })
             .collect::<Vec<_>>();
 
@@ -189,7 +187,7 @@ pub struct LayeredCharCombination(Vec<(String, Option<CharDef>)>);
 
 impl LayeredCharCombination {
     pub fn new(chars: &[(String, Option<CharDef>)]) -> Self {
-        LayeredCharCombination(chars.iter().cloned().collect())
+        LayeredCharCombination(chars.to_vec())
     }
 
     /// layerに割り当てられた文字を取得する
@@ -202,6 +200,5 @@ impl LayeredCharCombination {
             .iter()
             .find(|(name, _)| *name == layer)
             .and_then(|(_, c)| *c)
-            .clone()
     }
 }

@@ -3,16 +3,12 @@ use std::{collections::HashMap, fmt::Display};
 use rand::rngs::StdRng;
 
 use crate::{
-    char_def,
     frequency_table::KeyAssigner,
     key_def::KeyDef,
     key_seq::KeySeq,
-    layout::{
-        linear::{
-            self, LINEAR_L_SEMITURBID_INDEX, LINEAR_L_SHIFT_INDEX, LINEAR_L_TURBID_INDEX,
-            LINEAR_R_SEMITURBID_INDEX, LINEAR_R_SHIFT_INDEX, LINEAR_R_TURBID_INDEX,
-        },
-        Point,
+    layout::linear::{
+        self, LINEAR_L_SEMITURBID_INDEX, LINEAR_L_SHIFT_INDEX, LINEAR_L_TURBID_INDEX,
+        LINEAR_R_SEMITURBID_INDEX, LINEAR_R_SHIFT_INDEX, LINEAR_R_TURBID_INDEX,
     },
 };
 
@@ -154,13 +150,13 @@ mod constraints {
             let c1 = char_def::find('を').unwrap();
             let c2 = char_def::find('る').unwrap();
             let c3 = char_def::find('ら').unwrap();
-            let comb1 = LayeredCharCombination::new(&vec![
-                ("normal".to_string(), Some(c2.clone())),
-                ("shift".to_string(), Some(c1.clone())),
+            let comb1 = LayeredCharCombination::new(&[
+                ("normal".to_string(), Some(c2)),
+                ("shift".to_string(), Some(c1)),
             ]);
-            let comb2 = LayeredCharCombination::new(&vec![
-                ("normal".to_string(), Some(c3.clone())),
-                ("shift".to_string(), Some(c1.clone())),
+            let comb2 = LayeredCharCombination::new(&[
+                ("normal".to_string(), Some(c3)),
+                ("shift".to_string(), Some(c1)),
             ]);
             put_key(
                 &mut layout,
@@ -187,13 +183,13 @@ mod constraints {
             let c1 = char_def::find('を').unwrap();
             let c2 = char_def::find('る').unwrap();
             let c3 = char_def::find('ら').unwrap();
-            let comb1 = LayeredCharCombination::new(&vec![
-                ("normal".to_string(), Some(c2.clone())),
-                ("shift".to_string(), Some(c1.clone())),
+            let comb1 = LayeredCharCombination::new(&[
+                ("normal".to_string(), Some(c2)),
+                ("shift".to_string(), Some(c1)),
             ]);
-            let comb2 = LayeredCharCombination::new(&vec![
-                ("normal".to_string(), Some(c3.clone())),
-                ("shift".to_string(), Some(c1.clone())),
+            let comb2 = LayeredCharCombination::new(&[
+                ("normal".to_string(), Some(c3)),
+                ("shift".to_string(), Some(c1)),
             ]);
             put_key(
                 &mut layout,
@@ -221,13 +217,13 @@ mod constraints {
             let c2 = char_def::find('に').unwrap();
             let c3 = char_def::find('る').unwrap();
             let c4 = char_def::find('ら').unwrap();
-            let comb1 = LayeredCharCombination::new(&vec![
-                ("normal".to_string(), Some(c1.clone())),
-                ("shift".to_string(), Some(c2.clone())),
+            let comb1 = LayeredCharCombination::new(&[
+                ("normal".to_string(), Some(c1)),
+                ("shift".to_string(), Some(c2)),
             ]);
-            let comb2 = LayeredCharCombination::new(&vec![
-                ("normal".to_string(), Some(c3.clone())),
-                ("shift".to_string(), Some(c4.clone())),
+            let comb2 = LayeredCharCombination::new(&[
+                ("normal".to_string(), Some(c3)),
+                ("shift".to_string(), Some(c4)),
             ]);
             put_key(
                 &mut layout,

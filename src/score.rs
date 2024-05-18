@@ -1,9 +1,7 @@
 use crate::{
     char_def,
     connection_score::{ConnectionScore, Evaluation},
-    key_seq::KeySeq,
     keymap::Keymap,
-    layout::{self},
 };
 
 #[derive(Debug, Clone)]

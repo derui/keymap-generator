@@ -4,7 +4,7 @@ use rand::{rngs::StdRng, Rng};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    char_def::{self, definitions, CharDef},
+    char_def::{self},
     frequency_layer::{LayeredCharCombination, LayeredFrequency, UsedKeyPool},
     keymap::Keymap,
     layout::linear::{linear_layout, LINEAR_L_SHIFT_INDEX, LINEAR_R_SHIFT_INDEX},
@@ -102,7 +102,7 @@ impl KeyAssigner {
         let char = freq.get_assignment(rng, &self.key_pool, &Vec::new(), &preds);
 
         LAYERS.iter().for_each(|name| {
-            if let Some(c) = char.char_of_layer(*name) {
+            if let Some(c) = char.char_of_layer(name) {
                 self.key_pool.insert(self.character_map[&c.normal()]);
             }
         });
@@ -120,7 +120,7 @@ impl KeyAssigner {
             rng,
             &self.key_pool,
             &Vec::new(),
-            &vec![|comb: &LayeredCharCombination| {
+            &[|comb: &LayeredCharCombination| {
                 comb.char_of_layer(NORMAL_LAYER)
                     .map_or(true, |v| v.is_cleartone())
                     && comb
@@ -130,7 +130,7 @@ impl KeyAssigner {
         );
 
         LAYERS.iter().for_each(|name| {
-            if let Some(c) = char.char_of_layer(*name) {
+            if let Some(c) = char.char_of_layer(name) {
                 self.key_pool.insert(self.character_map[&c.normal()]);
             }
         });
@@ -157,12 +157,12 @@ impl KeyAssigner {
         let char = freq.get_assignment(
             rng,
             &self.key_pool,
-            &vec![(SHIFT_LAYER, left_combination.char_of_layer(SHIFT_LAYER))],
+            &[(SHIFT_LAYER, left_combination.char_of_layer(SHIFT_LAYER))],
             &preds,
         );
 
         LAYERS.iter().for_each(|name| {
-            if let Some(c) = char.char_of_layer(*name) {
+            if let Some(c) = char.char_of_layer(name) {
                 self.key_pool.insert(self.character_map[&c.normal()]);
             }
         });
@@ -215,9 +215,7 @@ impl FrequencyTable {
 
     /// `mutation_prob` に該当する確率で、各キーにおける分布に突然変異を与える
     pub fn mutate(&mut self, rng: &mut StdRng, mutation_prob: f64) {
-        if rng.gen::<f64>() > mutation_prob {
-            return;
-        }
+        if rng.gen::<f64>() > mutation_prob {}
 
         // self.frequency[rng.gen_range(0..linear_layout().len())].mutate(rng);
     }
