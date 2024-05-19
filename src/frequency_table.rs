@@ -65,12 +65,12 @@ impl KeyAssigner {
             .enumerate()
             .map(|v| v.0)
             .collect::<Vec<_>>();
+        let random = vec![0; vec.len()]
+            .iter()
+            .map(|_| rng.gen::<i32>())
+            .collect::<Vec<_>>();
 
-        vec.sort_by(|_, _| {
-            let v1 = rng.gen::<i32>();
-            let v2 = rng.gen::<i32>();
-            v1.cmp(&v2)
-        });
+        vec.sort_by(|v1, v2| random[*v1].cmp(&random[*v2]));
 
         vec
     }

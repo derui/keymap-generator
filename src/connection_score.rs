@@ -176,7 +176,7 @@ impl ConnectionScore {
                     + third.map(|(_, s)| s).unwrap_or(false) as i32
                     + fourth.map(|(_, s)| s).unwrap_or(false) as i32;
 
-                (score as f64 * (1.5_f32).sqrt().powi(shifts) as f64) as u64
+                (score as f32 * (3_f32).sqrt().powi(shifts)) as u64
             };
 
             idx += 4
@@ -454,11 +454,13 @@ impl From<&Pos> for (usize, usize) {
 }
 
 impl Pos {
+    #[inline]
     fn is_skip_row_on_same_finger(&self, other: &Pos) -> bool {
         self.1 == other.1 && (self.0 as isize - other.0 as isize).abs() == 2
     }
 
     /// 異指で段をスキップしているか
+    #[inline]
     fn is_skip_row(&self, other: &Pos) -> bool {
         let hand_self = HAND_ASSIGNMENT[self.0][self.1];
         let hand_other = HAND_ASSIGNMENT[other.0][other.1];
@@ -466,17 +468,34 @@ impl Pos {
         hand_self == hand_other && (self.0 as isize - other.0 as isize).abs() == 2
     }
 
+    /// 同じ指で異なる行、異なる列を入力しているか
+    #[inline]
+    fn is_same_finger_dance(&self, other: &Pos) -> bool {
+        let hand_self = HAND_ASSIGNMENT[self.0][self.1];
+        let hand_other = HAND_ASSIGNMENT[other.0][other.1];
+        let finger_self = FINGER_ASSIGNMENT[self.0][self.1];
+        let finger_other = FINGER_ASSIGNMENT[other.0][other.1];
+
+        hand_self == hand_other
+            && finger_self == finger_other
+            && self.0 != other.0
+            && self.1 != other.1
+    }
+
     /// 同じ手で押下しているかどうか
+    #[inline]
     fn is_same_hand(&self, other: &Pos) -> bool {
         HAND_ASSIGNMENT[self.0][self.1] == HAND_ASSIGNMENT[other.0][other.1]
     }
 
     /// 同で押下しているかどうか
+    #[inline]
     fn is_same_finger(&self, other: &Pos) -> bool {
         FINGER_ASSIGNMENT[self.0][self.1] == FINGER_ASSIGNMENT[other.0][other.1]
     }
 
     /// 同一の手、かつ同一の指かどうか
+    #[inline]
     fn is_same_hand_and_finger(&self, other: &Pos) -> bool {
         let finger_self = FINGER_ASSIGNMENT[self.0][self.1];
         let finger_other = FINGER_ASSIGNMENT[other.0][other.1];
@@ -493,6 +512,14 @@ impl Pos {
                 // 同じ指で行をスキップしている場合はペナルティを与える
                 if first.is_skip_row_on_same_finger(second) {
                     100
+                } else {
+                    0
+                }
+            },
+            |first: &Pos, second: &Pos| {
+                // 同じ指で異段異列の場合はペナルティを与える
+                if first.is_same_finger_dance(second) {
+                    200
                 } else {
                     0
                 }
