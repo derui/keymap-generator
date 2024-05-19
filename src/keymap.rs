@@ -36,7 +36,7 @@ mod constraints {
     use std::collections::HashSet;
 
     use crate::{
-        char_def::{self, definitions},
+        char_def::{self, definitions, CharDef},
         layout::linear::{
             LINEAR_L_SEMITURBID_INDEX, LINEAR_L_SHIFT_INDEX, LINEAR_L_TURBID_INDEX,
             LINEAR_R_SEMITURBID_INDEX, LINEAR_R_SHIFT_INDEX, LINEAR_R_TURBID_INDEX,
@@ -123,14 +123,18 @@ mod constraints {
                 let right_unshift = right.unshift_def().and_then(|v| v.turbid());
                 let right_shifted = right.shifted_def().and_then(|v| v.turbid());
 
-                matches!(
-                    (left_unshift, left_shifted, right_unshift, right_shifted),
-                    (Some(_), None, None, None)
-                        | (None, Some(_), None, None)
-                        | (None, None, Some(_), None)
-                        | (None, None, None, Some(_))
-                        | (None, None, None, None),
-                )
+                left.unshift_def().map_or(true, |v| !v.is_sulphuric())
+                    && left.shifted_def().map_or(true, |v| !v.is_sulphuric())
+                    && right.unshift_def().map_or(true, |v| !v.is_sulphuric())
+                    && right.shifted_def().map_or(true, |v| !v.is_sulphuric())
+                    && matches!(
+                        (left_unshift, left_shifted, right_unshift, right_shifted),
+                        (Some(_), None, None, None)
+                            | (None, Some(_), None, None)
+                            | (None, None, Some(_), None)
+                            | (None, None, None, Some(_))
+                            | (None, None, None, None),
+                    )
             }
             _ => true,
         }
@@ -150,17 +154,57 @@ mod constraints {
                 let right_unshift = right.unshift_def().and_then(|v| v.semiturbid());
                 let right_shifted = right.shifted_def().and_then(|v| v.semiturbid());
 
-                matches!(
-                    (left_unshift, left_shifted, right_unshift, right_shifted),
-                    (Some(_), None, None, None)
-                        | (None, Some(_), None, None)
-                        | (None, None, Some(_), None)
-                        | (None, None, None, Some(_))
-                        | (None, None, None, None),
-                )
+                left.unshift_def().map_or(true, |v| !v.is_sulphuric())
+                    && left.shifted_def().map_or(true, |v| !v.is_sulphuric())
+                    && right.unshift_def().map_or(true, |v| !v.is_sulphuric())
+                    && right.shifted_def().map_or(true, |v| !v.is_sulphuric())
+                    && matches!(
+                        (left_unshift, left_shifted, right_unshift, right_shifted),
+                        (Some(_), None, None, None)
+                            | (None, Some(_), None, None)
+                            | (None, None, Some(_), None)
+                            | (None, None, None, Some(_))
+                            | (None, None, None, None),
+                    )
             }
             _ => true,
         }
+    }
+
+    /// 濁音シフトと逆手の半濁音シフトには、濁音または半濁音が一つ以下しか設定されていないかどうかを確認する
+    pub(super) fn should_have_only_one_turbid_or_semiturbid_between_left_and_right_shift(
+        layout: &[KeyAssignment],
+    ) -> bool {
+        [
+            (LINEAR_L_TURBID_INDEX, LINEAR_R_SEMITURBID_INDEX),
+            (LINEAR_R_TURBID_INDEX, LINEAR_L_SEMITURBID_INDEX),
+        ]
+        .iter()
+        .all(|(turbid, semiturbid)| {
+            let turbid = &layout[*turbid];
+            let semiturbid = &layout[*semiturbid];
+
+            [|v: CharDef| v.turbid(), |v: CharDef| v.semiturbid()]
+                .into_iter()
+                .all(|function| match (turbid, semiturbid) {
+                    (KeyAssignment::A(left), KeyAssignment::A(right)) => {
+                        let left_unshift = left.unshift_def().and_then(function);
+                        let left_shifted = left.shifted_def().and_then(function);
+                        let right_unshift = right.unshift_def().and_then(function);
+                        let right_shifted = right.shifted_def().and_then(function);
+
+                        matches!(
+                            (left_unshift, left_shifted, right_unshift, right_shifted),
+                            (Some(_), None, None, None)
+                                | (None, Some(_), None, None)
+                                | (None, None, Some(_), None)
+                                | (None, None, None, Some(_))
+                                | (None, None, None, None),
+                        )
+                    }
+                    _ => true,
+                })
+        })
     }
 
     /// 各キーには、半濁音は一つ以下しか設定されていないかどうかを確認する
@@ -445,6 +489,7 @@ impl Keymap {
             constraints::should_have_only_one_turbid_in_turbid_shifts,
             constraints::should_have_only_one_semiturbid_in_semiturbid_shifts,
             constraints::should_have_only_one_sulphuric,
+            constraints::should_have_only_one_turbid_or_semiturbid_between_left_and_right_shift,
             constraints::should_be_able_to_all_input,
         ];
 

@@ -41,10 +41,12 @@ fn get_predicates(rng: &mut StdRng) -> HashMap<usize, Vec<fn(&LayeredCharCombina
             LINEAR_L_TURBID_INDEX,
             vec![
                 |v: &LayeredCharCombination| {
-                    v.char_of_layer("normal").map_or(true, |v| v.is_cleartone())
+                    v.char_of_layer("normal")
+                        .map_or(true, |v| v.is_cleartone() && !v.is_sulphuric())
                 },
                 |v: &LayeredCharCombination| {
-                    v.char_of_layer("shift").map_or(true, |v| v.is_cleartone())
+                    v.char_of_layer("shift")
+                        .map_or(true, |v| v.is_cleartone() && !v.is_sulphuric())
                 },
             ],
         );
@@ -52,10 +54,12 @@ fn get_predicates(rng: &mut StdRng) -> HashMap<usize, Vec<fn(&LayeredCharCombina
             LINEAR_L_SEMITURBID_INDEX,
             vec![
                 |v: &LayeredCharCombination| {
-                    v.char_of_layer("normal").map_or(true, |v| v.is_cleartone())
+                    v.char_of_layer("normal")
+                        .map_or(true, |v| v.is_cleartone() && !v.is_sulphuric())
                 },
                 |v: &LayeredCharCombination| {
-                    v.char_of_layer("shift").map_or(true, |v| v.is_cleartone())
+                    v.char_of_layer("shift")
+                        .map_or(true, |v| v.is_cleartone() && !v.is_sulphuric())
                 },
             ],
         );
@@ -64,18 +68,22 @@ fn get_predicates(rng: &mut StdRng) -> HashMap<usize, Vec<fn(&LayeredCharCombina
             LINEAR_R_TURBID_INDEX,
             vec![
                 |v: &LayeredCharCombination| {
-                    v.char_of_layer("normal").map_or(true, |v| v.is_cleartone())
+                    v.char_of_layer("normal")
+                        .map_or(true, |v| v.is_cleartone() && !v.is_sulphuric())
                 },
                 |v: &LayeredCharCombination| {
-                    v.char_of_layer("shift").map_or(true, |v| v.is_cleartone())
+                    v.char_of_layer("shift")
+                        .map_or(true, |v| v.is_cleartone() && !v.is_sulphuric())
                 },
             ],
         );
         ret.insert(
             LINEAR_R_SEMITURBID_INDEX,
             vec![|v: &LayeredCharCombination| {
-                v.char_of_layer("normal").map_or(true, |v| v.is_cleartone())
-                    && v.char_of_layer("shift").map_or(true, |v| v.is_cleartone())
+                v.char_of_layer("normal")
+                    .map_or(true, |v| v.is_cleartone() && !v.is_sulphuric())
+                    && v.char_of_layer("shift")
+                        .map_or(true, |v| v.is_cleartone() && !v.is_sulphuric())
             }],
         );
     }
@@ -125,9 +133,9 @@ impl Playground {
     ) -> (u64, Keymap) {
         self.generation += 1;
 
-        // if do_neighbor_search {
-        //     return self.advance_with_neighbor(conjunctions, connection_score);
-        // }
+        if do_neighbor_search {
+            return self.advance_with_neighbor(conjunctions, connection_score);
+        }
 
         self.advance_with_ga(rng, conjunctions, connection_score)
     }
