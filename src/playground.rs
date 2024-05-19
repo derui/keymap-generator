@@ -29,8 +29,8 @@ pub struct Playground {
 
 const TOURNAMENT_SIZE: usize = 10;
 const KEYMAP_SIZE: usize = 30;
-const WORKERS: u8 = 20;
-const MUTATION_PROB: f64 = 0.0001;
+const WORKERS: u8 = 24;
+const MUTATION_PROB: f64 = 0.005;
 
 /// キー毎に設定する制約条件を生成する
 fn get_predicates(rng: &mut StdRng) -> HashMap<usize, Vec<fn(&LayeredCharCombination) -> bool>> {

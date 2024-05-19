@@ -128,10 +128,10 @@ impl KeyAssigner {
             &Vec::new(),
             &[|comb: &LayeredCharCombination| {
                 comb.char_of_layer(NORMAL_LAYER)
-                    .map_or(true, |v| v.is_cleartone())
+                    .map_or(true, |v| v.is_cleartone() && !v.is_sulphuric())
                     && comb
                         .char_of_layer(SHIFT_LAYER)
-                        .map_or(false, |v| v.is_cleartone())
+                        .map_or(false, |v| v.is_cleartone() && !v.is_sulphuric())
             }],
         );
 
@@ -157,7 +157,7 @@ impl KeyAssigner {
         // シフトキーは、シフト面が同一であることが要件になる。
         let preds = vec![|comb: &LayeredCharCombination| {
             comb.char_of_layer(NORMAL_LAYER)
-                .map_or(true, |v| v.is_cleartone())
+                .map_or(true, |v| v.is_cleartone() && !v.is_sulphuric())
         }];
 
         let char = freq.get_assignment(

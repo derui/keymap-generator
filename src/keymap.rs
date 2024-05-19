@@ -3,6 +3,7 @@ use std::{collections::HashMap, fmt::Display};
 use rand::rngs::StdRng;
 
 use crate::{
+    char_def,
     frequency_table::KeyAssigner,
     key_def::KeyDef,
     key_seq::KeySeq,
@@ -62,7 +63,7 @@ mod constraints {
 
         let cleartones = definitions()
             .into_iter()
-            .filter(|v| v.is_cleartone())
+            .filter(|v| v.is_cleartone() && !v.is_sulphuric())
             .map(|v| v.normal())
             .collect::<Vec<char>>();
         match (left_shifted, right_shifted) {
@@ -530,7 +531,7 @@ impl Keymap {
     pub fn key_combinations(&self) -> Vec<(String, String)> {
         let mut ret: Vec<(String, String)> = Vec::new();
 
-        for (r, (_, seq)) in self.sequences.iter().enumerate() {
+        for (_, seq) in self.sequences.iter() {
             ret.push((seq.char().to_string(), seq.to_char_sequence()))
         }
 
