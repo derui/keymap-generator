@@ -34,20 +34,17 @@ impl KeyAssigner {
         freq_table: &FrequencyTable,
         predicates: &HashMap<usize, Vec<fn(&LayeredCharCombination) -> bool>>,
     ) -> Self {
-        let mut key_pool = HashSet::new();
+        let def = char_def::definitions();
+        let mut key_pool = vec![false; def.len()];
 
-        key_pool.insert(
-            char_def::definitions()
-                .iter()
-                .position(|v| v.is_punctuation_mark())
-                .expect("should be found punctuation mark"),
-        );
-        key_pool.insert(
-            char_def::definitions()
-                .iter()
-                .position(|v| v.is_reading_point())
-                .expect("should be found reading point"),
-        );
+        key_pool[def
+            .iter()
+            .position(|v| v.is_punctuation_mark())
+            .expect("should be found punctuation mark")] = true;
+        key_pool[def
+            .iter()
+            .position(|v| v.is_reading_point())
+            .expect("should be found reading point")] = true;
 
         Self {
             layered_combinations: freq_table.frequency.to_vec(),
@@ -109,7 +106,7 @@ impl KeyAssigner {
 
         LAYERS.iter().for_each(|name| {
             if let Some(c) = char.char_of_layer(name) {
-                self.key_pool.insert(self.character_map[&c.normal()]);
+                self.key_pool[self.character_map[&c.normal()]] = true;
             }
         });
 
@@ -137,7 +134,7 @@ impl KeyAssigner {
 
         LAYERS.iter().for_each(|name| {
             if let Some(c) = char.char_of_layer(name) {
-                self.key_pool.insert(self.character_map[&c.normal()]);
+                self.key_pool[self.character_map[&c.normal()]] = true;
             }
         });
 
@@ -169,7 +166,7 @@ impl KeyAssigner {
 
         LAYERS.iter().for_each(|name| {
             if let Some(c) = char.char_of_layer(name) {
-                self.key_pool.insert(self.character_map[&c.normal()]);
+                self.key_pool[self.character_map[&c.normal()]] = true;
             }
         });
 

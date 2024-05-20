@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::char_def::{self, CharDef};
 
-/// 使用済みのキープール。値は [char_def::definitions] のインデックスである
-pub type UsedKeyPool = HashSet<usize>;
+/// 使用済みのキープール。サイズは[char_def::definitions]と同一で、trueであれば使用済みである
+pub type UsedKeyPool = Vec<bool>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Layer {
@@ -75,7 +75,7 @@ impl Layer {
     ///
     /// 利用可能なキーがない場合はNoneを返す
     fn get_char(&self, rng: &mut StdRng, key_pool: &UsedKeyPool) -> Option<CharDef> {
-        if key_pool.len() >= self.frequencies.len() {
+        if key_pool.iter().all(|v| *v) {
             return None;
         }
 
@@ -83,20 +83,14 @@ impl Layer {
             .frequencies
             .iter()
             .enumerate()
-            .filter_map(|(idx, v)| {
-                if key_pool.contains(&idx) {
-                    None
-                } else {
-                    Some(*v)
-                }
-            })
+            .filter_map(|(idx, v)| if key_pool[idx] { None } else { Some(*v) })
             .sum();
 
         let prob = rng.gen_range(0.0..new_total);
         let mut accum = 0.0;
 
         for (idx, freq) in self.frequencies.iter().enumerate() {
-            if key_pool.contains(&idx) {
+            if key_pool[idx] {
                 continue;
             }
 
@@ -136,7 +130,7 @@ impl LayeredFrequency {
     where
         F: Fn(&LayeredCharCombination) -> bool,
     {
-        let mut key_pool_cache: HashSet<usize>;
+        let mut key_pool_cache: UsedKeyPool;
         let def = char_def::definitions();
         let mut count = 0;
 
@@ -156,8 +150,8 @@ impl LayeredFrequency {
                 let char = layer.get_char(rng, &key_pool_cache);
 
                 if let Some(c) = char {
-                    key_pool_cache
-                        .insert(def.iter().position(|v| v == &c).expect("should be found"));
+                    key_pool_cache[def.iter().position(|v| v == &c).expect("should be found")] =
+                        true;
                 }
 
                 ret.push((layer.name.clone(), char));
