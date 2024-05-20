@@ -8,8 +8,9 @@ use crate::{
     key_def::KeyDef,
     key_seq::KeySeq,
     layout::linear::{
-        self, LINEAR_L_SEMITURBID_INDEX, LINEAR_L_SHIFT_INDEX, LINEAR_L_TURBID_INDEX,
-        LINEAR_R_SEMITURBID_INDEX, LINEAR_R_SHIFT_INDEX, LINEAR_R_TURBID_INDEX,
+        self, get_left_small_shifter, get_right_small_shifter, LINEAR_L_SEMITURBID_INDEX,
+        LINEAR_L_SHIFT_INDEX, LINEAR_L_TURBID_INDEX, LINEAR_R_SEMITURBID_INDEX,
+        LINEAR_R_SHIFT_INDEX, LINEAR_R_TURBID_INDEX,
     },
 };
 
@@ -213,6 +214,21 @@ mod constraints {
             KeyAssignment::A(k) => {
                 let unshift = k.unshift_def().and_then(|v| v.semiturbid());
                 let shifted = k.shifted_def().and_then(|v| v.semiturbid());
+                matches!(
+                    (unshift, shifted),
+                    (Some(_), None) | (None, Some(_)) | (None, None)
+                )
+            }
+            KeyAssignment::U => true,
+        })
+    }
+
+    /// 各キーには、小書きは一つ以下しか設定されていないかどうかを確認する
+    pub(super) fn should_have_only_one_small(layout: &[KeyAssignment]) -> bool {
+        layout.iter().all(|v| match v {
+            KeyAssignment::A(k) => {
+                let unshift = k.unshift_def().and_then(|v| v.small());
+                let shifted = k.shifted_def().and_then(|v| v.small());
                 matches!(
                     (unshift, shifted),
                     (Some(_), None) | (None, Some(_)) | (None, None)
@@ -435,6 +451,15 @@ impl Keymap {
                     let semiturbid_seq = KeySeq::from_shift_like(semiturbid, &p, &semiturbid_pos);
                     sequences.insert(semiturbid, semiturbid_seq);
                 }
+
+                if let Some(small) = k.small() {
+                    let small_pos = match linear::get_hand_of_point(&p) {
+                        crate::layout::Hand::Right => get_left_small_shifter(),
+                        crate::layout::Hand::Left => get_right_small_shifter(),
+                    };
+                    let small_seq = KeySeq::from_shift_like(small, &p, &small_pos);
+                    sequences.insert(small, small_seq);
+                }
             }
         }
 
@@ -490,6 +515,7 @@ impl Keymap {
             constraints::should_have_only_one_semiturbid_in_semiturbid_shifts,
             constraints::should_have_only_one_sulphuric,
             constraints::should_have_only_one_turbid_or_semiturbid_between_left_and_right_shift,
+            constraints::should_have_only_one_small,
             constraints::should_be_able_to_all_input,
         ];
 

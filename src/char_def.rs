@@ -7,6 +7,8 @@ pub enum CharDef {
         turbid: Option<char>,
         semiturbid: Option<char>,
         sulphuric: bool,
+        // 小書き文字
+        small: Option<char>,
     },
     Turbid,
     SemiTurbid,
@@ -21,6 +23,7 @@ impl CharDef {
                 turbid,
                 semiturbid,
                 sulphuric: _,
+                small,
             } => turbid.is_none() && semiturbid.is_none(),
             CharDef::Turbid => true,
             CharDef::SemiTurbid => true,
@@ -34,6 +37,7 @@ impl CharDef {
             turbid: _,
             semiturbid: _,
             sulphuric: _,
+            small,
         } = self
         {
             *normal == '、'
@@ -49,6 +53,7 @@ impl CharDef {
             turbid: _,
             semiturbid: _,
             sulphuric: _,
+            small,
         } = self
         {
             *normal == '。'
@@ -64,6 +69,7 @@ impl CharDef {
             turbid: _,
             semiturbid: _,
             sulphuric: v,
+            small,
         } = self
         {
             *v
@@ -80,6 +86,7 @@ impl CharDef {
                 turbid: _,
                 semiturbid: _,
                 sulphuric: _,
+                small,
             } => *normal,
             CharDef::Turbid => '゛',
             CharDef::SemiTurbid => '゜',
@@ -94,6 +101,7 @@ impl CharDef {
                 turbid,
                 semiturbid: _,
                 sulphuric: _,
+                small,
             } => *turbid,
             CharDef::Turbid => None,
             CharDef::SemiTurbid => None,
@@ -108,7 +116,23 @@ impl CharDef {
                 turbid: _,
                 semiturbid,
                 sulphuric: _,
+                small,
             } => *semiturbid,
+            CharDef::Turbid => None,
+            CharDef::SemiTurbid => None,
+        }
+    }
+
+    /// 対象の文字に対応する定義を返す
+    pub fn small(&self) -> Option<char> {
+        match self {
+            CharDef::Normal {
+                normal: _,
+                turbid: _,
+                semiturbid,
+                sulphuric: _,
+                small,
+            } => *small,
             CharDef::Turbid => None,
             CharDef::SemiTurbid => None,
         }
@@ -123,6 +147,10 @@ impl CharDef {
         }
 
         if let Some(c) = self.semiturbid() {
+            vec.push(c)
+        }
+
+        if let Some(c) = self.small() {
             vec.push(c)
         }
         vec
@@ -155,302 +183,352 @@ const CHARS: [CharDef; 50] = [
     CharDef::Normal {
         normal: 'あ',
         turbid: None,
-        semiturbid: Some('ぁ'),
+        semiturbid: None,
         sulphuric: false,
+        small: Some('ぁ'),
     },
     CharDef::Normal {
         normal: 'い',
         turbid: None,
-        semiturbid: Some('ぃ'),
+        semiturbid: None,
         sulphuric: false,
+        small: Some('ぃ'),
     },
     CharDef::Normal {
         normal: 'う',
         turbid: Some('ゔ'),
-        semiturbid: Some('ぅ'),
+        semiturbid: None,
         sulphuric: false,
+        small: Some('ぅ'),
     },
     CharDef::Normal {
         normal: 'え',
         turbid: None,
-        semiturbid: Some('ぇ'),
+        semiturbid: None,
         sulphuric: false,
+        small: Some('ぇ'),
     },
     CharDef::Normal {
         normal: 'お',
         turbid: None,
-        semiturbid: Some('ぉ'),
+        semiturbid: None,
         sulphuric: false,
+        small: Some('ぉ'),
     },
     CharDef::Normal {
         normal: 'か',
         turbid: Some('が'),
         semiturbid: None,
         sulphuric: false,
+        small: None,
     },
     CharDef::Normal {
         normal: 'き',
         turbid: Some('ぎ'),
         semiturbid: None,
         sulphuric: true,
+        small: None,
     },
     CharDef::Normal {
         normal: 'く',
         turbid: Some('ぐ'),
         semiturbid: None,
         sulphuric: false,
+        small: None,
     },
     CharDef::Normal {
         normal: 'け',
         turbid: Some('げ'),
         semiturbid: None,
         sulphuric: false,
+        small: None,
     },
     CharDef::Normal {
         normal: 'こ',
         turbid: Some('ご'),
         semiturbid: None,
         sulphuric: false,
+        small: None,
     },
     CharDef::Normal {
         normal: 'さ',
         turbid: Some('ざ'),
         semiturbid: None,
         sulphuric: false,
+        small: None,
     },
     CharDef::Normal {
         normal: 'し',
         turbid: Some('じ'),
         semiturbid: None,
         sulphuric: true,
+        small: None,
     },
     CharDef::Normal {
         normal: 'す',
         turbid: Some('ず'),
         semiturbid: None,
         sulphuric: false,
+        small: None,
     },
     CharDef::Normal {
         normal: 'せ',
         turbid: Some('ぜ'),
         semiturbid: None,
         sulphuric: false,
+        small: None,
     },
     CharDef::Normal {
         normal: 'そ',
         turbid: Some('ぞ'),
         semiturbid: None,
         sulphuric: false,
+        small: None,
     },
     CharDef::Normal {
         normal: 'た',
         turbid: Some('だ'),
         semiturbid: None,
         sulphuric: false,
+        small: None,
     },
     CharDef::Normal {
         normal: 'ち',
         turbid: Some('ぢ'),
         semiturbid: None,
         sulphuric: true,
+        small: None,
     },
     CharDef::Normal {
         normal: 'つ',
         turbid: Some('づ'),
         semiturbid: None,
         sulphuric: false,
+        small: None,
     },
     CharDef::Normal {
         normal: 'て',
         turbid: Some('で'),
         semiturbid: None,
         sulphuric: false,
+        small: None,
     },
     CharDef::Normal {
         normal: 'と',
         turbid: Some('ど'),
         semiturbid: None,
         sulphuric: false,
+        small: None,
     },
     CharDef::Normal {
         normal: 'な',
         turbid: None,
         semiturbid: None,
         sulphuric: false,
+        small: None,
     },
     CharDef::Normal {
         normal: 'に',
         turbid: None,
         semiturbid: None,
         sulphuric: true,
+        small: None,
     },
     CharDef::Normal {
         normal: 'ぬ',
         turbid: None,
         semiturbid: None,
         sulphuric: false,
+        small: None,
     },
     CharDef::Normal {
         normal: 'ね',
         turbid: None,
         semiturbid: None,
         sulphuric: false,
+        small: None,
     },
     CharDef::Normal {
         normal: 'の',
         turbid: None,
         semiturbid: None,
         sulphuric: false,
+        small: None,
     },
     CharDef::Normal {
         normal: 'は',
         turbid: Some('ば'),
         semiturbid: Some('ぱ'),
         sulphuric: false,
+        small: None,
     },
     CharDef::Normal {
         normal: 'ひ',
         turbid: Some('び'),
         semiturbid: Some('ぴ'),
         sulphuric: true,
+        small: None,
     },
     CharDef::Normal {
         normal: 'ふ',
         turbid: Some('ぶ'),
         semiturbid: Some('ぷ'),
         sulphuric: false,
+        small: None,
     },
     CharDef::Normal {
         normal: 'へ',
         turbid: Some('べ'),
         semiturbid: Some('ぺ'),
         sulphuric: false,
+        small: None,
     },
     CharDef::Normal {
         normal: 'ほ',
         turbid: Some('ぼ'),
         semiturbid: Some('ぽ'),
         sulphuric: false,
+        small: None,
     },
     CharDef::Normal {
         normal: 'ま',
         turbid: None,
         semiturbid: None,
         sulphuric: false,
+        small: None,
     },
     CharDef::Normal {
         normal: 'み',
         turbid: None,
         semiturbid: None,
         sulphuric: true,
+        small: None,
     },
     CharDef::Normal {
         normal: 'む',
         turbid: None,
         semiturbid: None,
         sulphuric: false,
+        small: None,
     },
     CharDef::Normal {
         normal: 'め',
         turbid: None,
         semiturbid: None,
         sulphuric: false,
+        small: None,
     },
     CharDef::Normal {
         normal: 'も',
         turbid: None,
         semiturbid: None,
         sulphuric: false,
+        small: None,
     },
     CharDef::Normal {
         normal: 'や',
         turbid: None,
-        semiturbid: Some('ゃ'),
+        semiturbid: None,
         sulphuric: false,
+        small: Some('ゃ'),
     },
     CharDef::Normal {
         normal: 'ゆ',
         turbid: None,
-        semiturbid: Some('ゅ'),
+        semiturbid: None,
         sulphuric: false,
+        small: Some('ゅ'),
     },
     CharDef::Normal {
         normal: 'よ',
         turbid: None,
-        semiturbid: Some('ょ'),
+        semiturbid: None,
         sulphuric: false,
+        small: Some('ょ'),
     },
     CharDef::Normal {
         normal: 'ら',
         turbid: None,
         semiturbid: None,
         sulphuric: false,
+        small: None,
     },
     CharDef::Normal {
         normal: 'り',
         turbid: None,
         semiturbid: None,
         sulphuric: true,
+        small: None,
     },
     CharDef::Normal {
         normal: 'る',
         turbid: None,
         semiturbid: None,
         sulphuric: false,
+        small: None,
     },
     CharDef::Normal {
         normal: 'れ',
         turbid: None,
         semiturbid: None,
         sulphuric: false,
+        small: None,
     },
     CharDef::Normal {
         normal: 'ろ',
         turbid: None,
         semiturbid: None,
         sulphuric: false,
+        small: None,
     },
     CharDef::Normal {
         normal: 'わ',
         turbid: None,
         semiturbid: None,
         sulphuric: false,
+        small: None,
     },
     CharDef::Normal {
         normal: 'を',
         turbid: None,
         semiturbid: None,
         sulphuric: false,
+        small: None,
     },
     CharDef::Normal {
         normal: 'ん',
         turbid: None,
         semiturbid: None,
         sulphuric: false,
+        small: None,
     },
     CharDef::Normal {
         normal: 'っ',
         turbid: None,
         semiturbid: None,
         sulphuric: false,
+        small: None,
     },
     CharDef::Normal {
         normal: '、',
         turbid: None,
         semiturbid: None,
         sulphuric: false,
+        small: None,
     },
     CharDef::Normal {
         normal: '。',
         turbid: None,
         semiturbid: None,
         sulphuric: false,
+        small: None,
     },
     CharDef::Normal {
         normal: 'ー',
         turbid: None,
         semiturbid: None,
         sulphuric: false,
+        small: None,
     },
 ];
 

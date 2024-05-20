@@ -43,7 +43,7 @@ pub mod linear {
     use super::{Hand, Point};
 
     const LINEAR_MAPPING: [(char, Point); 26] = [
-        // Point { row: 0, col: 0 },
+        // ('q', Point { row: 0, col: 0 }),
         ('w', Point { row: 0, col: 1 }),
         ('e', Point { row: 0, col: 2 }),
         ('r', Point { row: 0, col: 3 }),
@@ -52,7 +52,7 @@ pub mod linear {
         ('u', Point { row: 0, col: 6 }),
         ('i', Point { row: 0, col: 7 }),
         ('o', Point { row: 0, col: 8 }),
-        // Point { row: 0, col: 9 },
+        // ('p', Point { row: 0, col: 8 }),
         ('a', Point { row: 1, col: 0 }),
         ('s', Point { row: 1, col: 1 }),
         ('d', Point { row: 1, col: 2 }),
@@ -116,8 +116,24 @@ pub mod linear {
         }
     }
 
+    pub fn get_left_small_shifter() -> Point {
+        Point { row: 0, col: 0 }
+    }
+
+    pub fn get_right_small_shifter() -> Point {
+        Point { row: 0, col: 9 }
+    }
+
     /// layoutにおいて、指定された位置に対応する文字を返す
     pub fn get_char_of_point(point: &Point) -> char {
+        if *point == get_left_small_shifter() {
+            return 'q';
+        }
+
+        if *point == get_right_small_shifter() {
+            return 'p';
+        }
+
         LINEAR_MAPPING
             .iter()
             .find(|(_, p)| *p == *point)

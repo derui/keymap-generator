@@ -3,7 +3,7 @@ use std::{collections::HashMap, fs::File, io::Read, path::Path};
 use scraper::{Html, Selector};
 
 use crate::layout::{
-    linear::{linear_layout, linear_mapping},
+    linear::{self, linear_layout, linear_mapping},
     Point,
 };
 
@@ -12,7 +12,7 @@ use crate::layout::{
 /// 上記を左右同置に改変し、多少の調整を付加
 #[rustfmt::skip]
 static FINGER_WEIGHTS: [[u16; 10];3] = [
-    [1000,   126, 105, 152,  300,  300, 152, 105, 126, 1000],
+    [0,   126, 105, 152,  300,  300, 152, 105, 126, 0],
     [97,      96,  91,  90,   138,   138,  90,  91,  96,   97],
     [157,    150, 150, 135,   146,   146, 135, 150, 150,  157],
 ];
@@ -104,7 +104,10 @@ pub struct Evaluation {
 
 impl ConnectionScore {
     pub fn new(timings: &TwoKeyTiming) -> Self {
-        let indices = linear_layout();
+        let mut indices = linear_layout();
+        indices.push(linear::get_left_small_shifter());
+        indices.push(linear::get_right_small_shifter());
+
         let mut this = ConnectionScore {
             scores: vec![0; 32_usize.pow(4)],
         };
@@ -278,7 +281,7 @@ impl ConnectionScore {
         // 2連接の評価
         FINGER_WEIGHTS[i.0][i.1] as u32
             + FINGER_WEIGHTS[j.0][j.1] as u32
-            + i.two_conjunction_scores(&i, timings)
+            + i.two_conjunction_scores(&j, timings)
     }
     /// 単一キーの評価を行う
     ///

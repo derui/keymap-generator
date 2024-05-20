@@ -65,6 +65,18 @@ impl KeyDef {
         }
     }
 
+    /// 小書きシフト面の文字があれば返す
+    pub fn small(&self) -> Option<char> {
+        let unshift = self.unshift.and_then(|v| v.small());
+        let shifted = self.shifted.and_then(|v| v.small());
+        match (unshift, shifted) {
+            // 両方があるケースは存在しない
+            (Some(c), None) => Some(c),
+            (None, Some(c)) => Some(c),
+            _ => None,
+        }
+    }
+
     /// キーから入力可能なすべての文字を返す
     pub fn chars(&self) -> Vec<char> {
         let mut vec = Vec::with_capacity(4);
@@ -76,6 +88,10 @@ impl KeyDef {
         }
 
         if let Some(c) = self.semiturbid() {
+            vec.push(c);
+        }
+
+        if let Some(c) = self.small() {
             vec.push(c);
         }
 

@@ -30,7 +30,7 @@ pub struct Playground {
 const TOURNAMENT_SIZE: usize = 10;
 const KEYMAP_SIZE: usize = 30;
 const WORKERS: u8 = 24;
-const MUTATION_PROB: f64 = 0.005;
+const MUTATION_PROB: f64 = 0.0001;
 
 /// キー毎に設定する制約条件を生成する
 fn get_predicates(rng: &mut StdRng) -> HashMap<usize, Vec<fn(&LayeredCharCombination) -> bool>> {
@@ -134,7 +134,7 @@ impl Playground {
         self.generation += 1;
 
         if do_neighbor_search {
-            return self.advance_with_neighbor(conjunctions, connection_score);
+            return self.advance_with_neighbor(rng, conjunctions, connection_score);
         }
 
         self.advance_with_ga(rng, conjunctions, connection_score)
@@ -142,6 +142,7 @@ impl Playground {
 
     fn advance_with_neighbor(
         &mut self,
+        rng: &mut StdRng,
         conjunctions: &[Conjunction],
         connection_score: Arc<ConnectionScore>,
     ) -> (u64, Keymap) {
@@ -149,15 +150,21 @@ impl Playground {
         let mut best_keymap = self.keymaps[rank[0].1].clone();
         let mut best_score = rank[0].0;
         let mut search_count = 0;
+        let mut best_neighbors = self.keymaps.clone();
+        let mut best_ranks = rank.clone();
 
         log::info!("Do neighbor search, current best score: {}", best_score);
         loop {
-            let (score, best) =
+            let (ranks, neighbors) =
                 self.re_rank_neighbor(conjunctions, connection_score.clone(), &best_keymap);
+            let best = neighbors[ranks[0].1].clone();
+            let score = ranks[0].0;
 
             if score < best_score {
                 best_score = score;
                 best_keymap = best;
+                best_neighbors = neighbors;
+                best_ranks = ranks;
             } else {
                 break;
             }
@@ -165,7 +172,13 @@ impl Playground {
         }
         log::info!("after best score: {}, {search_count}", best_score);
 
-        self.frequency_table.update(&best_keymap, 1.0);
+        for (rank, idx) in self
+            .take_ranks(rng, &best_ranks, best_neighbors.len() / 2)
+            .iter()
+        {
+            self.frequency_table
+                .update(&best_neighbors[*idx], 1.0 / (*rank + 1) as f64);
+        }
 
         self.keymaps[rank[0].1] = best_keymap.clone();
         (best_score, best_keymap)
@@ -215,7 +228,7 @@ impl Playground {
         conjunctions: &[Conjunction],
         connection_score: Arc<ConnectionScore>,
         keymap: &Keymap,
-    ) -> (u64, Keymap) {
+    ) -> (Vec<(u64, usize)>, Vec<Keymap>) {
         let conjunctions = Arc::new(conjunctions.to_vec());
 
         let (tx, tr) = channel();
@@ -243,7 +256,7 @@ impl Playground {
 
         let mut scores: Vec<(u64, usize)> = tr.iter().take(keymaps.len()).collect();
         scores.sort_by(|a, b| a.0.cmp(&b.0));
-        (scores[0].0, keymaps[scores[0].1].to_owned())
+        (scores, keymaps)
     }
 
     /// 指定した `count` の個数分 `rank` から取得する

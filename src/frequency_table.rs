@@ -100,6 +100,18 @@ impl KeyAssigner {
                     _ => true,
                 }
             },
+            |v: &LayeredCharCombination| {
+                let normal = v.char_of_layer(NORMAL_LAYER);
+                let shift = v.char_of_layer(SHIFT_LAYER);
+
+                match (
+                    normal.and_then(|v| v.small()),
+                    shift.and_then(|v| v.small()),
+                ) {
+                    (Some(_), Some(_)) => false,
+                    _ => true,
+                }
+            },
         ]);
 
         let char = freq.get_assignment(rng, &self.key_pool, &Vec::new(), &preds);
