@@ -529,6 +529,27 @@ impl Keymap {
     pub fn swap_keys(&self, idx1: usize, idx2: usize) -> Vec<Self> {
         let mut new = self.clone();
         let mut vec = Vec::new();
+        {
+            let mut layout = new.layout.clone();
+            let v1 = layout[idx1].clone();
+            let v2 = layout[idx2].clone();
+
+            match (v1, v2) {
+                (KeyAssignment::A(mut k1), KeyAssignment::A(mut k2)) => {
+                    k1.swap_unshift(&mut k2);
+                    layout[idx1] = KeyAssignment::A(k1);
+                    layout[idx2] = KeyAssignment::A(k2);
+
+                    if Keymap::meet_requirements(&layout) {
+                        vec.push(Keymap {
+                            layout: layout.clone(),
+                            sequences: Keymap::build_sequences(&layout),
+                        });
+                    }
+                }
+                _ => (),
+            }
+        }
 
         new.layout[idx1].swap();
         if Keymap::meet_requirements(&new.layout) {

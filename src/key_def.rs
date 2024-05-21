@@ -21,6 +21,11 @@ impl KeyDef {
         std::mem::swap(&mut self.unshift, &mut self.shifted);
     }
 
+    /// [other]と[self]のunshiftを交換する
+    pub fn swap_unshift(&mut self, other: &mut Self) {
+        std::mem::swap(&mut self.unshift, &mut other.unshift);
+    }
+
     /// 無シフト面の文字定義を返す
     pub fn unshift_def(&self) -> Option<CharDef> {
         self.unshift

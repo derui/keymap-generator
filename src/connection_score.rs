@@ -12,9 +12,9 @@ use crate::layout::{
 /// 上記を左右同置に改変し、多少の調整を付加
 #[rustfmt::skip]
 static FINGER_WEIGHTS: [[u16; 10];3] = [
-    [0,   126, 105, 152,  300,  300, 152, 105, 126, 0],
-    [97,      96,  91,  90,   138,   138,  90,  91,  96,   97],
-    [157,    150, 150, 135,   146,   146, 135, 150, 150,  157],
+    [0,   126, 105, 152,   300,   300, 152, 105, 126,    0],
+    [120,  96,  91,  90,   138,   138,  90,  91,  96,  120],
+    [157, 150, 150, 135,   146,   146, 135, 150, 150,  157],
 ];
 
 /// キーを押下する手の割当。1 = 左手、2 = 右手
@@ -335,9 +335,9 @@ impl ConnectionScore {
                 }
             },
             |first: &Pos, second: &Pos, third: &Pos| {
-                // 左右の区別なく、同じ指を使っている場合はペナルティを与える
-                if first.is_same_finger(second) && second.is_same_finger(&third) {
-                    150
+                // 小指が連続する場合はペナルティを与える
+                if first.is_pinky() && second.is_pinky() && third.is_pinky() {
+                    200
                 } else {
                     0
                 }
@@ -459,7 +459,7 @@ impl From<&Pos> for (usize, usize) {
 impl Pos {
     #[inline]
     fn is_skip_row_on_same_finger(&self, other: &Pos) -> bool {
-        self.1 == other.1 && (self.0 as isize - other.0 as isize).abs() == 2
+        self.0 == other.0 && self.1 == other.1 && (self.0 as isize - other.0 as isize).abs() == 2
     }
 
     /// 異指で段をスキップしているか
@@ -467,8 +467,12 @@ impl Pos {
     fn is_skip_row(&self, other: &Pos) -> bool {
         let hand_self = HAND_ASSIGNMENT[self.0][self.1];
         let hand_other = HAND_ASSIGNMENT[other.0][other.1];
+        let finger_self = FINGER_ASSIGNMENT[self.0][self.1];
+        let finger_other = FINGER_ASSIGNMENT[other.0][other.1];
 
-        hand_self == hand_other && (self.0 as isize - other.0 as isize).abs() == 2
+        hand_self == hand_other
+            && finger_self != finger_other
+            && (self.0 as isize - other.0 as isize).abs() == 2
     }
 
     /// 同じ指で異なる行、異なる列を入力しているか
@@ -497,6 +501,15 @@ impl Pos {
         FINGER_ASSIGNMENT[self.0][self.1] == FINGER_ASSIGNMENT[other.0][other.1]
     }
 
+    fn hand(&self) -> u8 {
+        HAND_ASSIGNMENT[self.0][self.1]
+    }
+
+    #[inline]
+    fn is_pinky(&self) -> bool {
+        FINGER_ASSIGNMENT[self.0][self.1] == 4
+    }
+
     /// 同一の手、かつ同一の指かどうか
     #[inline]
     fn is_same_hand_and_finger(&self, other: &Pos) -> bool {
@@ -514,7 +527,7 @@ impl Pos {
             |first: &Pos, second: &Pos| {
                 // 同じ指で行をスキップしている場合はペナルティを与える
                 if first.is_skip_row_on_same_finger(second) {
-                    100
+                    150
                 } else {
                     0
                 }

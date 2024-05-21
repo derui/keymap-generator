@@ -172,10 +172,7 @@ impl Playground {
         }
         log::info!("after best score: {}, {search_count}", best_score);
 
-        for (rank, idx) in self
-            .take_ranks(rng, &best_ranks, best_neighbors.len() / 2)
-            .iter()
-        {
+        for (rank, idx) in self.take_ranks(rng, &best_ranks, TOURNAMENT_SIZE).iter() {
             self.frequency_table
                 .update(&best_neighbors[*idx], 1.0 / (*rank + 1) as f64);
         }
