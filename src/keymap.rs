@@ -527,8 +527,9 @@ impl Keymap {
     /// #Return
     /// 入れ替え後のキーマップ。制約を満たさない場合はNoneを返す
     pub fn swap_keys(&self, idx1: usize, idx2: usize) -> Vec<Self> {
-        let mut new = self.clone();
+        let new = self.clone();
         let mut vec = Vec::new();
+
         {
             let mut layout = new.layout.clone();
             let v1 = layout[idx1].clone();
@@ -551,57 +552,129 @@ impl Keymap {
             }
         }
 
-        new.layout[idx1].swap();
-        if Keymap::meet_requirements(&new.layout) {
-            vec.push(Keymap {
-                layout: new.layout.clone(),
-                sequences: Keymap::build_sequences(&new.layout),
-            });
-        }
-        new.layout[idx1].swap();
+        {
+            let mut layout = new.layout.clone();
+            let v1 = layout[idx1].clone();
+            let v2 = layout[idx2].clone();
 
-        new.layout[idx2].swap();
-        if Keymap::meet_requirements(&new.layout) {
-            vec.push(Keymap {
-                layout: new.layout.clone(),
-                sequences: Keymap::build_sequences(&new.layout),
-            });
-        }
-        new.layout[idx2].swap();
+            match (v1, v2) {
+                (KeyAssignment::A(mut k1), KeyAssignment::A(mut k2)) => {
+                    k1.swap_shifted(&mut k2);
+                    layout[idx1] = KeyAssignment::A(k1);
+                    layout[idx2] = KeyAssignment::A(k2);
 
-        new.layout.swap(idx1, idx2);
-        if Keymap::meet_requirements(&new.layout) {
-            vec.push(Keymap {
-                layout: new.layout.clone(),
-                sequences: Keymap::build_sequences(&new.layout),
-            });
+                    if Keymap::meet_requirements(&layout) {
+                        vec.push(Keymap {
+                            layout: layout.clone(),
+                            sequences: Keymap::build_sequences(&layout),
+                        });
+                    }
+                }
+                _ => (),
+            }
+        }
+        {
+            let mut layout = new.layout.clone();
+            let v1 = layout[idx1].clone();
+            let v2 = layout[idx2].clone();
+
+            match (v1, v2) {
+                (KeyAssignment::A(mut k1), KeyAssignment::A(mut k2)) => {
+                    k1.swap_shifted_unshift(&mut k2);
+                    layout[idx1] = KeyAssignment::A(k1);
+                    layout[idx2] = KeyAssignment::A(k2);
+
+                    if Keymap::meet_requirements(&layout) {
+                        vec.push(Keymap {
+                            layout: layout.clone(),
+                            sequences: Keymap::build_sequences(&layout),
+                        });
+                    }
+                }
+                _ => (),
+            }
+        }
+        {
+            let mut layout = new.layout.clone();
+            let v1 = layout[idx1].clone();
+            let v2 = layout[idx2].clone();
+
+            match (v1, v2) {
+                (KeyAssignment::A(mut k1), KeyAssignment::A(mut k2)) => {
+                    k1.swap_unshift_shifted(&mut k2);
+                    layout[idx1] = KeyAssignment::A(k1);
+                    layout[idx2] = KeyAssignment::A(k2);
+
+                    if Keymap::meet_requirements(&layout) {
+                        vec.push(Keymap {
+                            layout: layout.clone(),
+                            sequences: Keymap::build_sequences(&layout),
+                        });
+                    }
+                }
+                _ => (),
+            }
+        }
+        {
+            let mut layout = new.layout.clone();
+            let v1 = layout[idx1].clone();
+            let v2 = layout[idx2].clone();
+
+            match (v1, v2) {
+                (KeyAssignment::A(mut k1), KeyAssignment::A(mut k2)) => {
+                    layout[idx1] = KeyAssignment::A(k2);
+                    layout[idx2] = KeyAssignment::A(k1);
+
+                    if Keymap::meet_requirements(&layout) {
+                        vec.push(Keymap {
+                            layout: layout.clone(),
+                            sequences: Keymap::build_sequences(&layout),
+                        });
+                    }
+                }
+                _ => (),
+            }
         }
 
-        new.layout[idx1].swap();
-        if Keymap::meet_requirements(&new.layout) {
-            vec.push(Keymap {
-                layout: new.layout.clone(),
-                sequences: Keymap::build_sequences(&new.layout),
-            });
+        {
+            let mut layout = new.layout.clone();
+            let v = layout[idx1].clone();
+
+            match v {
+                KeyAssignment::A(mut k) => {
+                    k.swap();
+                    layout[idx1] = KeyAssignment::A(k);
+
+                    if Keymap::meet_requirements(&layout) {
+                        vec.push(Keymap {
+                            layout: layout.clone(),
+                            sequences: Keymap::build_sequences(&layout),
+                        });
+                    }
+                }
+                _ => (),
+            }
         }
 
-        new.layout[idx1].swap();
-        new.layout[idx2].swap();
-        if Keymap::meet_requirements(&new.layout) {
-            vec.push(Keymap {
-                layout: new.layout.clone(),
-                sequences: Keymap::build_sequences(&new.layout),
-            });
-        }
+        {
+            let mut layout = new.layout.clone();
+            let v = layout[idx2].clone();
 
-        new.layout[idx1].swap();
-        if Keymap::meet_requirements(&new.layout) {
-            vec.push(Keymap {
-                layout: new.layout.clone(),
-                sequences: Keymap::build_sequences(&new.layout),
-            });
-        }
+            match v {
+                KeyAssignment::A(mut k) => {
+                    k.swap();
+                    layout[idx2] = KeyAssignment::A(k);
 
+                    if Keymap::meet_requirements(&layout) {
+                        vec.push(Keymap {
+                            layout: layout.clone(),
+                            sequences: Keymap::build_sequences(&layout),
+                        });
+                    }
+                }
+                _ => (),
+            }
+        }
         vec
     }
 
