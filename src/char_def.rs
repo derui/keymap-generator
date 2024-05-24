@@ -23,7 +23,7 @@ impl CharDef {
                 turbid,
                 semiturbid,
                 sulphuric: _,
-                small,
+                small: _,
             } => turbid.is_none() && semiturbid.is_none(),
             CharDef::Turbid => true,
             CharDef::SemiTurbid => true,
@@ -37,7 +37,7 @@ impl CharDef {
             turbid: _,
             semiturbid: _,
             sulphuric: _,
-            small,
+            small: _,
         } = self
         {
             *normal == '、'
@@ -53,7 +53,7 @@ impl CharDef {
             turbid: _,
             semiturbid: _,
             sulphuric: _,
-            small,
+            small: _,
         } = self
         {
             *normal == '。'
@@ -69,7 +69,7 @@ impl CharDef {
             turbid: _,
             semiturbid: _,
             sulphuric: v,
-            small,
+            small: _,
         } = self
         {
             *v
@@ -86,7 +86,7 @@ impl CharDef {
                 turbid: _,
                 semiturbid: _,
                 sulphuric: _,
-                small,
+                small: _,
             } => *normal,
             CharDef::Turbid => '゛',
             CharDef::SemiTurbid => '゜',
@@ -101,7 +101,7 @@ impl CharDef {
                 turbid,
                 semiturbid: _,
                 sulphuric: _,
-                small,
+                small: _,
             } => *turbid,
             CharDef::Turbid => None,
             CharDef::SemiTurbid => None,
@@ -116,7 +116,7 @@ impl CharDef {
                 turbid: _,
                 semiturbid,
                 sulphuric: _,
-                small,
+                small: _,
             } => *semiturbid,
             CharDef::Turbid => None,
             CharDef::SemiTurbid => None,
@@ -129,7 +129,7 @@ impl CharDef {
             CharDef::Normal {
                 normal: _,
                 turbid: _,
-                semiturbid,
+                semiturbid: _,
                 sulphuric: _,
                 small,
             } => *small,
