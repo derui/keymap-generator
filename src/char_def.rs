@@ -196,7 +196,7 @@ const CHARS: [CharDef; 50] = [
     },
     CharDef::Normal {
         normal: 'う',
-        turbid: Some('ゔ'),
+        turbid: None,
         semiturbid: None,
         sulphuric: false,
         small: Some('ぅ'),

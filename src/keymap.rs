@@ -8,9 +8,9 @@ use crate::{
     key_def::KeyDef,
     key_seq::KeySeq,
     layout::linear::{
-        self, get_left_small_shifter, get_right_small_shifter, LINEAR_L_SEMITURBID_INDEX,
-        LINEAR_L_SHIFT_INDEX, LINEAR_L_TURBID_INDEX, LINEAR_R_SEMITURBID_INDEX,
-        LINEAR_R_SHIFT_INDEX, LINEAR_R_TURBID_INDEX,
+        self, get_left_small_shifter, get_right_small_shifter, linear_layout,
+        LINEAR_L_SEMITURBID_INDEX, LINEAR_L_SHIFT_INDEX, LINEAR_L_TURBID_INDEX,
+        LINEAR_R_SEMITURBID_INDEX, LINEAR_R_SHIFT_INDEX, LINEAR_R_TURBID_INDEX,
     },
 };
 
@@ -261,12 +261,14 @@ mod constraints {
 
     #[cfg(test)]
     mod tests {
-        use crate::{frequency_layer::LayeredCharCombination, key_def::KeyDef};
+        use crate::{
+            frequency_layer::LayeredCharCombination, key_def::KeyDef, layout::linear::linear_layout,
+        };
 
         use super::*;
 
         fn empty_layout() -> Vec<KeyAssignment> {
-            vec![KeyAssignment::U; 26]
+            vec![KeyAssignment::U; linear_layout().len()]
         }
 
         fn put_key(layout: &mut [KeyAssignment], key: KeyDef, pos: usize) {
@@ -388,7 +390,7 @@ impl Keymap {
     /// 生成されたkeymapは、あくまでランダムなキーマップであり、実際に利用するためには、[Keymap::meet_requirements]がtrueを返すことを前提としなければ
     /// ならない。
     pub fn generate(rng: &mut StdRng, assigner: &mut KeyAssigner) -> Option<Keymap> {
-        let mut layout = vec![KeyAssignment::U; 26];
+        let mut layout = vec![KeyAssignment::U; linear_layout().len()];
 
         // まずシフトキーに対して割り当てる
         let left = assigner.left_shift_key(rng);
@@ -475,6 +477,8 @@ impl Keymap {
                 '。',
                 KeySeq::from_shift_like('、', &punctuation_pos[0], &punctuation_pos[1]),
             );
+            let point = linear::turbid_u_point();
+            sequences.insert('ゔ', KeySeq::from_unshift('ゔ', &point));
         }
         sequences
     }

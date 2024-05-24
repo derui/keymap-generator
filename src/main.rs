@@ -145,7 +145,6 @@ fn main() -> anyhow::Result<()> {
     let scores = Arc::new(ConnectionScore::new(&two_key_timing));
     let running = Arc::new(AtomicBool::new(true));
     let r = running.clone();
-    let mut last_best_updated = SystemTime::now();
     let mut no_update_long_time = false;
 
     ctrlc::set_handler(move || {
@@ -167,11 +166,9 @@ fn main() -> anyhow::Result<()> {
 
             best_score = ret.0;
             best_keymap = Some(ret.1.clone());
-            last_best_updated = SystemTime::now();
         }
 
-        let now = SystemTime::now();
-        if now.duration_since(last_best_updated).unwrap().as_secs() >= 60 {
+        if playground.generation() % 2000 == 0 {
             log::info!(
                 "Long time no best at generation {}. last score: {}, last best score: {}, {} for evaluation:\n{:?}",
                 playground.generation(),
@@ -180,7 +177,6 @@ fn main() -> anyhow::Result<()> {
                 best_keymap.clone().unwrap(),
                 best_keymap.clone().unwrap().key_combinations()
             );
-            last_best_updated = now;
             no_update_long_time = true;
         } else {
             no_update_long_time = false;
