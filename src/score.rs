@@ -12,6 +12,43 @@ pub struct Conjunction {
     pub text: Vec<usize>,
     /// 連接の出現回数
     pub appearances: u32,
+
+    /// このconjunctionのhash
+    pub hash: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Evaluated {
+    // conjunctionを評価した結果
+    score: u64,
+    // 評価したconjunctionのhash
+    conjunction_hash: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Score {
+    // conjunctionの評価結果
+    evaluated: Vec<Evaluated>,
+
+    total_score: u64,
+}
+
+impl Ord for Score {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.total_score.cmp(&other.total_score)
+    }
+}
+
+impl PartialOrd for Score {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.total_score.cmp(&other.total_score))
+    }
+}
+
+impl Into<u64> for Score {
+    fn into(self) -> u64 {
+        self.total_score
+    }
 }
 
 /// [keymap]の評価を行う。scoreは低いほど良好であるとする。
@@ -26,7 +63,7 @@ pub fn evaluate(
     conjunctions: &[Conjunction],
     pre_scores: &ConnectionScore,
     keymap: &Keymap,
-) -> u64 {
+) -> Score {
     let mut score = 0;
 
     let mut pos_cache: Vec<Vec<Evaluation>> = Vec::with_capacity(char_def::all_chars().len());
@@ -46,6 +83,11 @@ pub fn evaluate(
         );
     }
 
+    let mut score_obj = Score {
+        evaluated: Vec::with_capacity(conjunctions.len()),
+        total_score: 0,
+    };
+
     let mut key_sequence: Vec<Evaluation> = Vec::with_capacity(10);
     for conjunction in conjunctions {
         for ch in conjunction.text.iter() {
@@ -54,8 +96,15 @@ pub fn evaluate(
             key_sequence.extend(seq.iter().cloned());
         }
 
-        score += pre_scores.evaluate(&key_sequence) * conjunction.appearances as u64;
+        let current_score = pre_scores.evaluate(&key_sequence) * conjunction.appearances as u64;
+        score += current_score;
+        score_obj.evaluated.push(Evaluated {
+            score: current_score,
+            conjunction_hash: conjunction.hash,
+        });
         key_sequence.clear()
     }
-    score
+
+    score_obj.total_score = score;
+    score_obj
 }

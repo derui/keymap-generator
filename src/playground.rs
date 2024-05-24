@@ -14,7 +14,7 @@ use crate::{
         LINEAR_L_SEMITURBID_INDEX, LINEAR_L_TURBID_INDEX, LINEAR_R_SEMITURBID_INDEX,
         LINEAR_R_TURBID_INDEX,
     },
-    score::{self, Conjunction},
+    score::{self, Conjunction, Score},
 };
 
 /// 遺伝的アルゴリズムを実行するための基盤を生成する
@@ -27,8 +27,8 @@ pub struct Playground {
     pool: threadpool::ThreadPool,
 }
 
-const TOURNAMENT_SIZE: usize = 10;
-const KEYMAP_SIZE: usize = 30;
+const TOURNAMENT_SIZE: usize = 1;
+const KEYMAP_SIZE: usize = 2;
 const WORKERS: u8 = 24;
 const MUTATION_PROB: f64 = 0.0001;
 
@@ -148,37 +148,28 @@ impl Playground {
     ) -> (u64, Keymap) {
         let rank = self.rank(conjunctions, connection_score.clone()).to_vec();
         let mut best_keymap = self.keymaps[rank[0].1].clone();
-        let mut best_score = rank[0].0;
+        let mut best_score = rank[0].0.clone();
         let mut search_count = 0;
-        let mut best_neighbors = self.keymaps.clone();
-        let mut best_ranks = rank.clone();
 
-        log::info!("Do neighbor search, current best score: {}", best_score);
+        log::info!("Do neighbor search, current best score: {:?}", best_score);
         loop {
             let (ranks, neighbors) =
                 self.re_rank_neighbor(conjunctions, connection_score.clone(), &best_keymap);
             let best = neighbors[ranks[0].1].clone();
-            let score = ranks[0].0;
+            let score = ranks[0].0.clone();
 
             if score < best_score {
                 best_score = score;
                 best_keymap = best;
-                best_neighbors = neighbors;
-                best_ranks = ranks;
             } else {
                 break;
             }
             search_count += 1;
         }
-        log::info!("after best score: {}, {search_count}", best_score);
-
-        for (rank, idx) in self.take_ranks(rng, &best_ranks, TOURNAMENT_SIZE).iter() {
-            self.frequency_table
-                .update(&best_neighbors[*idx], 1.0 / (*rank + 1) as f64);
-        }
+        log::info!("after best score: {:?}, {search_count}", best_score);
 
         self.keymaps[rank[0].1] = best_keymap.clone();
-        (best_score, best_keymap)
+        (best_score.into(), best_keymap)
     }
 
     fn advance_with_ga(
@@ -216,7 +207,7 @@ impl Playground {
         let new_keymaps: Vec<Keymap> = tr.iter().take(KEYMAP_SIZE).collect();
         let best_keymap = self.keymaps[rank[0].1].clone();
         self.keymaps = new_keymaps;
-        (rank[0].0, best_keymap)
+        (rank[0].0.clone().into(), best_keymap)
     }
 
     /// 最近傍探索をして、類似keymapのなかでbestなものを探す
@@ -225,7 +216,7 @@ impl Playground {
         conjunctions: &[Conjunction],
         connection_score: Arc<ConnectionScore>,
         keymap: &Keymap,
-    ) -> (Vec<(u64, usize)>, Vec<Keymap>) {
+    ) -> (Vec<(Score, usize)>, Vec<Keymap>) {
         let conjunctions = Arc::new(conjunctions.to_vec());
 
         let (tx, tr) = channel();
@@ -251,7 +242,7 @@ impl Playground {
             })
         });
 
-        let mut scores: Vec<(u64, usize)> = tr.iter().take(keymaps.len()).collect();
+        let mut scores: Vec<(Score, usize)> = tr.iter().take(keymaps.len()).collect();
         scores.sort_by(|a, b| a.0.cmp(&b.0));
         (scores, keymaps)
     }
@@ -262,7 +253,7 @@ impl Playground {
     fn take_ranks(
         &self,
         rng: &mut StdRng,
-        rank: &[(u64, usize)],
+        rank: &[(Score, usize)],
         count: usize,
     ) -> Vec<(usize, usize)> {
         let mut ranks = Vec::from_iter(rank.iter().cloned());
@@ -294,7 +285,7 @@ impl Playground {
         &self,
         conjunctions: &[Conjunction],
         connection_score: Arc<ConnectionScore>,
-    ) -> Vec<(u64, usize)> {
+    ) -> Vec<(Score, usize)> {
         let conjunctions = Arc::new(conjunctions.to_vec());
 
         let keymaps = self.keymaps.clone();
@@ -311,7 +302,7 @@ impl Playground {
             })
         });
 
-        let mut scores: Vec<(u64, usize)> = tr.iter().take(self.keymaps.len()).collect();
+        let mut scores: Vec<(Score, usize)> = tr.iter().take(self.keymaps.len()).collect();
         scores.sort_by(|a, b| a.0.cmp(&b.0));
         scores
     }
