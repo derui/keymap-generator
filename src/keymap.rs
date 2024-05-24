@@ -1,4 +1,7 @@
-use std::{collections::HashMap, fmt::Display};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Display,
+};
 
 use rand::rngs::StdRng;
 
@@ -679,6 +682,34 @@ impl Keymap {
             }
         }
         vec
+    }
+
+    /// [self]から[other]を比較して、異なる文字を取得する
+    ///
+    /// 概念上は、self - otherの差集合をキー毎に取得していることと概ね一致する
+    pub fn diff(&self, other: &Keymap) -> HashSet<char> {
+        let mut diff = HashSet::new();
+
+        for idx in 0..self.layout.len() {
+            let key1 = &self.layout[idx];
+            let key2 = &other.layout[idx];
+
+            match (key1, key2) {
+                (KeyAssignment::A(k1), KeyAssignment::A(k2)) => {
+                    let chars1: HashSet<char> = HashSet::from_iter(k1.chars().into_iter());
+                    let chars2: HashSet<char> = HashSet::from_iter(k2.chars().into_iter());
+
+                    let diff1 = chars1.difference(&chars2);
+                    diff.extend(diff1.into_iter())
+                }
+                (KeyAssignment::A(k), _) | (_, KeyAssignment::A(k)) => {
+                    diff.extend(k.chars().into_iter())
+                }
+                _ => (),
+            }
+        }
+
+        diff
     }
 
     /// 指定した文字を入力できるキーを返す
