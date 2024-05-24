@@ -3,7 +3,6 @@ use std::{collections::HashMap, fmt::Display};
 use rand::rngs::StdRng;
 
 use crate::{
-    char_def,
     frequency_table::KeyAssigner,
     key_def::KeyDef,
     key_seq::KeySeq,
@@ -625,7 +624,7 @@ impl Keymap {
             let v2 = layout[idx2].clone();
 
             match (v1, v2) {
-                (KeyAssignment::A(mut k1), KeyAssignment::A(mut k2)) => {
+                (KeyAssignment::A(k1), KeyAssignment::A(k2)) => {
                     layout[idx1] = KeyAssignment::A(k2);
                     layout[idx2] = KeyAssignment::A(k1);
 

@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use rand::{rngs::StdRng, Rng};
 use serde::{Deserialize, Serialize};
@@ -198,6 +198,12 @@ pub struct FrequencyTable {
 
     // 文字と頻度表におけるindexのマッピング
     character_map: HashMap<char, usize>,
+}
+
+impl Default for FrequencyTable {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl FrequencyTable {

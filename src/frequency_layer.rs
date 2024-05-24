@@ -1,5 +1,3 @@
-use std::{collections::HashSet, mem::swap};
-
 use rand::{rngs::StdRng, Rng};
 use serde::{Deserialize, Serialize};
 
@@ -52,9 +50,7 @@ impl Layer {
                 continue;
             }
 
-            let v = self.frequencies[first];
-            self.frequencies[first] = self.frequencies[second];
-            self.frequencies[second] = v;
+            self.frequencies.swap(first, second);
 
             break;
         }

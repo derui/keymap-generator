@@ -2,7 +2,6 @@ use std::{
     collections::HashMap,
     env::args,
     fs::{self, File},
-    hash::{DefaultHasher, Hash, Hasher},
     io::{Read, Write},
     path::Path,
     sync::{
@@ -64,13 +63,9 @@ fn read_4gram(path: &Path) -> anyhow::Result<Vec<Conjunction>> {
             continue;
         }
 
-        let mut hasher = DefaultHasher::new();
-        filtered.hash(&mut hasher);
-
         conjunctions.push(Conjunction {
             text: filtered,
             appearances,
-            hash: hasher.finish(),
         });
     }
 
