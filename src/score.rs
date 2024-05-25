@@ -19,16 +19,19 @@ pub struct Conjunction {
     pub text: Vec<usize>,
     /// 連接の出現回数
     pub appearances: u32,
+
+    /// 各文字に対応する素数を乗算したもの
+    pub hash: u64,
 }
 
 impl Conjunction {
     /// 指定された文字を含まず、再評価が必要ないかを判定する
     ///
     /// # Arguments
-    /// * `diff_chars` - 差分となる文字。[all_chars]の順序である
-    fn should_skip_reevaluation(&self, diff_chars: &[usize]) -> bool {
-        for ch in &self.text {
-            if diff_chars.contains(ch) {
+    /// * `diff_chars` - 差分となる文字。[all_chars]から返されるprimeである
+    fn can_skip_evaluation(&self, diff_chars: &[u64]) -> bool {
+        for d in diff_chars {
+            if self.hash % *d == 0 {
                 return false;
             }
         }
@@ -80,7 +83,7 @@ impl Display for Score {
 fn make_pos_cache(keymap: &Keymap) -> Vec<Vec<Evaluation>> {
     let mut pos_cache: Vec<Vec<Evaluation>> = Vec::with_capacity(char_def::all_chars().len());
 
-    for c in char_def::all_chars().iter() {
+    for (_, c) in char_def::all_chars().iter() {
         let Some(v) = keymap.get(*c) else {
             unreachable!("should not have any missing key")
         };
@@ -118,7 +121,8 @@ impl Score {
         let all_chars = char_def::all_chars();
         let diff_chars = diff_chars
             .iter()
-            .filter_map(|v| all_chars.iter().position(|x| *x == *v))
+            .filter_map(|v| all_chars.iter().find(|(_, x)| *x == *v))
+            .map(|v| v.0)
             .collect::<Vec<_>>();
 
         let pos_cache = make_pos_cache(keymap);
@@ -127,7 +131,7 @@ impl Score {
         for evaluated in score_obj.evaluated.iter_mut() {
             let conj = &conjunctions[evaluated.conjunction_index];
 
-            if conj.should_skip_reevaluation(&diff_chars) {
+            if conj.can_skip_evaluation(&diff_chars) {
                 continue;
             }
 

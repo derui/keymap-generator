@@ -42,10 +42,10 @@ fn read_4gram(path: &Path) -> anyhow::Result<Vec<Conjunction>> {
         .delimiter(b'\t')
         .from_reader(&file);
 
-    let char_position_map: HashMap<char, usize> = char_def::all_chars()
+    let char_position_map: HashMap<char, (u64, usize)> = char_def::all_chars()
         .into_iter()
         .enumerate()
-        .map(|(idx, v)| (v, idx))
+        .map(|(idx, v)| (v.1, (v.0, idx)))
         .collect();
 
     for result in rdr.records() {
@@ -64,9 +64,15 @@ fn read_4gram(path: &Path) -> anyhow::Result<Vec<Conjunction>> {
             continue;
         }
 
+        let hash = filtered
+            .iter()
+            .map(|(v, _)| v)
+            .fold(1, |accum, v| accum * *v);
+
         conjunctions.push(Conjunction {
-            text: filtered,
+            text: filtered.iter().cloned().map(|v| v.1).collect(),
             appearances,
+            hash,
         });
     }
 

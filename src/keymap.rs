@@ -25,16 +25,6 @@ enum KeyAssignment {
     U,
 }
 
-impl KeyAssignment {
-    /// assignされていればswapする
-    fn swap(&mut self) {
-        match self {
-            KeyAssignment::A(k) => k.swap(),
-            KeyAssignment::U => (),
-        }
-    }
-}
-
 mod constraints {
     use std::collections::HashSet;
 
@@ -244,7 +234,8 @@ mod constraints {
     pub(super) fn should_be_able_to_all_input(layout: &[KeyAssignment]) -> bool {
         let mut chars: HashSet<char> = char_def::all_chars()
             .into_iter()
-            .filter(|v| *v != '、' && *v != '。')
+            .filter(|(_, v)| *v != '、' && *v != '。')
+            .map(|v| v.1)
             .collect();
 
         for assignment in layout.iter() {

@@ -223,6 +223,7 @@ impl Playground {
         keymap: &Keymap,
     ) -> (Vec<(Score, usize)>, Vec<Keymap>) {
         let conjunctions = Arc::new(conjunctions.to_vec());
+        let score = Arc::new(score.clone());
         let keymap = Arc::new(keymap.clone());
         let (tx, tr) = channel();
         let mut keymaps: Vec<Keymap> = Vec::with_capacity(5000);

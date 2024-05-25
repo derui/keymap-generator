@@ -1,3 +1,4 @@
+use primes::PrimeSet;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Hash, Serialize, Deserialize)]
@@ -174,8 +175,10 @@ pub fn find(char: char) -> Option<CharDef> {
 }
 
 /// すべての文字を返す
-pub fn all_chars() -> Vec<char> {
-    CHARS.to_vec().iter().flat_map(|c| c.chars()).collect()
+pub fn all_chars() -> Vec<(u64, char)> {
+    let mut pset = primes::Sieve::new();
+    let chars = CHARS.to_vec().into_iter().flat_map(|c| c.chars());
+    pset.iter().skip(2).zip(chars).collect()
 }
 
 /// ひらがなの一覧。評価で利用する
