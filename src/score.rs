@@ -29,6 +29,7 @@ impl Conjunction {
     ///
     /// # Arguments
     /// * `diff_chars` - 差分となる文字。[all_chars]から返されるprimeである
+    #[inline]
     fn can_skip_evaluation(&self, diff_chars: &[u64]) -> bool {
         for d in diff_chars {
             if self.hash % *d == 0 {
@@ -129,7 +130,7 @@ impl Score {
 
         let mut key_sequence: Vec<Evaluation> = Vec::with_capacity(10);
         for evaluated in score_obj.evaluated.iter_mut() {
-            let conj = &conjunctions[evaluated.conjunction_index];
+            let conj = unsafe { conjunctions.get_unchecked(evaluated.conjunction_index) };
 
             if conj.can_skip_evaluation(&diff_chars) {
                 continue;

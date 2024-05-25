@@ -495,16 +495,6 @@ impl Pos {
         HAND_ASSIGNMENT[self.0][self.1] == HAND_ASSIGNMENT[other.0][other.1]
     }
 
-    /// 同で押下しているかどうか
-    #[inline]
-    fn is_same_finger(&self, other: &Pos) -> bool {
-        FINGER_ASSIGNMENT[self.0][self.1] == FINGER_ASSIGNMENT[other.0][other.1]
-    }
-
-    fn hand(&self) -> u8 {
-        HAND_ASSIGNMENT[self.0][self.1]
-    }
-
     #[inline]
     fn is_pinky(&self) -> bool {
         FINGER_ASSIGNMENT[self.0][self.1] == 4
