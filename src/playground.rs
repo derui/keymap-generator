@@ -146,15 +146,19 @@ impl Playground {
         conjunctions: &[Conjunction],
         connection_score: Arc<ConnectionScore>,
     ) -> (u64, Keymap) {
-        let rank = self.rank(conjunctions, connection_score.clone()).to_vec();
+        let rank = self.rank(&conjunctions, connection_score.clone()).to_vec();
         let mut best_keymap = self.keymaps[rank[0].1].clone();
         let mut best_score = rank[0].0.clone();
         let mut search_count = 0;
 
-        log::info!("Do neighbor search, current best score: {:?}", best_score);
+        log::info!("Do neighbor search, current best score: {}", best_score);
         loop {
-            let (ranks, neighbors) =
-                self.re_rank_neighbor(conjunctions, connection_score.clone(), &best_keymap);
+            let (ranks, neighbors) = self.re_rank_neighbor(
+                conjunctions,
+                &best_score,
+                connection_score.clone(),
+                &best_keymap,
+            );
             let best = neighbors[ranks[0].1].clone();
             let score = ranks[0].0.clone();
 
@@ -166,7 +170,7 @@ impl Playground {
             }
             search_count += 1;
         }
-        log::info!("after best score: {:?}, {search_count}", best_score);
+        log::info!("after best score: {}, {search_count}", best_score);
 
         self.keymaps[rank[0].1] = best_keymap.clone();
         (best_score.into(), best_keymap)
@@ -214,11 +218,12 @@ impl Playground {
     fn re_rank_neighbor(
         &self,
         conjunctions: &[Conjunction],
+        score: &Score,
         connection_score: Arc<ConnectionScore>,
         keymap: &Keymap,
     ) -> (Vec<(Score, usize)>, Vec<Keymap>) {
         let conjunctions = Arc::new(conjunctions.to_vec());
-
+        let keymap = Arc::new(keymap.clone());
         let (tx, tr) = channel();
         let mut keymaps: Vec<Keymap> = Vec::with_capacity(5000);
         let len = keymap.iter().collect::<Vec<_>>().len();
@@ -231,13 +236,16 @@ impl Playground {
         }
 
         keymaps.iter().enumerate().for_each(|(idx, k)| {
+            let conjunctions = conjunctions.clone();
+            let keymap = keymap.clone();
             let k = k.clone();
             let tx = tx.clone();
-            let conjunctions = conjunctions.clone();
+            let score = score.clone();
             let pre_scores = connection_score.clone();
 
             self.pool.execute(move || {
-                let score = score::evaluate(&conjunctions, &pre_scores, &k);
+                let diff = keymap.diff(&k).into_iter().collect::<Vec<_>>();
+                let score = score.evaluate_only_diff(&conjunctions, &pre_scores, &k, &diff);
                 tx.send((score, idx)).expect("should be success")
             })
         });

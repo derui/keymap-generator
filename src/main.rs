@@ -2,6 +2,7 @@ use std::{
     collections::HashMap,
     env::args,
     fs::{self, File},
+    hash::{DefaultHasher, Hash, Hasher},
     io::{Read, Write},
     path::Path,
     sync::{
@@ -168,15 +169,15 @@ fn main() -> anyhow::Result<()> {
             best_keymap = Some(ret.1.clone());
         }
 
-        if playground.generation() % 2000 == 0 {
-            log::info!(
-                "Long time no best at generation {}. last score: {}, last best score: {}, {} for evaluation:\n{:?}",
-                playground.generation(),
-                ret.0,
-                best_score,
-                best_keymap.clone().unwrap(),
-                best_keymap.clone().unwrap().key_combinations()
-            );
+        if playground.generation() % 100 == 0 {
+            // log::info!(
+            //     "Long time no best at generation {}. last score: {}, last best score: {}, {} for evaluation:\n{:?}",
+            //     playground.generation(),
+            //     ret.0,
+            //     best_score,
+            //     best_keymap.clone().unwrap(),
+            //     best_keymap.clone().unwrap().key_combinations()
+            // );
             no_update_long_time = true;
         } else {
             no_update_long_time = false;

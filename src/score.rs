@@ -1,3 +1,10 @@
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Display,
+    rc::Rc,
+    sync::Arc,
+};
+
 use crate::{
     char_def,
     connection_score::{ConnectionScore, Evaluation},
@@ -20,7 +27,7 @@ impl Conjunction {
     /// # Arguments
     /// * `diff_chars` - 差分となる文字。[all_chars]の順序である
     fn should_skip_reevaluation(&self, diff_chars: &[usize]) -> bool {
-        for ch in self.text.iter() {
+        for ch in &self.text {
             if diff_chars.contains(ch) {
                 return false;
             }
@@ -34,8 +41,8 @@ impl Conjunction {
 pub struct Evaluated {
     // conjunctionを評価した結果
     score: u64,
-    // 評価したconjunctionのhash
-    conjunction: Conjunction,
+    // 評価したconjunctionのindex
+    conjunction_index: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -61,6 +68,12 @@ impl PartialOrd for Score {
 impl From<Score> for u64 {
     fn from(val: Score) -> Self {
         val.total_score
+    }
+}
+
+impl Display for Score {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.total_score)
     }
 }
 
@@ -96,6 +109,7 @@ impl Score {
     /// 評価値
     pub fn evaluate_only_diff(
         &self,
+        conjunctions: &[Conjunction],
         pre_scores: &ConnectionScore,
         keymap: &Keymap,
         diff_chars: &[char],
@@ -104,19 +118,14 @@ impl Score {
         let all_chars = char_def::all_chars();
         let diff_chars = diff_chars
             .iter()
-            .map(|v| {
-                all_chars
-                    .iter()
-                    .position(|x| *x == *v)
-                    .expect("should be found char in all_chars")
-            })
+            .filter_map(|v| all_chars.iter().position(|x| *x == *v))
             .collect::<Vec<_>>();
 
         let pos_cache = make_pos_cache(keymap);
 
         let mut key_sequence: Vec<Evaluation> = Vec::with_capacity(10);
         for evaluated in score_obj.evaluated.iter_mut() {
-            let conj = &evaluated.conjunction;
+            let conj = &conjunctions[evaluated.conjunction_index];
 
             if conj.should_skip_reevaluation(&diff_chars) {
                 continue;
@@ -162,7 +171,7 @@ pub fn evaluate(
     };
 
     let mut key_sequence: Vec<Evaluation> = Vec::with_capacity(10);
-    for conjunction in conjunctions {
+    for (index, conjunction) in conjunctions.iter().enumerate() {
         for ch in conjunction.text.iter() {
             let seq = &pos_cache[*ch];
 
@@ -173,7 +182,7 @@ pub fn evaluate(
         score += current_score;
         score_obj.evaluated.push(Evaluated {
             score: current_score,
-            conjunction: conjunction.clone(),
+            conjunction_index: index,
         });
         key_sequence.clear()
     }

@@ -700,7 +700,9 @@ impl Keymap {
                     let chars2: HashSet<char> = HashSet::from_iter(k2.chars().into_iter());
 
                     let diff1 = chars1.difference(&chars2);
-                    diff.extend(diff1.into_iter())
+                    let diff2 = chars2.difference(&chars1);
+                    diff.extend(diff1);
+                    diff.extend(diff2)
                 }
                 (KeyAssignment::A(k), _) | (_, KeyAssignment::A(k)) => {
                     diff.extend(k.chars().into_iter())
