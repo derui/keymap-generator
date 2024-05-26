@@ -27,8 +27,8 @@ pub struct Playground {
     pool: threadpool::ThreadPool,
 }
 
-const TOURNAMENT_SIZE: usize = 1;
-const KEYMAP_SIZE: usize = 2;
+const TOURNAMENT_SIZE: usize = 3;
+const KEYMAP_SIZE: usize = 10;
 const WORKERS: u8 = 24;
 const MUTATION_PROB: f64 = 0.0001;
 

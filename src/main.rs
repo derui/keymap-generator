@@ -2,7 +2,6 @@ use std::{
     collections::HashMap,
     env::args,
     fs::{self, File},
-    hash::{DefaultHasher, Hash, Hasher},
     io::{Read, Write},
     path::Path,
     sync::{
@@ -139,7 +138,7 @@ fn main() -> anyhow::Result<()> {
     let frequency = args()
         .nth(2)
         .and_then(|v| read_frequency(Path::new(&v)).ok())
-        .unwrap_or(FrequencyTable::new());
+        .unwrap_or_default();
     let mut rng = StdRng::seed_from_u64(random());
 
     let mut bench = Bench::new();
@@ -175,7 +174,7 @@ fn main() -> anyhow::Result<()> {
             best_keymap = Some(ret.1.clone());
         }
 
-        if playground.generation() % 100 == 0 {
+        if playground.generation() % 1000 == 0 {
             // log::info!(
             //     "Long time no best at generation {}. last score: {}, last best score: {}, {} for evaluation:\n{:?}",
             //     playground.generation(),
