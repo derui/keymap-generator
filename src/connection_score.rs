@@ -34,7 +34,7 @@ static FINGER_ASSIGNMENT: [[u8; 10]; 3] = [
 /// ２キーの連接における所要時間。
 #[derive(Debug, Clone)]
 pub struct TwoKeyTiming {
-    timings: HashMap<(Pos, Pos), u32>,
+    pub timings: HashMap<(Point, Point), u32>,
 }
 
 impl TwoKeyTiming {
@@ -76,10 +76,7 @@ impl TwoKeyTiming {
                 let second = mappings.get(&keys[cidx]);
                 match (first, second) {
                     (Some(first), Some(second)) => {
-                        let first = first.into();
-                        let second = second.into();
-
-                        timings.insert((first, second), timing);
+                        timings.insert((*first, *second), timing);
                     }
                     _ => continue,
                 }
@@ -98,8 +95,17 @@ pub struct ConnectionScore {
 // struct for evaluation
 #[derive(Debug, Clone)]
 pub struct Evaluation {
-    pub positions: Pos,
+    pub positions: Point,
     pub shift: bool,
+}
+
+impl Default for Evaluation {
+    fn default() -> Self {
+        Self {
+            positions: Point::new(0, 0),
+            shift: false,
+        }
+    }
 }
 
 impl ConnectionScore {
@@ -155,35 +161,23 @@ impl ConnectionScore {
     /// キーから、評価の結果を返す
     ///
     /// ここでの結果は、4連接自体と、シフトに対する評価の両方の合算値である。
-    pub fn evaluate(&self, sequence: &[Evaluation]) -> u64 {
+    pub fn evaluate(&self, sequence: &[&Evaluation]) -> u64 {
         let mut score = 0;
-        let mut idx = 0;
 
-        while sequence.len() > idx {
-            let first: Option<((usize, usize), bool)> =
-                sequence.get(idx).map(|p| (p.positions.into(), p.shift));
-            let second: Option<((usize, usize), bool)> =
-                sequence.get(idx + 1).map(|p| (p.positions.into(), p.shift));
-            let third: Option<((usize, usize), bool)> =
-                sequence.get(idx + 2).map(|p| (p.positions.into(), p.shift));
-            let fourth: Option<((usize, usize), bool)> =
-                sequence.get(idx + 3).map(|p| (p.positions.into(), p.shift));
+        let first: (&Point, bool) = (&sequence[0].positions, sequence[0].shift);
+        let second: (&Point, bool) = (&sequence[1].positions, sequence[1].shift);
+        let third: (&Point, bool) = (&sequence[2].positions, sequence[2].shift);
+        let fourth: (&Point, bool) = (&sequence[3].positions, sequence[3].shift);
 
-            score += unsafe {
-                let score = *self
-                    .scores
-                    .get_unchecked(self.get_index_of_evaluation(&first, &second, &third, &fourth));
+        score += unsafe {
+            let score = *self
+                .scores
+                .get_unchecked(self.get_index_of_evaluation(&first, &second, &third, &fourth));
 
-                let shifts: i32 = first.map(|(_, s)| s).unwrap_or(false) as i32
-                    + second.map(|(_, s)| s).unwrap_or(false) as i32
-                    + third.map(|(_, s)| s).unwrap_or(false) as i32
-                    + fourth.map(|(_, s)| s).unwrap_or(false) as i32;
+            let shifts: i32 = first.1 as i32 + second.1 as i32 + third.1 as i32 + fourth.1 as i32;
 
-                (score as f32 * (3_f32).sqrt().powi(shifts)) as u64
-            };
-
-            idx += 4
-        }
+            (score as f32 * (3_f32).sqrt().powi(shifts)) as u64
+        };
 
         score
     }
@@ -218,9 +212,9 @@ impl ConnectionScore {
         l: &(usize, usize),
     ) -> u32 {
         let score = self.evaluate_three_connection(i, j, k, timings);
-        let l: Pos = Pos::from(*l);
+        let l: Point = Point::from(*l);
 
-        score + FINGER_WEIGHTS[l.0][l.1] as u32
+        score + FINGER_WEIGHTS[l.row()][l.col()] as u32
     }
 
     /// 3連接の評価を行う
@@ -247,11 +241,13 @@ impl ConnectionScore {
         timings: &TwoKeyTiming,
     ) -> u32 {
         let two_score = self.evaluate_two_connection(i, j, timings);
-        let i: Pos = Pos::from(*i);
-        let j: Pos = Pos::from(*j);
-        let k: Pos = Pos::from(*k);
+        let i: Point = Point::from(*i);
+        let j: Point = Point::from(*j);
+        let k: Point = Point::from(*k);
 
-        two_score + self.three_conjunction_scores(&i, &j, &k) + FINGER_WEIGHTS[k.0][k.1] as u32
+        two_score
+            + self.three_conjunction_scores(&i, &j, &k)
+            + FINGER_WEIGHTS[k.row()][k.col()] as u32
     }
 
     /// 2連接の評価を行う
@@ -275,13 +271,13 @@ impl ConnectionScore {
         j: &(usize, usize),
         timings: &TwoKeyTiming,
     ) -> u32 {
-        let i: Pos = Pos::from(*i);
-        let j: Pos = Pos::from(*j);
+        let i: Point = Point::from(*i);
+        let j: Point = Point::from(*j);
 
         // 2連接の評価
-        FINGER_WEIGHTS[i.0][i.1] as u32
-            + FINGER_WEIGHTS[j.0][j.1] as u32
-            + i.two_conjunction_scores(&j, timings)
+        FINGER_WEIGHTS[i.row()][i.col()] as u32
+            + FINGER_WEIGHTS[j.row()][j.col()] as u32
+            + point_score::two_conjunction_scores(&i, &j, timings)
     }
     /// 単一キーの評価を行う
     ///
@@ -294,49 +290,50 @@ impl ConnectionScore {
     /// # Returns
     /// 評価値
     fn evaluate_single_connection(&self, i: &(usize, usize)) -> u32 {
-        let i: Pos = Pos::from(*i);
+        let i: Point = Point::from(*i);
 
-        FINGER_WEIGHTS[i.0][i.1] as u32
+        FINGER_WEIGHTS[i.row()][i.col()] as u32
     }
 
     /// 3連接に対する評価を行う
-    fn three_conjunction_scores(&self, first: &Pos, second: &Pos, third: &Pos) -> u32 {
+    fn three_conjunction_scores(&self, first: &Point, second: &Point, third: &Point) -> u32 {
         let rules = [
-            |first: &Pos, second: &Pos, third: &Pos| {
+            |first: &Point, second: &Point, third: &Point| {
                 // スキップが連続している場合はペナルティ
-                if first.is_skip_row(second) && second.is_skip_row(third) {
+                if point_score::is_skip_row(first, second)
+                    && point_score::is_skip_row(second, third)
+                {
                     300
                 } else {
                     0
                 }
             },
-            |first: &Pos, second: &Pos, third: &Pos| {
+            |first: &Point, second: &Point, third: &Point| {
                 // 同じ指を連続して打鍵しているばあいはペナルティを与える
-                if first.is_same_hand_and_finger(second) && second.is_same_hand_and_finger(third) {
+                if point_score::is_same_hand_and_finger(first, second)
+                    && point_score::is_same_hand_and_finger(second, third)
+                {
                     300
                 } else {
                     0
                 }
             },
-            |first: &Pos, second: &Pos, third: &Pos| {
+            |first: &Point, second: &Point, third: &Point| {
                 // 同じ手を連続して打鍵しているばあいはペナルティを与える
-                if first.is_same_hand(second) && second.is_same_hand(third) {
+                if point_score::is_same_hand(first, second)
+                    && point_score::is_same_hand(second, third)
+                {
                     250
                 } else {
                     0
                 }
             },
-            |first: &Pos, _: &Pos, third: &Pos| {
-                // 前後で同じ指を使っている場合はペナルティを与える
-                if first.is_same_hand_and_finger(third) {
-                    150
-                } else {
-                    0
-                }
-            },
-            |first: &Pos, second: &Pos, third: &Pos| {
+            |first: &Point, second: &Point, third: &Point| {
                 // 小指が連続する場合はペナルティを与える
-                if first.is_pinky() && second.is_pinky() && third.is_pinky() {
+                if point_score::is_pinky(first)
+                    && point_score::is_pinky(second)
+                    && point_score::is_pinky(third)
+                {
                     200
                 } else {
                     0
@@ -395,153 +392,165 @@ impl ConnectionScore {
     /// なので、シフトの評価自体は別途行うことにする。
     fn get_index_of_evaluation(
         &self,
-        i: &Option<((usize, usize), bool)>,
-        j: &Option<((usize, usize), bool)>,
-        k: &Option<((usize, usize), bool)>,
-        l: &Option<((usize, usize), bool)>,
+        i: &(&Point, bool),
+        j: &(&Point, bool),
+        k: &(&Point, bool),
+        l: &(&Point, bool),
     ) -> usize {
         let bit_mask = 0b00011111;
         // rowは0-2、colは0-9なので、全部合わせても31に収まるのでこうする。bit maskは本来なくてもいいのだが、一応追加している
         let mut index: usize = 0;
-        if let Some(((r, c), _)) = i {
-            index = (index << 5) | ((r * 10 + c + 1) & bit_mask)
-        } else {
-            index <<= 5
-        }
-        if let Some(((r, c), _)) = j {
-            index = (index << 5) | ((r * 10 + c + 1) & bit_mask)
-        } else {
-            index <<= 5
-        }
-        if let Some(((r, c), _)) = k {
-            index = (index << 5) | ((r * 10 + c + 1) & bit_mask)
-        } else {
-            index <<= 5
-        }
-        if let Some(((r, c), _)) = l {
-            index = (index << 5) | ((r * 10 + c + 1) & bit_mask)
-        } else {
-            index <<= 5
-        }
+        index = (index << 5) | ((i.0.row() * 10 + i.0.col() + 1) & bit_mask);
+        index = (index << 5) | ((j.0.row() * 10 + j.0.col() + 1) & bit_mask);
+        index = (index << 5) | ((k.0.row() * 10 + k.0.col() + 1) & bit_mask);
+        index = (index << 5) | ((l.0.row() * 10 + l.0.col() + 1) & bit_mask);
 
         index
     }
 }
 
-#[derive(Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Clone, Copy)]
-pub struct Pos(usize, usize);
+mod point_score {
+    use crate::layout::Point;
 
-impl From<(usize, usize)> for Pos {
-    fn from((r, c): (usize, usize)) -> Self {
-        Pos(r, c)
-    }
-}
+    use super::{TwoKeyTiming, FINGER_ASSIGNMENT, HAND_ASSIGNMENT};
 
-impl From<&Point> for Pos {
-    fn from(value: &Point) -> Self {
-        let (r, c): (usize, usize) = value.into();
-        Pos(r, c)
-    }
-}
-
-impl From<Pos> for (usize, usize) {
-    fn from(pos: Pos) -> Self {
-        (pos.0, pos.1)
-    }
-}
-
-impl From<&Pos> for (usize, usize) {
-    fn from(pos: &Pos) -> Self {
-        (pos.0, pos.1)
-    }
-}
-
-impl Pos {
     #[inline]
-    fn is_skip_row_on_same_finger(&self, other: &Pos) -> bool {
-        self.0 == other.0 && self.1 == other.1 && (self.0 as isize - other.0 as isize).abs() == 2
+    fn is_skip_row_on_same_finger(me: &Point, other: &Point) -> bool {
+        me.row() == other.row()
+            && me.col() == other.col()
+            && (me.row() as isize - other.row() as isize).abs() == 2
     }
 
     /// 異指で段をスキップしているか
     #[inline]
-    fn is_skip_row(&self, other: &Pos) -> bool {
-        let hand_self = HAND_ASSIGNMENT[self.0][self.1];
-        let hand_other = HAND_ASSIGNMENT[other.0][other.1];
-        let finger_self = FINGER_ASSIGNMENT[self.0][self.1];
-        let finger_other = FINGER_ASSIGNMENT[other.0][other.1];
+    pub fn is_skip_row(me: &Point, other: &Point) -> bool {
+        let hand_self = HAND_ASSIGNMENT[me.row()][me.col()];
+        let hand_other = HAND_ASSIGNMENT[other.row()][other.col()];
+        let finger_self = FINGER_ASSIGNMENT[me.row()][me.col()];
+        let finger_other = FINGER_ASSIGNMENT[other.row()][other.col()];
 
         hand_self == hand_other
             && finger_self != finger_other
-            && (self.0 as isize - other.0 as isize).abs() == 2
+            && (me.row() as isize - other.row() as isize).abs() == 2
     }
 
     /// 同じ指で異なる行、異なる列を入力しているか
     #[inline]
-    fn is_same_finger_dance(&self, other: &Pos) -> bool {
-        let hand_self = HAND_ASSIGNMENT[self.0][self.1];
-        let hand_other = HAND_ASSIGNMENT[other.0][other.1];
-        let finger_self = FINGER_ASSIGNMENT[self.0][self.1];
-        let finger_other = FINGER_ASSIGNMENT[other.0][other.1];
+    pub fn is_same_finger_dance(me: &Point, other: &Point) -> bool {
+        let hand_self = HAND_ASSIGNMENT[me.row()][me.col()];
+        let hand_other = HAND_ASSIGNMENT[other.row()][other.col()];
+        let finger_self = FINGER_ASSIGNMENT[me.row()][me.col()];
+        let finger_other = FINGER_ASSIGNMENT[other.row()][other.col()];
 
         hand_self == hand_other
             && finger_self == finger_other
-            && self.0 != other.0
-            && self.1 != other.1
+            && me.row() != other.row()
+            && me.col() != other.col()
+    }
+
+    ///
+    #[inline]
+    pub fn is_arpeggio(me: &Point, other: &Point) -> bool {
+        let hand_self = HAND_ASSIGNMENT[me.row()][me.col()];
+        let hand_other = HAND_ASSIGNMENT[other.row()][other.col()];
+        let finger_self = FINGER_ASSIGNMENT[me.row()][me.col()];
+        let finger_other = FINGER_ASSIGNMENT[other.row()][other.col()];
+
+        let alpeggios = [
+            // 左手の人差し指と中指
+            (Point::new(0, 2), Point::new(1, 3)),
+            (Point::new(1, 3), Point::new(0, 2)),
+            (Point::new(1, 2), Point::new(2, 3)),
+            (Point::new(2, 3), Point::new(1, 2)),
+            // 左手の中指と薬指
+            (Point::new(0, 2), Point::new(0, 1)),
+            (Point::new(0, 1), Point::new(0, 2)),
+            (Point::new(1, 2), Point::new(1, 1)),
+            (Point::new(1, 1), Point::new(1, 2)),
+            // 左手の小指と薬指
+            (Point::new(1, 0), Point::new(0, 1)),
+            (Point::new(0, 1), Point::new(1, 0)),
+            // 右手の人差し指と中指
+            (Point::new(0, 6), Point::new(1, 7)),
+            (Point::new(1, 7), Point::new(0, 6)),
+            (Point::new(1, 6), Point::new(2, 7)),
+            (Point::new(2, 7), Point::new(1, 6)),
+            // 右手の中指と薬指
+            (Point::new(0, 7), Point::new(0, 8)),
+            (Point::new(0, 8), Point::new(0, 7)),
+            (Point::new(1, 7), Point::new(1, 8)),
+            (Point::new(1, 9), Point::new(1, 7)),
+            // 右手の小指と薬指
+            (Point::new(1, 9), Point::new(0, 8)),
+            (Point::new(0, 8), Point::new(1, 9)),
+        ];
+
+        hand_self == hand_other
+            && finger_self == finger_other
+            && alpeggios.iter().find(|v| **v == (*me, *other)).is_some()
     }
 
     /// 同じ手で押下しているかどうか
     #[inline]
-    fn is_same_hand(&self, other: &Pos) -> bool {
-        HAND_ASSIGNMENT[self.0][self.1] == HAND_ASSIGNMENT[other.0][other.1]
+    pub fn is_same_hand(me: &Point, other: &Point) -> bool {
+        HAND_ASSIGNMENT[me.row()][me.col()] == HAND_ASSIGNMENT[other.row()][other.col()]
     }
 
     #[inline]
-    fn is_pinky(&self) -> bool {
-        FINGER_ASSIGNMENT[self.0][self.1] == 4
+    pub fn is_pinky(me: &Point) -> bool {
+        FINGER_ASSIGNMENT[me.row()][me.col()] == 4
     }
 
     /// 同一の手、かつ同一の指かどうか
     #[inline]
-    fn is_same_hand_and_finger(&self, other: &Pos) -> bool {
-        let finger_self = FINGER_ASSIGNMENT[self.0][self.1];
-        let finger_other = FINGER_ASSIGNMENT[other.0][other.1];
-        let hand_self = HAND_ASSIGNMENT[self.0][self.1];
-        let hand_other = HAND_ASSIGNMENT[other.0][other.1];
+    pub fn is_same_hand_and_finger(me: &Point, other: &Point) -> bool {
+        let finger_self = FINGER_ASSIGNMENT[me.row()][me.col()];
+        let finger_other = FINGER_ASSIGNMENT[other.row()][other.col()];
+        let hand_self = HAND_ASSIGNMENT[me.row()][me.col()];
+        let hand_other = HAND_ASSIGNMENT[other.row()][other.col()];
 
         finger_self == finger_other && hand_self == hand_other
     }
 
     /// 2連接に対する評価を実施する
-    fn two_conjunction_scores(&self, other: &Pos, timings: &TwoKeyTiming) -> u32 {
+    pub fn two_conjunction_scores(me: &Point, other: &Point, timings: &TwoKeyTiming) -> u32 {
         let rules = [
-            |first: &Pos, second: &Pos| {
+            |first: &Point, second: &Point| {
                 // 同じ指で行をスキップしている場合はペナルティを与える
-                if first.is_skip_row_on_same_finger(second) {
+                if is_skip_row_on_same_finger(first, second) {
                     150
                 } else {
                     0
                 }
             },
-            |first: &Pos, second: &Pos| {
+            |first: &Point, second: &Point| {
                 // 同じ指で異段異列の場合はペナルティを与える
-                if first.is_same_finger_dance(second) {
+                if is_same_finger_dance(first, second) {
                     200
                 } else {
                     0
                 }
             },
-            |first: &Pos, second: &Pos| {
+            |first: &Point, second: &Point| {
                 // 同じ指で連続して押下している場合はペナルティを与える
-                if first.is_same_hand_and_finger(second) {
+                if is_same_hand_and_finger(first, second) {
                     150
                 } else {
                     0
                 }
             },
-            |first: &Pos, second: &Pos| {
+            |first: &Point, second: &Point| {
                 // 段飛ばしをしている場合はペナルティを与える
-                if first.is_skip_row(second) {
+                if is_skip_row(first, second) {
                     100
+                } else {
+                    0
+                }
+            },
+            |first: &Point, second: &Point| {
+                // first->secondが押下しやすいアルペジオではない場合はペナルティを与える
+                if !is_arpeggio(first, second) {
+                    50
                 } else {
                     0
                 }
@@ -550,8 +559,8 @@ impl Pos {
 
         let special_case_score = rules
             .iter()
-            .fold(0_u32, |score, rule| score + rule(self, other));
+            .fold(0_u32, |score, rule| score + rule(me, other));
 
-        special_case_score + timings.timings.get(&(*self, *other)).unwrap_or(&0)
+        special_case_score + timings.timings.get(&(*me, *other)).unwrap_or(&0)
     }
 }

@@ -47,8 +47,7 @@ pub struct Evaluated {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Score {
     // conjunctionの評価結果
-    evaluated: Vec<Evaluated>,
-
+    // evaluated: Vec<Evaluated>,
     total_score: u64,
 }
 
@@ -76,22 +75,20 @@ impl Display for Score {
     }
 }
 
-fn make_pos_cache(keymap: &Keymap) -> Vec<Vec<Evaluation>> {
-    let mut pos_cache: Vec<Vec<Evaluation>> = Vec::with_capacity(char_def::all_chars().len());
+fn make_pos_cache(keymap: &Keymap) -> Vec<Evaluation> {
+    let mut pos_cache: Vec<Evaluation> = Vec::with_capacity(char_def::all_chars().len());
 
     for (_, c) in char_def::all_chars().iter() {
         let Some(v) = keymap.get(*c) else {
             unreachable!("should not have any missing key")
         };
-        pos_cache.push(
-            v.as_raw_sequence()
-                .iter()
-                .map(|(p, shift)| Evaluation {
-                    positions: p.into(),
-                    shift: shift.is_some(),
-                })
-                .collect(),
-        );
+
+        let (p, shift) = v.as_raw_sequence();
+
+        pos_cache.push(Evaluation {
+            positions: p,
+            shift: shift.is_some(),
+        });
     }
 
     pos_cache
@@ -123,26 +120,30 @@ impl Score {
 
         let pos_cache = make_pos_cache(keymap);
 
-        let mut key_sequence: Vec<Evaluation> = Vec::with_capacity(10);
-        for evaluated in score_obj.evaluated.iter_mut() {
-            let conj = unsafe { conjunctions.get_unchecked(evaluated.conjunction_index) };
+        let mut key_sequence: [&Evaluation; 4] = [
+            &Evaluation::default(),
+            &Evaluation::default(),
+            &Evaluation::default(),
+            &Evaluation::default(),
+        ];
+        // for evaluated in score_obj.evaluated.iter_mut() {
+        //     let conj = unsafe { conjunctions.get_unchecked(evaluated.conjunction_index) };
 
-            if conj.can_skip_evaluation(&diff_chars) {
-                continue;
-            }
+        //     if conj.can_skip_evaluation(&diff_chars) {
+        //         continue;
+        //     }
 
-            for ch in conj.text.iter() {
-                let seq = &pos_cache[*ch];
+        // for (idx, ch) in conj.text.iter().enumerate() {
+        //     let seq = &pos_cache[*ch];
 
-                key_sequence.extend(seq.iter().cloned());
-            }
+        //     key_sequence[idx] = seq;
+        // }
 
-            let current_score = pre_scores.evaluate(&key_sequence) * conj.appearances as u64;
-            score_obj.total_score -= evaluated.score;
-            evaluated.score = current_score;
-            score_obj.total_score += current_score;
-            key_sequence.clear()
-        }
+        //     let current_score = pre_scores.evaluate(&key_sequence) * conj.appearances as u64;
+        //     score_obj.total_score -= evaluated.score;
+        //     evaluated.score = current_score;
+        //     score_obj.total_score += current_score;
+        // }
 
         score_obj
     }
@@ -165,26 +166,23 @@ pub fn evaluate(
 
     let pos_cache = make_pos_cache(keymap);
 
-    let mut score_obj = Score {
-        evaluated: Vec::with_capacity(conjunctions.len()),
-        total_score: 0,
-    };
+    let mut score_obj = Score { total_score: 0 };
 
-    let mut key_sequence: Vec<Evaluation> = Vec::with_capacity(10);
+    let mut key_sequence: [&Evaluation; 4] = [
+        &Evaluation::default(),
+        &Evaluation::default(),
+        &Evaluation::default(),
+        &Evaluation::default(),
+    ];
     for (index, conjunction) in conjunctions.iter().enumerate() {
-        for ch in conjunction.text.iter() {
+        for (idx, ch) in conjunction.text.iter().enumerate() {
             let seq = &pos_cache[*ch];
 
-            key_sequence.extend(seq.iter().cloned());
+            key_sequence[idx] = seq;
         }
 
         let current_score = pre_scores.evaluate(&key_sequence) * conjunction.appearances as u64;
         score += current_score;
-        score_obj.evaluated.push(Evaluated {
-            score: current_score,
-            conjunction_index: index,
-        });
-        key_sequence.clear()
     }
 
     score_obj.total_score = score;

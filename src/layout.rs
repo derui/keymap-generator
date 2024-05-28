@@ -1,31 +1,38 @@
 /// layoutにおける位置を表す
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Point {
-    // 行
-    row: usize,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Point(usize, usize);
 
-    // 列
-    col: usize,
+impl Point {
+    pub fn new(row: usize, col: usize) -> Self {
+        Point(row, col)
+    }
+
+    #[inline]
+    pub fn row(&self) -> usize {
+        self.0
+    }
+
+    #[inline]
+    pub fn col(&self) -> usize {
+        self.1
+    }
 }
 
 impl From<Point> for (usize, usize) {
     fn from(value: Point) -> Self {
-        (value.row, value.col)
+        (value.0, value.1)
     }
 }
 
 impl From<&Point> for (usize, usize) {
     fn from(value: &Point) -> Self {
-        (value.row, value.col)
+        (value.0, value.1)
     }
 }
 
 impl From<(usize, usize)> for Point {
     fn from(value: (usize, usize)) -> Self {
-        Point {
-            row: value.0,
-            col: value.1,
-        }
+        Point(value.0, value.1)
     }
 }
 
@@ -44,35 +51,35 @@ pub mod linear {
 
     const LINEAR_MAPPING: [(char, Point); 26] = [
         // ('q', Point { row: 0, col: 0 }),
-        ('w', Point { row: 0, col: 1 }),
-        ('e', Point { row: 0, col: 2 }),
-        ('r', Point { row: 0, col: 3 }),
+        ('w', Point(0, 1)),
+        ('e', Point(0, 2)),
+        ('r', Point(0, 3)),
         // ('t', Point { row: 0, col: 4 }),
         // ('y', Point { row: 0, col: 5 }),
-        ('u', Point { row: 0, col: 6 }),
-        ('i', Point { row: 0, col: 7 }),
-        ('o', Point { row: 0, col: 8 }),
+        ('u', Point(0, 6)),
+        ('i', Point(0, 7)),
+        ('o', Point(0, 8)),
         // ('p', Point { row: 0, col: 8 }),
-        ('a', Point { row: 1, col: 0 }),
-        ('s', Point { row: 1, col: 1 }),
-        ('d', Point { row: 1, col: 2 }),
-        ('f', Point { row: 1, col: 3 }),
-        ('g', Point { row: 1, col: 4 }),
-        ('h', Point { row: 1, col: 5 }),
-        ('j', Point { row: 1, col: 6 }),
-        ('k', Point { row: 1, col: 7 }),
-        ('l', Point { row: 1, col: 8 }),
-        (';', Point { row: 1, col: 9 }),
-        ('z', Point { row: 2, col: 0 }),
-        ('x', Point { row: 2, col: 1 }),
-        ('c', Point { row: 2, col: 2 }),
-        ('v', Point { row: 2, col: 3 }),
-        ('b', Point { row: 2, col: 4 }),
-        ('n', Point { row: 2, col: 5 }),
-        ('m', Point { row: 2, col: 6 }),
-        (',', Point { row: 2, col: 7 }),
-        ('.', Point { row: 2, col: 8 }),
-        ('/', Point { row: 2, col: 9 }),
+        ('a', Point(1, 0)),
+        ('s', Point(1, 1)),
+        ('d', Point(1, 2)),
+        ('f', Point(1, 3)),
+        ('g', Point(1, 4)),
+        ('h', Point(1, 5)),
+        ('j', Point(1, 6)),
+        ('k', Point(1, 7)),
+        ('l', Point(1, 8)),
+        (';', Point(1, 9)),
+        ('z', Point(2, 0)),
+        ('x', Point(2, 1)),
+        ('c', Point(2, 2)),
+        ('v', Point(2, 3)),
+        ('b', Point(2, 4)),
+        ('n', Point(2, 5)),
+        ('m', Point(2, 6)),
+        (',', Point(2, 7)),
+        ('.', Point(2, 8)),
+        ('/', Point(2, 9)),
     ];
 
     /// 各特殊キーの位置
@@ -85,17 +92,17 @@ pub mod linear {
 
     /// 読点の位置
     pub fn reading_point_points() -> Vec<Point> {
-        vec![Point { row: 1, col: 6 }, Point { row: 1, col: 7 }]
+        vec![Point(1, 6), Point(1, 7)]
     }
 
     /// 句点の位置
     pub fn punctuation_mark_points() -> Vec<Point> {
-        vec![Point { row: 1, col: 2 }, Point { row: 1, col: 3 }]
+        vec![Point(1, 2), Point(1, 3)]
     }
 
     /// ゔの位置
     pub fn turbid_u_point() -> Point {
-        Point { row: 0, col: 0 }
+        Point(0, 0)
     }
 
     /// 直線的になるレイアウトを返す
@@ -114,7 +121,7 @@ pub mod linear {
 
     /// layoutにおいて担当する手を返す
     pub fn get_hand_of_point(point: &Point) -> Hand {
-        if point.col <= 4 {
+        if point.col() <= 4 {
             Hand::Left
         } else {
             Hand::Right
@@ -122,11 +129,11 @@ pub mod linear {
     }
 
     pub fn get_left_small_shifter() -> Point {
-        Point { row: 0, col: 0 }
+        Point(0, 0)
     }
 
     pub fn get_right_small_shifter() -> Point {
-        Point { row: 0, col: 9 }
+        Point(0, 9)
     }
 
     /// layoutにおいて、指定された位置に対応する文字を返す
@@ -160,7 +167,7 @@ mod tests {
         // arrange
 
         // act
-        let ret = get_hand_of_point(&Point { row: 1, col: 3 });
+        let ret = get_hand_of_point(&Point(1, 3));
 
         // assert
         assert_eq!(ret, Hand::Left);
@@ -171,7 +178,7 @@ mod tests {
         // arrange
 
         // act
-        let ret = get_hand_of_point(&Point { row: 1, col: 5 });
+        let ret = get_hand_of_point(&Point(1, 5));
 
         // assert
         assert_eq!(ret, Hand::Right);
@@ -182,7 +189,7 @@ mod tests {
         // arrange
 
         // act
-        let ret = get_char_of_point(&Point { row: 1, col: 5 });
+        let ret = get_char_of_point(&Point(1, 5));
 
         // assert
         assert_eq!(ret, 'h');

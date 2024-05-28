@@ -245,8 +245,9 @@ impl Playground {
             let pre_scores = connection_score.clone();
 
             self.pool.execute(move || {
-                let diff = keymap.diff(&k).into_iter().collect::<Vec<_>>();
-                let score = score.evaluate_only_diff(&conjunctions, &pre_scores, &k, &diff);
+                // let diff = keymap.diff(&k).into_iter().collect::<Vec<_>>();
+                // let score = score.evaluate_only_diff(&conjunctions, &pre_scores, &k, &diff);
+                let score = score::evaluate(&conjunctions, &pre_scores, &k);
                 tx.send((score, idx)).expect("should be success")
             })
         });

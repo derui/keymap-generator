@@ -174,7 +174,7 @@ fn main() -> anyhow::Result<()> {
             best_keymap = Some(ret.1.clone());
         }
 
-        if playground.generation() % 500 == 0 {
+        if playground.generation() % 1000 == 0 {
             // log::info!(
             //     "Long time no best at generation {}. last score: {}, last best score: {}, {} for evaluation:\n{:?}",
             //     playground.generation(),
