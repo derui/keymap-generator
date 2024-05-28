@@ -319,16 +319,6 @@ impl ConnectionScore {
                 }
             },
             |first: &Point, second: &Point, third: &Point| {
-                // 同じ手を連続して打鍵しているばあいはペナルティを与える
-                if point_score::is_same_hand(first, second)
-                    && point_score::is_same_hand(second, third)
-                {
-                    250
-                } else {
-                    0
-                }
-            },
-            |first: &Point, second: &Point, third: &Point| {
                 // 小指が連続する場合はペナルティを与える
                 if point_score::is_pinky(first)
                     && point_score::is_pinky(second)
