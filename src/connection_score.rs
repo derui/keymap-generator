@@ -443,41 +443,41 @@ mod point_score {
     pub fn is_arpeggio(me: &Point, other: &Point) -> bool {
         let hand_self = HAND_ASSIGNMENT[me.row()][me.col()];
         let hand_other = HAND_ASSIGNMENT[other.row()][other.col()];
-        let finger_self = FINGER_ASSIGNMENT[me.row()][me.col()];
-        let finger_other = FINGER_ASSIGNMENT[other.row()][other.col()];
 
         let alpeggios = [
             // 左手の人差し指と中指
             (Point::new(0, 2), Point::new(1, 3)),
-            (Point::new(1, 3), Point::new(0, 2)),
             (Point::new(1, 2), Point::new(2, 3)),
-            (Point::new(2, 3), Point::new(1, 2)),
+            // 左手の人差し指と小指
+            (Point::new(1, 0), Point::new(1, 3)),
+            // 左手の人差し指と薬指
+            (Point::new(0, 1), Point::new(1, 3)),
             // 左手の中指と薬指
             (Point::new(0, 2), Point::new(0, 1)),
-            (Point::new(0, 1), Point::new(0, 2)),
             (Point::new(1, 2), Point::new(1, 1)),
-            (Point::new(1, 1), Point::new(1, 2)),
+            // 左手の中指と小指
+            (Point::new(0, 2), Point::new(1, 0)),
             // 左手の小指と薬指
             (Point::new(1, 0), Point::new(0, 1)),
-            (Point::new(0, 1), Point::new(1, 0)),
             // 右手の人差し指と中指
-            (Point::new(0, 6), Point::new(1, 7)),
-            (Point::new(1, 7), Point::new(0, 6)),
-            (Point::new(1, 6), Point::new(2, 7)),
-            (Point::new(2, 7), Point::new(1, 6)),
+            (Point::new(1, 6), Point::new(0, 7)),
+            (Point::new(2, 6), Point::new(1, 7)),
+            // 右手の人差し指と薬指
+            (Point::new(0, 8), Point::new(1, 6)),
+            // 右手の人差し指と小指
+            (Point::new(1, 9), Point::new(1, 6)),
             // 右手の中指と薬指
             (Point::new(0, 7), Point::new(0, 8)),
-            (Point::new(0, 8), Point::new(0, 7)),
             (Point::new(1, 7), Point::new(1, 8)),
-            (Point::new(1, 9), Point::new(1, 7)),
             // 右手の小指と薬指
             (Point::new(1, 9), Point::new(0, 8)),
-            (Point::new(0, 8), Point::new(1, 9)),
         ];
 
         hand_self == hand_other
-            && finger_self == finger_other
-            && alpeggios.iter().find(|v| **v == (*me, *other)).is_some()
+            && alpeggios
+                .iter()
+                .find(|v| **v == (*me, *other) || **v == (*other, *me))
+                .is_some()
     }
 
     /// 同じ手で押下しているかどうか
