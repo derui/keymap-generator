@@ -457,8 +457,10 @@ mod point_score {
             (Point::new(1, 2), Point::new(1, 1)),
             // 左手の中指と小指
             (Point::new(0, 2), Point::new(1, 0)),
+            (Point::new(1, 2), Point::new(2, 0)),
             // 左手の小指と薬指
             (Point::new(1, 0), Point::new(0, 1)),
+            (Point::new(2, 0), Point::new(1, 1)),
             // 右手の人差し指と中指
             (Point::new(1, 6), Point::new(0, 7)),
             (Point::new(2, 6), Point::new(1, 7)),
@@ -469,8 +471,12 @@ mod point_score {
             // 右手の中指と薬指
             (Point::new(0, 7), Point::new(0, 8)),
             (Point::new(1, 7), Point::new(1, 8)),
+            // 右手の中指と小指
+            (Point::new(0, 7), Point::new(1, 9)),
+            (Point::new(1, 7), Point::new(2, 9)),
             // 右手の小指と薬指
             (Point::new(1, 9), Point::new(0, 8)),
+            (Point::new(2, 9), Point::new(1, 8)),
         ];
 
         hand_self == hand_other
