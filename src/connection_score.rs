@@ -13,7 +13,7 @@ use crate::layout::{
 #[rustfmt::skip]
 static FINGER_WEIGHTS: [[u16; 10];3] = [
     [300, 126, 105, 152,   300,   300, 152, 105, 126, 300],
-    [120,  96,  91,  90,   138,   138,  90,  91,  96,  120],
+    [97,   96,  91,  90,   138,   138,  90,  91,  96,  97],
     [157, 150, 135, 135,   170,   170, 135, 135, 150,  157],
 ];
 
@@ -241,11 +241,13 @@ impl ConnectionScore {
         timings: &TwoKeyTiming,
     ) -> u32 {
         let two_score = self.evaluate_two_connection(i, j, timings);
+        let two_score2 = self.evaluate_two_connection(j, k, timings);
         let i: Point = Point::from(*i);
         let j: Point = Point::from(*j);
         let k: Point = Point::from(*k);
 
         two_score
+            + two_score2
             + self.three_conjunction_scores(&i, &j, &k)
             + FINGER_WEIGHTS[k.row()][k.col()] as u32
     }

@@ -172,6 +172,8 @@ impl Playground {
         }
         log::info!("after best score: {}, {search_count}", best_score);
 
+        self.frequency_table.update(&best_keymap, 1.0);
+
         self.keymaps[rank[0].1] = best_keymap.clone();
         (best_score.into(), best_keymap)
     }
@@ -186,9 +188,9 @@ impl Playground {
         // self.keymapsを個体と見立てて、確率分布を更新する
         for (rank, idx) in self.take_ranks(rng, &rank, TOURNAMENT_SIZE).iter() {
             self.frequency_table
-                .update(&self.keymaps[*idx], 1.0 / (*rank + 1) as f64);
+                .update(&self.keymaps[*idx], 1.0 / (*rank + 100) as f64);
         }
-        self.frequency_table.mutate(rng, MUTATION_PROB);
+        // self.frequency_table.mutate(rng, MUTATION_PROB);
 
         let (tx, tr) = channel();
 
